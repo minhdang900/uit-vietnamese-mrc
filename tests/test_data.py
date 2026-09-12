@@ -227,3 +227,34 @@ def test_stats_reports_gradeable_count(mini_squad):
 
 def test_stats_reports_zero_gradeable_for_blind_split():
     assert compute_stats(parse_squad(_blind_split()))["num_gradeable"] == 0
+
+
+# ══════════════════════════════════════════════════════════════════════
+# BẤT BIẾN của Example — phát hiện bởi mutation testing khi audit TDD.
+#
+# Example.__post_init__ cấm cờ is_impossible=True đi kèm answers khác rỗng, nhưng
+# KHÔNG có test nào bắt được khi bất biến đó bị gỡ. Đây đúng là loại lỗ hổng mà
+# "test viết sau" hay để lại: test phủ đường đi thành công, bỏ quên điều kiện bảo vệ.
+# ══════════════════════════════════════════════════════════════════════
+
+def test_example_rejects_impossible_flag_with_answers():
+    """Câu impossible KHÔNG được có đáp án — hai trường này mâu thuẫn nhau.
+
+    Nếu lọt qua, metric sẽ chấm câu đó như answerable trong khi mọi chỗ khác coi
+    nó là impossible, và sai số đó im lặng.
+    """
+    with pytest.raises(ValueError, match="is_impossible"):
+        Example(qid="x", question="Câu hỏi?", context="Đoạn văn.",
+                answers=["đáp án"], answer_start=0, is_impossible=True)
+
+
+def test_example_allows_impossible_without_answers():
+    ex = Example(qid="x", question="Câu hỏi?", context="Đoạn văn.",
+                 answers=[], answer_start=-1, is_impossible=True)
+    assert ex.is_impossible and ex.answers == []
+
+
+def test_example_allows_answerable_with_answers():
+    ex = Example(qid="x", question="Câu hỏi?", context="Đoạn văn có đáp án.",
+                 answers=["đáp án"], answer_start=9, is_impossible=False)
+    assert ex.answers == ["đáp án"] and not ex.is_impossible

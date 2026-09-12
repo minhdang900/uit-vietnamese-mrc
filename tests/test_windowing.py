@@ -128,12 +128,15 @@ def test_decode_span_empty_range_gives_empty_string():
 # của một phiên bản thư viện cụ thể.
 # ══════════════════════════════════════════════════════════════════════
 
+@pytest.fixture(scope="module")
+def tok():
+    from transformers import AutoTokenizer
+
+    return AutoTokenizer.from_pretrained("bert-base-multilingual-cased", use_fast=True)
+
+
 @pytest.mark.slow
 class TestMakeWindows:
-    @pytest.fixture(scope="class")
-    def tok(self):
-        from transformers import AutoTokenizer
-        return AutoTokenizer.from_pretrained("bert-base-multilingual-cased", use_fast=True)
 
     def test_short_context_gives_exactly_one_window(self, tok):
         from mrc.windowing import make_windows
