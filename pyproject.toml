@@ -1,0 +1,19 @@
+[project]
+name = "uit-vietnamese-mrc"
+version = "0.1.0"
+description = "Vietnamese Extractive Machine Reading Comprehension on UIT-ViQuAD 2.0 (CS116 T11)"
+requires-python = ">=3.12"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+markers = [
+  "slow: requires downloading a model or running training (deselect with -m 'not slow')",
+]
+
+[tool.coverage.run]
+source = ["src/mrc"]
