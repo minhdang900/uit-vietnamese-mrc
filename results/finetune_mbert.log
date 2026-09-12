@@ -38,3 +38,16 @@ Notes:
 Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 4903.54it/s]
 epoch 1: loss 2.1316  val_EM 36.67  val_F1 45.79  (2066s)
 Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.99it/s]
+  -> epoch 1 là tốt nhất, lưu vào models/mbert
+  epoch 2 step 200/2545 loss 1.3974 (164s)
+  epoch 2 step 400/2545 loss 1.3591 (327s)
+  epoch 2 step 600/2545 loss 1.3469 (488s)
+  epoch 2 step 800/2545 loss 1.3399 (650s)
+  epoch 2 step 1000/2545 loss 1.3292 (815s)
+  epoch 2 step 1200/2545 loss 1.3277 (977s)
+  epoch 2 step 1400/2545 loss 1.3183 (1138s)
+  epoch 2 step 1600/2545 loss 1.3164 (1308s)
+  epoch 2 step 1800/2545 loss 1.3124 (1475s)
+  epoch 2 step 2000/2545 loss 1.3084 (1641s)
+  epoch 2 step 2200/2545 loss 1.3019 (1804s)
+  epoch 2 step 2400/2545 loss 1.2973 (1974s)
