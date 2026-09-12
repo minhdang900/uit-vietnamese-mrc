@@ -22,7 +22,7 @@ def subset(examples, n, seed=42):
     return reproducible_subset(examples, n, seed=seed)
 
 
-def build(kind: str):
+def build(kind: str, max_answer_len: int = 30):
     if kind == "baseline":
         from mrc.baseline_tfidf import TfidfRetriever
 
@@ -30,14 +30,17 @@ def build(kind: str):
     if kind == "xlmr":
         from mrc.transformer_qa import TransformerQA
 
-        return TransformerQA("deepset/xlm-roberta-base-squad2", name="XLM-R (squad2, zero-shot)")
+        return TransformerQA("deepset/xlm-roberta-base-squad2",
+                            name="XLM-R (squad2, zero-shot)",
+                            max_answer_len=max_answer_len)
     # model đã fine-tune, đọc từ đĩa
     from mrc.transformer_qa import TransformerQA
 
     path = Path("models") / kind
     if not path.exists():
         raise SystemExit(f"Chưa có model fine-tuned tại {path}. Chạy scripts/finetune.py trước.")
-    return TransformerQA(str(path), name=f"{kind} (fine-tuned)")
+    return TransformerQA(str(path), name=f"{kind} (fine-tuned)",
+                         max_answer_len=max_answer_len)
 
 
 def main() -> None:
@@ -48,6 +51,9 @@ def main() -> None:
     ap.add_argument("--full", action="store_true", help="dùng toàn bộ split")
     ap.add_argument("--data-dir", default="data/raw")
     ap.add_argument("--out-dir", default="results")
+    ap.add_argument("--max-answer-len", type=int, default=30,
+                    help="Do dai span toi da theo TOKEN; phu thuoc tokenizer "
+                         "(ViSoBERT can ~64 vi vocab 15k chia tu rat nho)")
     args = ap.parse_args()
 
     examples = load_squad_file(Path(args.data_dir) / f"viquad2_{args.split}.json")
@@ -65,7 +71,7 @@ def main() -> None:
 
     for kind in args.models:
         print(f"\n=== {kind} ===", flush=True)
-        result = run_evaluation(build(kind), examples, split=args.split)
+        result = run_evaluation(build(kind, args.max_answer_len), examples, split=args.split)
         o, a, i = result["overall"], result["answerable_only"], result["impossible_only"]
         print(f"  overall     EM {o['EM']:6.2f}  F1 {o['F1']:6.2f}  (n={o['count']})")
         print(f"  answerable  EM {a['EM']:6.2f}  F1 {a['F1']:6.2f}  (n={a['count']})")

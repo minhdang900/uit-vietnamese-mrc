@@ -42,7 +42,7 @@ class QADataset(Dataset):
         }
 
 
-def evaluate_quick(model_dir, val_examples, device, limit=300, seed=42):
+def evaluate_quick(model_dir, val_examples, device, limit=300, seed=42, max_answer_len=30):
     """EM/F1 thật trên một mẫu con validation, dùng chính pipeline inference.
 
     Dùng CÙNG hàm lấy mẫu ``subset()`` với ``scripts/run_eval.py`` và cùng seed,
@@ -56,7 +56,8 @@ def evaluate_quick(model_dir, val_examples, device, limit=300, seed=42):
     from mrc.evaluate import run_evaluation
     from mrc.transformer_qa import TransformerQA
 
-    qa = TransformerQA(str(model_dir), device=device, name=str(model_dir))
+    qa = TransformerQA(str(model_dir), device=device, name=str(model_dir),
+                       max_answer_len=max_answer_len)
     r = run_evaluation(qa, reproducible_subset(val_examples, limit, seed=seed), split="validation")
     del qa
     return r["overall"]["EM"], r["overall"]["F1"]
@@ -76,6 +77,11 @@ def main() -> None:
     ap.add_argument("--warmup-ratio", type=float, default=0.1)
     ap.add_argument("--weight-decay", type=float, default=0.01)
     ap.add_argument("--eval-limit", type=int, default=300)
+    ap.add_argument("--max-answer-len", type=int, default=30,
+                    help="Do dai span toi da theo TOKEN; phu thuoc tokenizer. "
+                         "Do tren 4000 gold answer: p95=40 voi mBERT nhung 64 "
+                         "voi ViSoBERT (vocab 15k). De 30 cho ViSoBERT khien "
+                         "25.2%% dap an vang khong the bieu dien duoc.")
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
 
@@ -144,7 +150,8 @@ def main() -> None:
         ck = out_dir / f"epoch{epoch}"
         model.save_pretrained(ck)
         tok.save_pretrained(ck)
-        em, f1 = evaluate_quick(ck, val_ex, device, args.eval_limit)
+        em, f1 = evaluate_quick(ck, val_ex, device, args.eval_limit,
+                                max_answer_len=args.max_answer_len)
 
         curve.append({"epoch": epoch, "train_loss": round(train_loss, 4),
                       "val_em": round(em, 2), "val_f1": round(f1, 2),
