@@ -49,6 +49,26 @@ def main() -> int:
 
         # Tín hiệu báo động
         for name, a in alarms.items():
+            kind = a.get("kind")
+
+            if kind == "em_equals_f1":
+                # F1 cho điểm BÁN PHẦN nên bình thường phải cao hơn EM vài điểm.
+                if abs(em - f1) <= a["tolerance"]:
+                    print(f"    *** BÁO ĐỘNG [{name}]: EM={em:.2f} ≈ F1={f1:.2f} "
+                          f"— {a['meaning']}")
+                    alarm_hit = True
+                continue
+
+            if kind == "em_equals_impossible_rate":
+                n_imp = r.get("impossible_only", {}).get("count", 0)
+                total = r["overall"]["count"] or 1
+                rate = 100.0 * n_imp / total
+                if n_imp and abs(em - rate) <= a["tolerance"]:
+                    print(f"    *** BÁO ĐỘNG [{name}]: EM={em:.2f} ≈ tỉ lệ impossible "
+                          f"={rate:.2f}% — {a['meaning']}")
+                    alarm_hit = True
+                continue
+
             if "model" in a and a["model"].lower() not in model.lower():
                 continue
             val = r["overall"][a["metric"]]

@@ -17,3 +17,47 @@ qa_outputs.weight         | MISSING    |
 Notes:
 - UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
 - MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+  epoch 1 step 200/3416 loss 4.2549 (130s)
+  epoch 1 step 400/3416 loss 3.7034 (278s)
+  epoch 1 step 600/3416 loss 3.5256 (418s)
+  epoch 1 step 800/3416 loss 3.4104 (557s)
+  epoch 1 step 1000/3416 loss 3.3298 (696s)
+  epoch 1 step 1200/3416 loss 3.2691 (838s)
+  epoch 1 step 1400/3416 loss 3.2265 (979s)
+  epoch 1 step 1600/3416 loss 3.1876 (1124s)
+  epoch 1 step 1800/3416 loss 3.1623 (1268s)
+  epoch 1 step 2000/3416 loss 3.1465 (1410s)
+  epoch 1 step 2200/3416 loss 3.1346 (1554s)
+  epoch 1 step 2400/3416 loss 3.1201 (1698s)
+  epoch 1 step 2600/3416 loss 3.1030 (1835s)
+  epoch 1 step 2800/3416 loss 3.0869 (1976s)
+  epoch 1 step 3000/3416 loss 3.0793 (2118s)
+  epoch 1 step 3200/3416 loss 3.0653 (2258s)
+  epoch 1 step 3400/3416 loss 3.0515 (2398s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.76it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.75it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9941.12it/s]
+epoch 1: loss 3.0512  val_EM 25.67  val_F1 25.67  (2417s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.64it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.63it/s]
+  -> epoch 1 là tốt nhất, lưu vào models/visobert
+  epoch 2 step 200/3416 loss 2.7616 (143s)
+  epoch 2 step 400/3416 loss 2.7430 (287s)
+  epoch 2 step 600/3416 loss 2.6824 (429s)
+  epoch 2 step 800/3416 loss 2.6704 (574s)
+  epoch 2 step 1000/3416 loss 2.6700 (714s)
+  epoch 2 step 1200/3416 loss 2.6673 (851s)
+  epoch 2 step 1400/3416 loss 2.6562 (991s)
+  epoch 2 step 1600/3416 loss 2.6512 (1130s)
+  epoch 2 step 1800/3416 loss 2.6417 (1266s)
+  epoch 2 step 2000/3416 loss 2.6341 (1402s)
+  epoch 2 step 2200/3416 loss 2.6242 (1538s)
+  epoch 2 step 2400/3416 loss 2.6135 (1674s)
+  epoch 2 step 2600/3416 loss 2.6012 (1812s)
+  epoch 2 step 2800/3416 loss 2.5867 (1949s)
+  epoch 2 step 3000/3416 loss 2.5745 (2087s)
+  epoch 2 step 3200/3416 loss 2.5692 (2227s)
+  epoch 2 step 3400/3416 loss 2.5684 (2442s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  3.06it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  3.06it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10603.79it/s]
+epoch 2: loss 2.5678  val_EM 25.33  val_F1 25.61  (2475s)
+  epoch 3 step 200/3416 loss 2.2175 (289s)
+  epoch 3 step 400/3416 loss 2.2404 (4384s)

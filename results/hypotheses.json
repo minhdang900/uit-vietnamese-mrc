@@ -2,15 +2,68 @@
   "registered_utc": "2026-09-12",
   "note": "Ghi TRƯỚC khi chạy thực nghiệm. Không sửa sau khi thấy kết quả.",
   "bands": {
-    "TF-IDF Baseline":          {"EM": [0, 3],   "F1": [20, 30]},
-    "XLM-R (squad2, zero-shot)":{"EM": [35, 45], "F1": [50, 60]},
-    "mbert":                    {"EM": [50, 60], "F1": [68, 78]},
-    "visobert":                 {"EM": [60, 70], "F1": [78, 85]}
+    "TF-IDF Baseline": {
+      "EM": [
+        0,
+        3
+      ],
+      "F1": [
+        20,
+        30
+      ]
+    },
+    "XLM-R (squad2, zero-shot)": {
+      "EM": [
+        35,
+        45
+      ],
+      "F1": [
+        50,
+        60
+      ]
+    },
+    "mbert": {
+      "EM": [
+        50,
+        60
+      ],
+      "F1": [
+        68,
+        78
+      ]
+    },
+    "visobert": {
+      "EM": [
+        60,
+        70
+      ],
+      "F1": [
+        78,
+        85
+      ]
+    }
   },
   "alarms": {
-    "baseline_em_too_high": {"model": "TF-IDF Baseline", "metric": "EM", "max": 10,
-      "meaning": "Baseline EM > 10% ⇒ nghi bug trong metric hoặc leakage"},
-    "any_em_implausible": {"metric": "EM", "max": 85,
-      "meaning": "EM > 85% ⇒ nghi leakage; SOTA ViQuAD quanh mức đó"}
+    "baseline_em_too_high": {
+      "model": "TF-IDF Baseline",
+      "metric": "EM",
+      "max": 10,
+      "meaning": "Baseline EM > 10% ⇒ nghi bug trong metric hoặc leakage"
+    },
+    "any_em_implausible": {
+      "metric": "EM",
+      "max": 85,
+      "meaning": "EM > 85% ⇒ nghi leakage; SOTA ViQuAD quanh mức đó"
+    },
+    "degenerate_all_empty": {
+      "kind": "em_equals_f1",
+      "tolerance": 0.5,
+      "meaning": "EM va F1 gan bang nhau ⇒ nghi model SUY SUP ve 'luon tra rong'. Khi do cau impossible duoc 1 diem (EM=F1=1) con cau answerable duoc 0 (EM=F1=0), nen hai metric trung nhau va diem tong bang dung ti le impossible cua tap. F1 phai cho diem BAN PHAN nen binh thuong no cao hon EM vai diem."
+    },
+    "score_equals_impossible_rate": {
+      "kind": "em_equals_impossible_rate",
+      "tolerance": 1.0,
+      "meaning": "EM xap xi ti le impossible cua tap ⇒ model khong tra loi duoc cau nao, chi an diem tu viec doan rong. Quan sat duoc o ViSoBERT: EM 25.67 tren tap co 25.67% impossible."
+    }
   }
 }
