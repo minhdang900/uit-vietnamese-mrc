@@ -1,0 +1,27 @@
+{
+  "model": "bert-base-multilingual-cased",
+  "config": {
+    "model": "bert-base-multilingual-cased",
+    "out": "/tmp/smoke_mbert",
+    "train_size": 40,
+    "epochs": 1,
+    "batch_size": 4,
+    "grad_accum": 2,
+    "lr": 3e-05,
+    "max_length": 384,
+    "doc_stride": 128,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.01,
+    "eval_limit": 20,
+    "seed": 42
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "train_loss": 5.844,
+      "val_em": 5.0,
+      "val_f1": 8.17,
+      "epoch_seconds": 6.5
+    }
+  ]
+}
