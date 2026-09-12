@@ -108,7 +108,37 @@ figures/*.png   Streamlit demo    Báo cáo 30–50 trang
 | **TF-IDF** | *Bài toán này giải được bằng so khớp từ khoá thuần không?* | không |
 | **XLM-R squad2** | *Transfer từ SQuAD-2.0 tiếng Anh sang tiếng Việt được bao nhiêu?* | không (zero-shot) |
 | **mBERT + QA** | *Fine-tune trên tiếng Việt thêm được bao nhiêu, với encoder đa ngữ không tối ưu cho tiếng Việt?* | ✅ MPS |
-| **PhoBERT-v2 + QA** | *Pretraining chuyên tiếng Việt đóng góp bao nhiêu?* | ✅ MPS |
+| **ViSoBERT + QA** | *Pretraining chuyên tiếng Việt đóng góp bao nhiêu?* | ✅ MPS |
+
+### ⚠️ Thay đổi so với kế hoạch ban đầu: PhoBERT → ViSoBERT
+
+Kế hoạch ban đầu dùng `vinai/phobert-base-v2` vì đề tài T11 nêu đích danh
+"PhoBERT encoder + QA head". **Đã kiểm tra và xác nhận điều này không khả thi:**
+
+| Model | `is_fast` | `offset_mapping` | Kết luận |
+|---|---|---|---|
+| `vinai/phobert-base` | ❌ False | ❌ không có | không dùng được |
+| `vinai/phobert-base-v2` | ❌ False | ❌ không có | không dùng được |
+| `nguyenvulebinh/vi-mrc-base` | — | — | **gated** sau HF auth |
+| `FPTAI/videberta-base` | — | — | model id không tồn tại |
+| `uitnlp/visobert` | ✅ True | ✅ có | **chọn cái này** |
+
+**Vì sao thiếu fast tokenizer là chặn đứng, không phải bất tiện:** extractive QA
+cần map *token span* do model dự đoán về *vị trí ký tự* trong context gốc. Chỉ fast
+tokenizer (Rust) cung cấp `return_offsets_mapping`. Không có nó, cách duy nhất lấy
+lại chuỗi là `tokenizer.decode()` — và decode **làm mất dấu tiếng Việt** (`"hoà"` →
+`"hoa"`), phá vỡ cả EM lẫn bất biến "đáp án là substring của context". PhoBERT còn
+đòi input đã **word-segment** sẵn, khiến việc map ngược về context thô càng phức tạp.
+
+Đây là ràng buộc **kỹ thuật**, độc lập với việc có GPU hay không — nên nó cũng là
+lý do thật sự khiến các dự án trước không thực hiện được phần này.
+
+**ViSoBERT** (`uitnlp/visobert`) là encoder tiếng Việt của chính **UIT NLP** — cùng
+phòng lab công bố ViQuAD. Hạn chế đã biết và sẽ nêu trong báo cáo: ViSoBERT được
+pretrain trên văn bản **mạng xã hội**, còn ViQuAD là **Wikipedia**, nên tồn tại
+domain shift. Nếu ViSoBERT không vượt mBERT, đó là kết quả đáng báo cáo chứ không
+phải thất bại — nó cho thấy *pretraining đúng ngôn ngữ* không tự động bù được
+*pretraining sai miền*.
 
 **Thiết kế này tạo ra một ablation tự nhiên:**
 ```
@@ -156,7 +186,20 @@ Không có `offset_mapping`, cách duy nhất để lấy lại chuỗi đáp á
 
 → Có test: `decode_span()` phải trả về **đúng substring** của context gốc.
 
-### B. `truncation="only_second"` — không được cắt câu hỏi
+### B. Tự cài doc-stride windowing, không dùng `return_overflowing_tokens`
+
+**Đo được trên transformers 5.17.0:** context dài 210 / 420 / 700 / 1400 token đều
+chỉ sinh **2 window**, đáng lẽ phải là 2 / 5 / 8 / 16 — và con số này **không đổi**
+dù `stride` bằng bao nhiêu. Phần đuôi context bị cắt **âm thầm**: không exception,
+không cảnh báo, chỉ là đáp án nằm cuối đoạn văn thì không bao giờ tìm được.
+
+Dự án tự cài `make_windows()` trong `windowing.py`: cắt context theo token, giữ
+chồng lấp `doc_stride`, và **dịch offset về hệ toạ độ của context gốc**.
+
+Ảnh hưởng thực tế ở `max_length=384` là nhỏ (2/557 context validation vượt ngưỡng
+2 window), nhưng đây là lỗi đúng-sai âm thầm nên được sửa tận gốc thay vì chấp nhận.
+
+### C. `truncation="only_second"` — không được cắt câu hỏi
 
 `only_second` cắt **context** (đối số thứ hai), giữ nguyên **question**. Nếu dùng `truncation=True`, câu hỏi dài có thể bị cắt ⇒ model mất thông tin cần thiết.
 

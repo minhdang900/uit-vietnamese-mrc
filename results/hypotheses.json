@@ -1,0 +1,16 @@
+{
+  "registered_utc": "2026-09-12",
+  "note": "Ghi TRƯỚC khi chạy thực nghiệm. Không sửa sau khi thấy kết quả.",
+  "bands": {
+    "TF-IDF Baseline":          {"EM": [0, 3],   "F1": [20, 30]},
+    "XLM-R (squad2, zero-shot)":{"EM": [35, 45], "F1": [50, 60]},
+    "mbert":                    {"EM": [50, 60], "F1": [68, 78]},
+    "visobert":                 {"EM": [60, 70], "F1": [78, 85]}
+  },
+  "alarms": {
+    "baseline_em_too_high": {"model": "TF-IDF Baseline", "metric": "EM", "max": 10,
+      "meaning": "Baseline EM > 10% ⇒ nghi bug trong metric hoặc leakage"},
+    "any_em_implausible": {"metric": "EM", "max": 85,
+      "meaning": "EM > 85% ⇒ nghi leakage; SOTA ViQuAD quanh mức đó"}
+  }
+}
