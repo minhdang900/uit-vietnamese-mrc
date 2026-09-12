@@ -1,0 +1,196 @@
+{
+  "model": "XLM-R (squad2, zero-shot)",
+  "dataset": "UIT-ViQuAD 2.0",
+  "split": "validation",
+  "n": 500,
+  "timestamp": "2026-09-12T05:28:10+00:00",
+  "commit": "ab7db93",
+  "device": "mps",
+  "env": {
+    "device": "mps",
+    "torch": "2.14.0",
+    "mps_available": true,
+    "platform": "macOS-26.4.1-arm64-arm-64bit",
+    "machine": "arm64"
+  },
+  "overall": {
+    "EM": 40.6,
+    "F1": 56.8429,
+    "count": 500
+  },
+  "answerable_only": {
+    "EM": 45.7064,
+    "F1": 68.2035,
+    "count": 361
+  },
+  "impossible_only": {
+    "EM": 27.3381,
+    "count": 139
+  },
+  "avg_latency_ms": 14.009,
+  "by_context_length": {
+    "100-200": {
+      "EM": 41.4815,
+      "F1": 58.1453,
+      "count": 405,
+      "unreliable": false
+    },
+    "200-300": {
+      "EM": 37.6471,
+      "F1": 50.0556,
+      "count": 85,
+      "unreliable": false
+    },
+    "300+": {
+      "EM": 33.3333,
+      "F1": 58.7783,
+      "count": 9,
+      "unreliable": true
+    },
+    "<100": {
+      "EM": 0.0,
+      "F1": 88.8889,
+      "count": 1,
+      "unreliable": true
+    }
+  },
+  "by_question_type": {
+    "multi-sentence": {
+      "EM": 42.6606,
+      "F1": 66.4185,
+      "count": 218,
+      "unreliable": false
+    },
+    "single-sentence": {
+      "EM": 50.3497,
+      "F1": 70.9247,
+      "count": 143,
+      "unreliable": false
+    },
+    "_note": "Tổng của bảng này là 361 chứ không phải n=500, vì 139 câu impossible không được gán question_type (chúng không có phạm vi suy luận để phân loại). question_type là HEURISTIC tự gán, không phải nhãn có sẵn của ViQuAD."
+  },
+  "sample_predictions": [
+    {
+      "qid": "0014-0006-0008",
+      "question": "Rượu của ông qua tay bao nhiêu người trước khi đến được ông?",
+      "gold": [],
+      "prediction": "24",
+      "context": "Mọi chi tiết trong đời sống hàng ngày của Hoàng đế ở triều đình đế quốc được đặt ra để thể hiện địa vị cao cả của ông. Trong các gian phòng và các hành lang của cung điện cổ tên là Hofburg, hoàng đế là đối tượng cho nghi thức chặt chẽ. Mỗi khi Hoàng đế và gia đình ông đi qua, triều thần phải cúi đầu thật thấp và quỳ một gối xuống. Khi tên của ông được thốt ra, ngay cả lúc ông đang ở trong một gian phòng khác, những người nghe được phải thực hiện nghi lễ tương tự. Khi ông dùng bữa một mình, thức ăn ông của ông được chuyền qua 24 bàn tay trước khi được đưa đến bàn ăn hoàng gia. Khi rót rượu cho ông, người phục dịch phải quỳ trên một đầu gối.",
+      "em": 0.0,
+      "f1": 0.0,
+      "is_impossible": true
+    },
+    {
+      "qid": "0001-0090-0001",
+      "question": "Nội dung của \"An American in Paris\" là gì?",
+      "gold": [
+        "một họa sĩ trẻ ở Paris, đã thành công rực rỡ, đạt giải Oscar cho phim hay nhất",
+        "nói về một họa sĩ trẻ ở Paris"
+      ],
+      "prediction": "một họa sĩ trẻ ở Paris",
+      "context": "Điện ảnh thế giới cũng ghi dấu ấn với những bộ phim về Paris. Năm 1951, bộ phim ca nhạc An American in Paris, nói về một họa sĩ trẻ ở Paris, đã thành công rực rỡ, đạt giải Oscar cho phim hay nhất. Năm 1957, Tình yêu ban chiều (Love in the Afternoon) mở đầu với những cảnh Paris tràn ngập các đôi yêu đương và Audrey Hepburn gặp gỡ Gary Cooper tại khách sạn Ritz. Trong Last Tango in Paris năm 1972, Marlon Brando trong vai một người đàn ông trung niên gặp cô gái trẻ Maria Schneider tại một căn phòng sang trọng ở quận 16. Cuối thế kỷ 20 là bộ phim ca nhạc Everyone Says I Love You (1996) của đạo diễn Woody Allen.",
+      "em": 0.0,
+      "f1": 0.8571,
+      "is_impossible": false
+    },
+    {
+      "qid": "0001-0017-0005",
+      "question": "Vì sao vua Charles V cho xây dựng bức tường thành từcầu Pont Royal tới cửa ô Saint-Denis?",
+      "gold": [
+        "nạn dịch hạch đen",
+        "nạn dịch hạch đen đã tàn sát dân chúng thành phố"
+      ],
+      "prediction": "",
+      "context": "Năm 1163, giáo mục Maurice de Sully xây dựng nhà thờ Đức Bà trên đảo Île de la Cité. Sự quan trọng của thành phố tăng lên, Paris trở thành trung tâm chính trị lẫn tôn giáo. Tả ngạn sông Seine với các nhà thờ đóng vai trò quan trọng về giáo dục. Còn hữu ngạn là trung tâm của thương mại và tài chính. Vào thời kỳ này, các trường học của giáo hội gây dựng được tiếng tăm và muốn trở nên độc lập. Dưới thời vua Philippe II, năm 1215, Đại học Paris được thành lập. Vua Saint Louis lên ngôi năm 1226, cho xây dựng nhà thờ Sainte-Chapelle và tiếp tục công trình nhà thờ Đức Bà. Khoảng 1328, dân số Paris ước tính khoảng 200.000 người, là thành phố đông dân nhất châu Âu. Nhưng năm vào 1348, nạn dịch hạch đen đã tàn sát dân chúng thành phố. Trong thế kỷ 14, bức tường thành của vua Charles V bao gồm cả Quận 3 và Quận 4 ngày nay, và trải từ cầu Pont Royal tới cửa ô Saint-Denis.",
+      "em": 0.0,
+      "f1": 0.0,
+      "is_impossible": false
+    },
+    {
+      "qid": "0016-0006-0004",
+      "question": "Số lượng người Việt ở Montréal trước 1975 là khoảng bao nhiêu?",
+      "gold": [
+        "100 người",
+        "chỉ độ 100 người"
+      ],
+      "prediction": "100",
+      "context": "Trước 1975, cộng đồng người Việt ở Montréal chỉ độ 100 người, đa số là sinh viên du học. Sau đó, nhất là từ 1975 đến 1985, Montréal là nơi tiếp nhận người Việt nhiều nhất tại Canada. Thống kê dân số năm 2001 tính được 25.605 cư dân gốc Việt đông thứ nhì sau cộng đồng người Việt tại Toronto. So với dân địa phương, người Việt ở Montreal có học vấn cao (14,5%: 28,3% có bằng đại học). Một số đáng kể hoạt động trong ngành y khoa (10,4% so với 5,5% dân bản xứ). Cộng đồng người Việt tại Montréal được cho là đã sát nhập một cách rất hòa đồng với đời sống và dân bản xứ.",
+      "em": 0.0,
+      "f1": 0.6667,
+      "is_impossible": false
+    },
+    {
+      "qid": "0004-0019-0007",
+      "question": "Những hạm đội tàu chiến nào được Hải quân Mỹ triệu tập?",
+      "gold": [
+        "USS Dwight D. Eisenhower và USS Independence"
+      ],
+      "prediction": "USS Dwight D. Eisenhower và USS Independence",
+      "context": "Hải quân Hoa Kỳ huy động hai nhóm tàu chiến, USS Dwight D. Eisenhower và USS Independence tới khu vực, và họ đã ở tình trạng sẵn sàng vào ngày 8 tháng 8. Cũng trong ngày hôm đó, 48 chiếc F-15 thuộc Không lực Hoa Kỳ từ 1st Fighter Wing tại Căn cứ không quân Langley, Virginia, đã hạ cánh xuống Ả Rập Xê Út và ngay lập tức bắt đầu tiến hành tuần tra trên những vùng không phận biên giới Ả Rập Xê Út và Iraq nhằm ngăn chặn đà tiến của quân đội Iraq. Hoa Kỳ cũng gửi những thiết giáp hạm USS Missouri và USS Wisconsin vào trong vùng, sau này chúng sẽ là những tàu chiến cuối cùng tham gia tích cực vào cuộc chiến. Việc huy động quân sự tiếp tục diễn ra, cuối cùng đã lên tới 500.000 quân. Những nhà phân tích quân sự nhất trí rằng tới tháng 10, quân đội Mỹ trong vùng chưa đủ sức để ngăn chặn cuộc tấn công (nếu có) của Iraq vào Ả Rập Xê Út.",
+      "em": 1.0,
+      "f1": 1.0,
+      "is_impossible": false
+    },
+    {
+      "qid": "0004-0003-0007",
+      "question": "Nước nào đã giúp Kuwait ngăn chặn ý định thâu tóm nước này của Iraq?",
+      "gold": [
+        "Anh"
+      ],
+      "prediction": "Anh",
+      "context": "Trước chiến tranh thế giới thứ nhất, theo Hiệp định Anh-Ottoman năm 1913, Kuwait bị coi là một \"caza tự trị\" bên trong Iraq của Đế chế Ottoman. Sau cuộc chiến, Kuwait thuộc quyền cai trị của Anh và nước này coi Kuwait và Iraq là hai quốc gia riêng biệt, được gọi là Các Tiểu Vương quốc Ả Rập. Tuy nhiên, những quan chức Iraq không chấp nhận tính hợp pháp của nền độc lập của Kuwait hay chính quyền Emir tại Kuwait. Iraq không bao giờ chấp nhận chủ quyền của Kuwait và vào thập niên 1960 Anh đã phải triển khai quân đội để bảo vệ Kuwait khỏi ý định sáp nhập của Iraq.",
+      "em": 1.0,
+      "f1": 1.0,
+      "is_impossible": false
+    },
+    {
+      "qid": "0003-0044-0002",
+      "question": "Người di cư tới Canada chủ yêu tập trung sinh sông ở khu vực nào?",
+      "gold": [
+        "Toronto, Montreal và Vancouver",
+        "các khu vực đô thị lớn như Toronto, Montreal và Vancouver"
+      ],
+      "prediction": "Toronto, Montreal và Vancouver",
+      "context": "Canada là một trong những quốc gia có tỷ lệ nhập cư bình quân trên người cao nhất thế giới, được thúc đẩy từ chính sách kinh tế và đoàn tụ gia đình. Một tường thuật nói có 260.400 người nhập cư đến Canada trong năm 2014 . Chính phủ Canada dự tính có từ 280.000 đến 305.000 cư dân thường trú mới vào năm 2015 , một con số người nhập cư tương tự như trong những năm gần đây. Những người mới nhập cư chủ yếu định cư tại các khu vực đô thị lớn như Toronto, Montreal và Vancouver. Canada cũng chấp nhận một lượng lớn người tị nạn, chiếm hơn 10% tái định cư người tị nạn toàn cầu mỗi năm.",
+      "em": 1.0,
+      "f1": 1.0,
+      "is_impossible": false
+    },
+    {
+      "qid": "0002-0016-0001",
+      "question": "28 ngôn ngữ Kanak thuộc ngữ hệ nào?",
+      "gold": [
+        "Nam Đảo",
+        "ngữ hệ Nam Đảo"
+      ],
+      "prediction": "Nam Đảo",
+      "context": "28 ngôn ngữ Kanak được nói tại Nouvelle-Calédonie, chúng thuộc nhóm châu Đại Dương của ngữ hệ Nam Đảo. Các ngôn ngữ Kanak được dạy từ mầm non (bốn ngôn ngữ được dạy đến bậc cử nhân) và một viện chịu trách nhiệm xúc tiến chúng. Ba ngôn ngữ bản địa được nói phổ biến nhất là Drehu (nói tại Lifou), Nengone (nói tại Maré) và Paicî (phần phía bắc của Grande Terre). Theo điều tra năm 2009, 35,8% dân số từ 15 trở lên tường trình rằng họ có thể nói (không nhất thiết là đọc và viết) một ngôn ngữ bản địa, trong khi 58,7% tường trình rằng họ không có kiến thức gì về chúng.",
+      "em": 1.0,
+      "f1": 1.0,
+      "is_impossible": false
+    },
+    {
+      "qid": "0016-0003-0001",
+      "question": "Ở Đại Tây Dương có các nhà thờ to nhỏ khác nhau dưới sự ảnh hưởng của tôn giáo nào?",
+      "gold": [],
+      "prediction": "Giáo hội Công giáo La Mã",
+      "context": "Tuy vậy, Montréal vẫn còn là một thành phố quan trọng của Bắc Mỹ, nếu không muốn nói là của thế giới, về thương mại, kỹ nghệ, đầu tư, chính trị, du lịch và nhất là về các hoạt động văn hóa. Montréal là hải cảng chính nối liền Ngũ Đại Hồ với Đại Tây Dương. Dưới ảnh hưởng của hai nền văn hóa Anh và văn hóa Pháp, cộng thêm vào đó là dân cư nói nhiều thứ tiếng, Montréal trở thành một cái gạch nối tự nhiên giữa châu Âu và Bắc Mỹ. Montréal còn giữ được rất nhiều kiến trúc cổ từ thế kỷ 18, thế kỷ 19 cho đến những trụ sở thương mại của đầu thế kỷ 20 và những cao ốc trụ sở kinh doanh xây vào thập niên 1950, thập niên 1960. Khu Montréal Cổ (tiếng Pháp: Vieux Montréal, tiếng Anh: Old Montreal) vẫn còn nhiều con đường đá và nhiều di tích cũ của thị trấn Ville-Marie ngày xưa. Montréal có một hệ thống xe điện ngầm (Métro) nối liền với các hệ thống xe lửa và xe buýt - ngay cả sang hai thành phố bên kia bờ sông của Montréal (Laval và Longeuil) bằng cách đào đường hầm dưới sông Saint-Laurent. Hầu hết các cơ sở thương mại, trường đại học, cơ quan chính phủ và các cao ốc tại trung tâm của thành phố đều được nối với nhau bằng đường hầm. Ảnh hưởng của tôn giáo, nhất là của Giáo hội Công giáo La Mã, thể hiện qua hàng trăm các nhà thờ to nhỏ khác nhau của Montréal. To, đẹp và quan trọng nhất là các thánh đường sau đây:",
+      "em": 0.0,
+      "f1": 0.0,
+      "is_impossible": true
+    },
+    {
+      "qid": "0001-0081-0002",
+      "question": "Sự mọc lên của các trung tâm thương mại ở Paris được xem như là gì vào thế kỷ 19?",
+      "gold": [
+        "một ý tưởng cách mạng",
+        "ý tưởng cách mạng"
+      ],
+      "prediction": "ý tưởng cách mạng",
+      "context": "Paris cũng là trung tâm của mua sắm với các hệ thống cửa hàng nổi tiếng như Galeries Lafayette, Printemps... cùng các trung tâm thương mại Les Halles, La Défense... Vào thế kỷ 19, các cửa hàng hiện đại xuất hiện ở Paris như một ý tưởng cách mạng. Những đại cửa hàng, có sự kết hợp cả chiều rộng và chiều sâu, ghi giá cả rõ ràng, ổn định, hàng hóa đa dạng, trưng bày trong các không gian rộng, sang trọng... được đi tiên phong bởi Le Bon Marché vào năm 1852. Kế đó tới các đại cửa hàng La Samaritaine, Galeries Lafayette... Nhà văn Emile Zola trong tiểu thuyết Au Bonheur des Dames năm 1883 cũng đã miêu tả cuộc đời một nhân viên làm việc trong một đại cửa hàng. Ngày nay, Paris có tất cả năm hệ thống đại cửa hàng: Galeries Lafayette, Printemps, Le Bon Marché, La Samaritaine và BHV.",
+      "em": 1.0,
+      "f1": 1.0,
+      "is_impossible": false
+    }
+  ]
+}
