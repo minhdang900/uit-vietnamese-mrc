@@ -18,7 +18,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from mrc.data import assert_no_leakage, load_squad_file
+from mrc.data import assert_no_leakage, load_squad_file, reproducible_subset
 from mrc.device import pick_device
 from mrc.features import prepare_train_features
 
@@ -42,13 +42,22 @@ class QADataset(Dataset):
         }
 
 
-def evaluate_quick(model_dir, val_examples, device, limit=300):
-    """EM/F1 thật trên một mẫu con validation, dùng chính pipeline inference."""
+def evaluate_quick(model_dir, val_examples, device, limit=300, seed=42):
+    """EM/F1 thật trên một mẫu con validation, dùng chính pipeline inference.
+
+    Dùng CÙNG hàm lấy mẫu ``subset()`` với ``scripts/run_eval.py`` và cùng seed,
+    nên con số trên đường cong huấn luyện SO SÁNH ĐƯỢC với bảng kết quả cuối.
+
+    Trước đây hàm này lấy ``val_examples[:limit]`` — n câu ĐẦU file. Các câu đầu
+    thuộc vài article đầu tiên nên mẫu thiên lệch theo chủ đề: mBERT chấm được
+    EM 42,00 trên mẫu đó nhưng EM 50,80 trên mẫu ngẫu nhiên cùng kích thước.
+    Chênh 8,8 điểm chỉ do cách lấy mẫu.
+    """
     from mrc.evaluate import run_evaluation
     from mrc.transformer_qa import TransformerQA
 
     qa = TransformerQA(str(model_dir), device=device, name=str(model_dir))
-    r = run_evaluation(qa, val_examples[:limit], split="validation")
+    r = run_evaluation(qa, reproducible_subset(val_examples, limit, seed=seed), split="validation")
     del qa
     return r["overall"]["EM"], r["overall"]["F1"]
 

@@ -34,6 +34,7 @@ __all__ = [
     "assert_gradeable",
     "compute_stats",
     "references_from",
+    "reproducible_subset",
 ]
 
 
@@ -244,3 +245,20 @@ def compute_stats(examples: Sequence[Example]) -> dict:
 def references_from(examples: Iterable[Example]) -> dict[str, list[str]]:
     """``{qid: [đáp án vàng]}`` để đưa vào ``metrics.evaluate``."""
     return {ex.qid: list(ex.answers) for ex in examples}
+
+
+def reproducible_subset(
+    examples: Sequence[Example], n: int | None, seed: int = 42
+) -> list[Example]:
+    """Lấy mẫu con NGẪU NHIÊN và TÁI LẬP ĐƯỢC.
+
+    Không lấy ``examples[:n]``: các câu đầu file thuộc vài article đầu tiên, nên
+    mẫu đó thiên lệch theo chủ đề. Đo được trên mBERT: EM 42,00 trên 300 câu đầu
+    so với EM 50,80 trên 300 câu ngẫu nhiên — chênh 8,8 điểm chỉ do cách lấy mẫu.
+
+    Hàm này được dùng ở CẢ đường cong huấn luyện lẫn bảng kết quả cuối, nên hai
+    nơi đó so sánh được với nhau.
+    """
+    if n is None or n >= len(examples):
+        return list(examples)
+    return random.Random(seed).sample(list(examples), n)

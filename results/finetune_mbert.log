@@ -51,3 +51,10 @@ epoch 1: loss 2.1316  val_EM 36.67  val_F1 45.79  (2066s)
   epoch 2 step 2000/2545 loss 1.3084 (1641s)
   epoch 2 step 2200/2545 loss 1.3019 (1804s)
   epoch 2 step 2400/2545 loss 1.2973 (1974s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.59it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.59it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9785.19it/s]
+epoch 2: loss 1.2960  val_EM 42.00  val_F1 49.13  (2100s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.69it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.69it/s]
+  -> epoch 2 là tốt nhất, lưu vào models/mbert
+
+curve -> results/training_curve_mbert.json

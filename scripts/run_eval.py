@@ -9,20 +9,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 from pathlib import Path
 
-from mrc.data import assert_gradeable, compute_stats, load_squad_file
+from mrc.data import (assert_gradeable, compute_stats, load_squad_file,
+                      reproducible_subset)
 from mrc.evaluate import run_evaluation
 
 
 def subset(examples, n, seed=42):
-    """Lấy mẫu con TÁI LẬP ĐƯỢC. Không lấy n câu đầu — chúng thiên lệch theo
-    article đầu tiên của file."""
-    if n is None or n >= len(examples):
-        return list(examples)
-    rng = random.Random(seed)
-    return rng.sample(list(examples), n)
+    """Alias của ``mrc.data.reproducible_subset`` — một nguồn sự thật duy nhất,
+    dùng chung với đường cong huấn luyện trong ``scripts/finetune.py``."""
+    return reproducible_subset(examples, n, seed=seed)
 
 
 def build(kind: str):

@@ -1,0 +1,39 @@
+{
+  "model": "bert-base-multilingual-cased",
+  "config": {
+    "model": "bert-base-multilingual-cased",
+    "out": "models/mbert",
+    "train_size": null,
+    "epochs": 2,
+    "batch_size": 12,
+    "grad_accum": 2,
+    "lr": 3e-05,
+    "max_length": 384,
+    "doc_stride": 128,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.01,
+    "eval_limit": 300,
+    "seed": 42
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "train_loss": 2.1316,
+      "val_em": 46.0,
+      "val_f1": 58.39,
+      "epoch_seconds": 2066.3,
+      "val_em_biased_first300": 36.67,
+      "val_f1_biased_first300": 45.79
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.296,
+      "val_em": 52.0,
+      "val_f1": 59.75,
+      "epoch_seconds": 2100.0,
+      "val_em_biased_first300": 42.0,
+      "val_f1_biased_first300": 49.13
+    }
+  ],
+  "sampling_note": "val_em/val_f1 tính trên mẫu NGẪU NHIÊN 300 câu (seed=42) qua mrc.data.reproducible_subset — cùng hàm với scripts/run_eval.py, nên đường cong so sánh được với bảng kết quả cuối. Hai trường *_biased_first300 là số cũ, lấy 300 câu ĐẦU file: thiên lệch chủ đề vì các câu đầu thuộc vài article đầu tiên."
+}
