@@ -3,8 +3,8 @@
   "dataset": "UIT-ViQuAD 2.0",
   "split": "validation",
   "n": 500,
-  "timestamp": "2026-09-12T06:47:26+00:00",
-  "commit": "21896a9",
+  "timestamp": "2026-09-12T11:28:01+00:00",
+  "commit": "c63b28c",
   "device": "mps",
   "env": {
     "device": "mps",
@@ -27,7 +27,7 @@
     "EM": 41.0072,
     "count": 139
   },
-  "avg_latency_ms": 15.357,
+  "avg_latency_ms": 13.495,
   "by_context_length": {
     "100-200": {
       "EM": 50.6173,

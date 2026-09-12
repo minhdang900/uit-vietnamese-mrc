@@ -1,0 +1,44 @@
+{
+  "model": "uitnlp/visobert",
+  "config": {
+    "model": "uitnlp/visobert",
+    "out": "models/visobert",
+    "train_size": null,
+    "epochs": 3,
+    "batch_size": 12,
+    "grad_accum": 2,
+    "lr": 5e-05,
+    "max_length": 384,
+    "doc_stride": 128,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.01,
+    "eval_limit": 300,
+    "max_answer_len": 64,
+    "seed": 42
+  },
+  "curve": [
+    {
+      "epoch": 1,
+      "train_loss": 3.0512,
+      "val_em": 25.67,
+      "val_f1": 25.67,
+      "epoch_seconds": 2416.6
+    },
+    {
+      "epoch": 2,
+      "train_loss": 2.5678,
+      "val_em": 25.33,
+      "val_f1": 25.61,
+      "epoch_seconds": 2475.1
+    },
+    {
+      "epoch": 3,
+      "train_loss": 2.1908,
+      "val_em": 27.0,
+      "val_f1": 30.48,
+      "epoch_seconds": 6798.1
+    }
+  ],
+  "timing_caveat": "epoch_seconds cua epoch 3 (6798s) BI NHIEU: mot job chan doan null_threshold chay song song tranh GPU. Epoch 1-2 (~2450s) moi la thoi gian sach. Khong dung epoch_seconds cua epoch 3 lam so do benchmark.",
+  "collapse_note": "Epoch 1-2 co val_EM == val_F1, dau hieu model SUY SUP ve 'luon tra rong': cau impossible duoc 1 diem, cau answerable duoc 0, nen hai metric trung nhau va diem tong bang dung ti le impossible cua tap (~25.7%). Epoch 3 bat dau thoat (EM 27.00 != F1 30.48) nhung van kem xa mBERT."
+}

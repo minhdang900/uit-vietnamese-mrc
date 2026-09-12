@@ -13,24 +13,78 @@ Cho một đoạn văn (`context`) và một câu hỏi (`question`), hệ thố
 
 ## Kết quả
 
-UIT-ViQuAD 2.0, **validation split**, n = 500, thiết bị **MPS (Apple M5 Pro)**:
+UIT-ViQuAD 2.0, **validation split**, n = 500 (cùng một mẫu ngẫu nhiên seed=42 cho
+mọi model), thiết bị **MPS (Apple M5 Pro)**:
 
-| Model | EM | F1 | EM answerable | EM impossible | Latency |
+| Model | EM | F1 | answerable EM / F1 | impossible EM | Latency |
 |---|---:|---:|---:|---:|---:|
-| TF-IDF Baseline | 0.80 | 23.09 | 1.11 | 0.00 | 0.5 ms |
-| XLM-R squad2 (zero-shot) | 40.60 | 56.84 | 45.71 | 27.34 | 14.0 ms |
-| mBERT + QA head (fine-tuned) | *đang chạy* | | | | |
-| ViSoBERT + QA head (fine-tuned) | *đang chạy* | | | | |
+| TF-IDF Baseline | 0.80 | 23.09 | 1.11 / 31.99 | 0.00 | 0.5 ms |
+| ViSoBERT + QA (fine-tuned) | 27.80 | 31.31 | **6.93** / 11.78 | **82.01** | 22.7 ms |
+| XLM-R squad2 (zero-shot) | 40.60 | 56.84 | 45.71 / **68.20** | 27.34 | 14.3 ms |
+| **mBERT + QA (fine-tuned)** | **50.80** | **59.49** | **54.57** / 66.60 | 41.01 | 13.5 ms |
 
-Cả hai kết quả đã có đều **nằm trong khoảng dự đoán ghi trước khi chạy**
-(`results/hypotheses.md`). Xem `docs/SOLUTION.md` để biết vì sao việc đăng ký giả
-thuyết trước lại quan trọng.
+Đối chiếu với giả thuyết ghi **trước** khi chạy (`results/hypotheses.md`):
+`python scripts/check_hypotheses.py`.
 
-**Đọc bảng này:** baseline có F1 = 23% nhưng EM gần 0 vì nó trả về **cả một câu**,
-trong khi đáp án vàng là **cụm vài từ** — overlap token có, trùng khít thì không.
-Khoảng cách EM–F1 đó là bằng chứng trực quan rằng hai metric đo hai thứ khác nhau.
+### Ba điều bảng này nói ra, mà con số tổng thì không
 
----
+**1. Baseline: F1 23% nhưng EM 0,8%.** Nó trả về **cả một câu**, còn gold là **cụm
+vài từ** — overlap token có, trùng khít thì không. Khoảng cách EM–F1 đó là bằng
+chứng trực quan rằng hai metric đo hai thứ khác nhau.
+
+**2. mBERT thắng XLM-R KHÔNG phải vì tìm span giỏi hơn.** Trên câu answerable,
+XLM-R zero-shot thực ra **tốt hơn** (F1 68,20 so với 66,60). mBERT thắng tổng thể
+vì **biết khi nào KHÔNG nên trả lời** tốt hơn hẳn (impossible EM 41,01 so với
+27,34). Với ~30% câu là unanswerable, kỹ năng thứ hai quyết định bảng xếp hạng.
+Đây là lý do báo cáo tách `answerable_only` và `impossible_only` — con số tổng
+trộn hai kỹ năng và che mất điều này.
+
+**3. ViSoBERT suy sụp về "luôn trả rỗng".** EM tổng 27,80 **bằng đúng tỉ lệ
+impossible của tập (27,80%)**. Bóc tách ra: impossible EM **82,01** nhưng
+answerable EM chỉ **6,93** — nó gần như chỉ ăn điểm từ việc từ chối trả lời.
+`scripts/check_hypotheses.py` phát hiện tự động điều này.
+
+### Vì sao ViSoBERT thất bại — và vì sao đó là kết quả hợp lệ
+
+Đã loại trừ ba confound trước khi kết luận:
+
+| Nghi vấn | Kiểm tra | Kết quả |
+|---|---|---|
+| `max_position_embeddings` < 384? | đọc config | 514 — không phải nguyên nhân |
+| `max_answer_len=30` quá ngắn? | đo p95 gold answer | **đúng là confound** — 25,2% gold vượt 30 token. Sửa thành 64 |
+| learning rate quá thấp? | 3e-5 → 5e-5 | có cải thiện (F1 12,25 → 30,48) nhưng vẫn kém xa |
+| ngưỡng null lệch? | quét `null_threshold` | tốt nhất F1 34,77; ép trả lời cho EM **11,50** |
+
+Sau khi loại hết, ViSoBERT vẫn kém xa mBERT ⇒ đây là **giới hạn thật của model**,
+không phải lỗi cấu hình.
+
+**Giải thích:** ViSoBERT pretrain trên văn bản **mạng xã hội** với vocab **15.004**
+(mBERT: 119.547). MRC trên Wikipedia đòi **biên span chính xác** trên văn phong
+trang trọng dày đặc **tên riêng** — đúng thứ mà vocab nhỏ chia vụn nặng nhất:
+
+```
+"Hà Nội là thủ đô của nước Cộng hoà..."
+  ViSoBERT (23 token): ['▁Hà','▁N','ội','▁là','▁thủ','▁đô','▁c','ủa',...]
+  mBERT    (17 token): ['Hà','Nội','là','thủ','đô','của','nước','Cộng',...]
+```
+
+⇒ **Pretraining đúng ngôn ngữ không bù được pretraining sai miền.** Đây là câu trả
+lời có bằng chứng cho câu hỏi "tiếng Việt chuyên biệt có giúp không?", và nó thú vị
+hơn một chiến thắng phẳng.
+
+### Đường cong huấn luyện
+
+| | epoch | train loss | val EM | val F1 |
+|---|---:|---:|---:|---:|
+| **mBERT** (lr 3e-5) | 1 | 2.1316 | 46.00 | 58.39 |
+| | 2 | 1.2960 | 52.00 | 59.75 |
+| **ViSoBERT** (lr 5e-5) | 1 | 3.0512 | 25.67 | 25.67 |
+| | 2 | 2.5678 | 25.33 | 25.61 |
+| | 3 | 2.1908 | 27.00 | 30.48 |
+
+mBERT: loss giảm, val tăng ⇒ **chưa overfit, thậm chí còn thiếu epoch**.
+ViSoBERT epoch 1–2: `val_EM == val_F1` ⇒ dấu hiệu **suy sụp về luôn-trả-rỗng**;
+epoch 3 mới bắt đầu thoát ra.
 
 ## Cài đặt
 

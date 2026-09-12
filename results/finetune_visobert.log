@@ -61,3 +61,25 @@ epoch 1: loss 3.0512  val_EM 25.67  val_F1 25.67  (2417s)
 epoch 2: loss 2.5678  val_EM 25.33  val_F1 25.61  (2475s)
   epoch 3 step 200/3416 loss 2.2175 (289s)
   epoch 3 step 400/3416 loss 2.2404 (4384s)
+  epoch 3 step 600/3416 loss 2.2293 (4601s)
+  epoch 3 step 800/3416 loss 2.2303 (4723s)
+  epoch 3 step 1000/3416 loss 2.2151 (4858s)
+  epoch 3 step 1200/3416 loss 2.2046 (5000s)
+  epoch 3 step 1400/3416 loss 2.2077 (5153s)
+  epoch 3 step 1600/3416 loss 2.2050 (5304s)
+  epoch 3 step 1800/3416 loss 2.2001 (5458s)
+  epoch 3 step 2000/3416 loss 2.1944 (5614s)
+  epoch 3 step 2200/3416 loss 2.1961 (5777s)
+  epoch 3 step 2400/3416 loss 2.1951 (5971s)
+  epoch 3 step 2600/3416 loss 2.1965 (6130s)
+  epoch 3 step 2800/3416 loss 2.1926 (6290s)
+  epoch 3 step 3000/3416 loss 2.1916 (6451s)
+  epoch 3 step 3200/3416 loss 2.1887 (6613s)
+  epoch 3 step 3400/3416 loss 2.1917 (6777s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.23it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.23it/s]
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10629.17it/s]
+epoch 3: loss 2.1908  val_EM 27.00  val_F1 30.48  (6798s)
+Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.96it/s]Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  2.95it/s]
+  -> epoch 3 là tốt nhất, lưu vào models/visobert
+
+curve -> results/training_curve_visobert.json

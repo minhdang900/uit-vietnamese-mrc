@@ -1,0 +1,39 @@
+split=validation  n=500  contexts=331  impossible=139 (27.8%)
+
+=== baseline ===
+  max_answer_len=-
+  overall     EM   0.80  F1  23.09  (n=500)
+  answerable  EM   1.11  F1  31.99  (n=361)
+  impossible  EM   0.00                    (n=139)
+  latency     0.534 ms/câu   device=mps
+  -> results/eval_baseline_validation.json
+
+=== xlmr ===
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10843.35it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (542 > 512). Running this sequence through the model will result in indexing errors
+  max_answer_len=30
+  overall     EM  40.60  F1  56.84  (n=500)
+  answerable  EM  45.71  F1  68.20  (n=361)
+  impossible  EM  27.34                    (n=139)
+  latency     14.349 ms/câu   device=mps
+  -> results/eval_xlmr_validation.json
+
+=== mbert ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10354.38it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (525 > 512). Running this sequence through the model will result in indexing errors
+  max_answer_len=30
+  overall     EM  50.80  F1  59.49  (n=500)
+  answerable  EM  54.57  F1  66.60  (n=361)
+  impossible  EM  41.01                    (n=139)
+  latency     13.495 ms/câu   device=mps
+  -> results/eval_mbert_validation.json
+
+=== visobert ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 11232.22it/s]
+  max_answer_len=64
+  overall     EM  27.80  F1  31.31  (n=500)
+  answerable  EM   6.93  F1  11.78  (n=361)
+  impossible  EM  82.01                    (n=139)
+  latency     22.734 ms/câu   device=mps
+  -> results/eval_visobert_validation.json

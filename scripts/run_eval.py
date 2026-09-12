@@ -22,7 +22,17 @@ def subset(examples, n, seed=42):
     return reproducible_subset(examples, n, seed=seed)
 
 
-def build(kind: str, max_answer_len: int = 30):
+#: Do dai span toi da theo TOKEN, do rieng cho tung tokenizer.
+#: Cung mot dap an sinh ra so token khac nhau tuy vocab, nen mot hang so chung la sai.
+#: Gia tri = p95 do dai gold answer tren 4000 mau train split:
+#:   mBERT / XLM-R (vocab 119k / 250k) -> p95 = 40 token  (dung 30, vuot 10.8%)
+#:   ViSoBERT      (vocab  15k)        -> p95 = 64 token  (dung 30, vuot 25.2%)
+MAX_ANSWER_LEN = {"visobert": 64}
+DEFAULT_MAX_ANSWER_LEN = 30
+
+
+def build(kind: str, max_answer_len: int | None = None):
+    max_answer_len = max_answer_len or MAX_ANSWER_LEN.get(kind, DEFAULT_MAX_ANSWER_LEN)
     if kind == "baseline":
         from mrc.baseline_tfidf import TfidfRetriever
 
@@ -51,7 +61,7 @@ def main() -> None:
     ap.add_argument("--full", action="store_true", help="dùng toàn bộ split")
     ap.add_argument("--data-dir", default="data/raw")
     ap.add_argument("--out-dir", default="results")
-    ap.add_argument("--max-answer-len", type=int, default=30,
+    ap.add_argument("--max-answer-len", type=int, default=None,
                     help="Do dai span toi da theo TOKEN; phu thuoc tokenizer "
                          "(ViSoBERT can ~64 vi vocab 15k chia tu rat nho)")
     args = ap.parse_args()
@@ -71,7 +81,9 @@ def main() -> None:
 
     for kind in args.models:
         print(f"\n=== {kind} ===", flush=True)
-        result = run_evaluation(build(kind, args.max_answer_len), examples, split=args.split)
+        model = build(kind, args.max_answer_len)
+        print(f"  max_answer_len={getattr(model, 'max_answer_len', '-')}")
+        result = run_evaluation(model, examples, split=args.split)
         o, a, i = result["overall"], result["answerable_only"], result["impossible_only"]
         print(f"  overall     EM {o['EM']:6.2f}  F1 {o['F1']:6.2f}  (n={o['count']})")
         print(f"  answerable  EM {a['EM']:6.2f}  F1 {a['F1']:6.2f}  (n={a['count']})")
