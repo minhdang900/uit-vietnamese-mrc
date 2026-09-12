@@ -1,12 +1,16 @@
 """Chuyển ``Example`` thành feature huấn luyện cho QA head.
 
-Đây là bước dễ sai nhất của fine-tuning extractive QA: phải map vị trí đáp án
-theo KÝ TỰ (``answer_start``) sang vị trí theo TOKEN (``start_position``,
-``end_position``). Nếu map lệch, model học nhãn sai mà **không có lỗi nào được
-báo** — loss vẫn giảm, chỉ là nó học sai thứ.
+Nhiệm vụ chính: dịch vị trí đáp án từ KÝ TỰ (``answer_start`` của dataset) sang
+TOKEN (``start_position``/``end_position`` mà model dự đoán).
 
-Quy ước cho câu impossible: cả ``start_position`` và ``end_position`` trỏ về
-``[CLS]`` (index 0). Đó là cách model học nói "không có đáp án".
+Đây là chỗ sai âm thầm nguy hiểm nhất trong toàn pipeline. Nếu map lệch, model học
+nhãn sai mà **loss vẫn giảm bình thường** — không exception, không cảnh báo, chỉ là
+nó học nhầm thứ. Vì vậy bất biến được test không phải "chạy không lỗi" mà là *giải
+mã nhãn token phải ra lại đúng đáp án vàng*.
+
+Quy ước SQuAD-2.0: câu impossible, và window không chứa đáp án, đều gán nhãn về
+``[CLS]``. Đó là cách model học nói "ở đây không có đáp án" — và với ViQuAD 2.0,
+nơi 32,4% câu train là impossible, nhánh này chiếm một phần ba dữ liệu.
 """
 
 from __future__ import annotations
@@ -19,67 +23,77 @@ from mrc.windowing import make_windows
 __all__ = ["prepare_train_features", "prepare_eval_features"]
 
 
+def _pad(values: list, pad_value, target: int) -> list:
+    return list(values) + [pad_value] * (target - len(values))
+
+
+def _locate_answer_tokens(
+    offsets: list, start_char: int, end_char: int, cls_index: int
+) -> tuple[int, int]:
+    """Tìm cặp token bao trọn khoảng ký tự ``[start_char, end_char)``.
+
+    Trả về ``(cls_index, cls_index)`` nếu đáp án KHÔNG nằm trọn trong window —
+    tức "window này không chứa đáp án", cùng quy ước với câu impossible.
+    """
+    context_positions = [i for i, off in enumerate(offsets) if off is not None]
+    if not context_positions:
+        return cls_index, cls_index
+
+    first, last = context_positions[0], context_positions[-1]
+    if not (offsets[first][0] <= start_char and offsets[last][1] >= end_char):
+        return cls_index, cls_index
+
+    # Token đầu tiên kết thúc SAU khi đáp án bắt đầu = token chứa start_char.
+    start_token = next((i for i in context_positions if offsets[i][1] > start_char), None)
+    # Token cuối cùng bắt đầu TRƯỚC khi đáp án kết thúc = token chứa end_char.
+    end_token = next((i for i in reversed(context_positions) if offsets[i][0] < end_char), None)
+
+    if start_token is None or end_token is None or start_token > end_token:
+        return cls_index, cls_index
+    return start_token, end_token
+
+
 def prepare_train_features(
     examples: Sequence[Example],
     tokenizer,
     max_length: int = 384,
     doc_stride: int = 128,
 ) -> dict:
-    """Tokenize + gán ``start_position``/``end_position`` theo token.
+    """Tokenize và gán nhãn vị trí theo token, sẵn sàng cho ``QADataset``.
 
-    Dùng ``make_windows`` (tự cài) thay vì ``return_overflowing_tokens``, vì
-    transformers 5.17.0 giới hạn overflow ở 2 window và làm mất phần đuôi context
-    một cách âm thầm — đáp án ở cuối đoạn văn sẽ không bao giờ được gán nhãn.
-
-    Một window có thể KHÔNG chứa đáp án; nhãn của nó trỏ về ``[CLS]``, tức
-    "window này không có đáp án". Đó cũng là nhãn của câu impossible.
+    Dùng :func:`mrc.windowing.make_windows` (tự cài) thay vì
+    ``return_overflowing_tokens``, vì transformers 5.17 giới hạn overflow ở 2
+    window bất kể context dài bao nhiêu — phần đuôi bị cắt âm thầm và đáp án nằm
+    cuối đoạn văn sẽ không bao giờ được gán nhãn.
     """
     out: dict[str, list] = {
         "input_ids": [], "attention_mask": [],
         "start_positions": [], "end_positions": [], "example_index": [],
     }
+    pad_id = tokenizer.pad_token_id
 
-    for ex_i, ex in enumerate(examples):
-        for win in make_windows(ex.question, ex.context, tokenizer,
-                                max_length=max_length, doc_stride=doc_stride):
-            # Pad thủ công để mọi feature cùng độ dài (Trainer cần tensor đều).
-            pad_id = tokenizer.pad_token_id
-            n_pad = max_length - len(win.input_ids)
-            input_ids = list(win.input_ids) + [pad_id] * n_pad
-            attn = list(win.attention_mask) + [0] * n_pad
-            offsets = list(win.offset_mapping) + [None] * n_pad
-
+    for example_index, example in enumerate(examples):
+        for window in make_windows(example.question, example.context, tokenizer,
+                                   max_length=max_length, doc_stride=doc_stride):
+            input_ids = _pad(window.input_ids, pad_id, max_length)
+            attention = _pad(window.attention_mask, 0, max_length)
+            offsets = _pad(window.offset_mapping, None, max_length)
             cls_index = input_ids.index(tokenizer.cls_token_id)
 
-            if not ex.answers or ex.answer_start < 0:
+            if not example.answers or example.answer_start < 0:
                 start_pos = end_pos = cls_index          # câu impossible
             else:
-                start_char = ex.answer_start
-                end_char = start_char + len(ex.answers[0])
-                ctx_idx = [i for i, o in enumerate(offsets) if o is not None]
-                if not ctx_idx:
-                    start_pos = end_pos = cls_index
-                else:
-                    lo, hi = offsets[ctx_idx[0]][0], offsets[ctx_idx[-1]][1]
-                    if not (lo <= start_char and hi >= end_char):
-                        # đáp án không nằm trong window này
-                        start_pos = end_pos = cls_index
-                    else:
-                        s_tok = next(
-                            (i for i in ctx_idx if offsets[i][1] > start_char), cls_index
-                        )
-                        e_tok = next(
-                            (i for i in reversed(ctx_idx) if offsets[i][0] < end_char), cls_index
-                        )
-                        start_pos, end_pos = s_tok, e_tok
-                        if start_pos > end_pos:
-                            start_pos = end_pos = cls_index
+                answer = example.answers[0]
+                start_pos, end_pos = _locate_answer_tokens(
+                    offsets, example.answer_start,
+                    example.answer_start + len(answer), cls_index,
+                )
 
             out["input_ids"].append(input_ids)
-            out["attention_mask"].append(attn)
+            out["attention_mask"].append(attention)
             out["start_positions"].append(start_pos)
             out["end_positions"].append(end_pos)
-            out["example_index"].append(ex_i)
+            out["example_index"].append(example_index)
 
     return out
 
@@ -90,17 +104,22 @@ def prepare_eval_features(
     max_length: int = 384,
     doc_stride: int = 128,
 ) -> dict:
-    """Tokenize cho đánh giá; giữ ``offset_mapping`` TUYỆT ĐỐI ở vùng context."""
+    """Như trên nhưng giữ ``offset_mapping`` (toạ độ TUYỆT ĐỐI) thay vì nhãn.
+
+    Offset tuyệt đối cho phép cắt đáp án ra từ chuỗi context GỐC, bảo toàn dấu
+    tiếng Việt — điều ``tokenizer.decode()`` không làm được.
+    """
     out: dict[str, list] = {
         "input_ids": [], "attention_mask": [], "offset_mapping": [], "example_index": [],
     }
-    for ex_i, ex in enumerate(examples):
-        for win in make_windows(ex.question, ex.context, tokenizer,
-                                max_length=max_length, doc_stride=doc_stride):
-            pad_id = tokenizer.pad_token_id
-            n_pad = max_length - len(win.input_ids)
-            out["input_ids"].append(list(win.input_ids) + [pad_id] * n_pad)
-            out["attention_mask"].append(list(win.attention_mask) + [0] * n_pad)
-            out["offset_mapping"].append(list(win.offset_mapping) + [None] * n_pad)
-            out["example_index"].append(ex_i)
+    pad_id = tokenizer.pad_token_id
+
+    for example_index, example in enumerate(examples):
+        for window in make_windows(example.question, example.context, tokenizer,
+                                   max_length=max_length, doc_stride=doc_stride):
+            out["input_ids"].append(_pad(window.input_ids, pad_id, max_length))
+            out["attention_mask"].append(_pad(window.attention_mask, 0, max_length))
+            out["offset_mapping"].append(_pad(window.offset_mapping, None, max_length))
+            out["example_index"].append(example_index)
+
     return out
