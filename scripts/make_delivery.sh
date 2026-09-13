@@ -3,9 +3,10 @@
 #
 #     ./scripts/make_delivery.sh              # đầy đủ, có checkpoint (~1,7 GB)
 #     ./scripts/make_delivery.sh --no-models  # gọn, không checkpoint (~600 MB)
+#     ./scripts/make_delivery.sh --out DIR    # đóng gói thẳng vào DIR
 #
 # Sản phẩm là delivery/ — người chấm chỉ cần Docker, không cần Python, không cần
-# mạng, không cần dựng ảnh. Xem delivery/HUONG_DAN.md sau khi chạy.
+# mạng, không cần dựng ảnh. Xem HUONG_DAN.md trong gói sau khi chạy.
 set -euo pipefail
 
 IMAGE_TAG="vietnamese-mrc:latest"          # PHẢI khớp services.app.image trong
@@ -15,7 +16,34 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="$ROOT/delivery"
 WITH_MODELS=1
 
-[[ "${1:-}" == "--no-models" ]] && WITH_MODELS=0
+# ``--out`` để đóng gói THẲNG vào thư mục nộp bài. Chép tay sau khi đóng gói là
+# đúng chỗ gói và ảnh lệch phiên bản nhau mà không ai thấy.
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --no-models) WITH_MODELS=0; shift ;;
+    --out)
+      [[ -n "${2:-}" ]] || { echo "--out cần một đường dẫn."; exit 1; }
+      OUT="$2"; shift 2 ;;
+    *)
+      echo "Tham số lạ: $1"
+      echo "Dùng: $0 [--no-models] [--out DIR]"; exit 1 ;;
+  esac
+done
+
+# Bước 0 chạy ``rm -rf "$OUT"``. Khi đích là đường dẫn tự gõ thì một lần gõ nhầm
+# là mất một thư mục thật, nên chỉ cho xoá khi đích còn trống hoặc đã là gói do
+# chính script này sinh ra — nhận ra bằng MANIFEST.txt.
+if [[ -e "$OUT" && ! -f "$OUT/MANIFEST.txt" ]]; then
+  echo "Đích đã tồn tại và không phải gói do script này sinh ra:"
+  echo "    $OUT"
+  echo "Xoá tay rồi chạy lại, nếu chắc chắn."
+  exit 1
+fi
+
+# Tuyệt đối hoá TRƯỚC khi ``cd "$ROOT"`` ở dưới, không thì --out tương đối sẽ
+# được hiểu theo gốc repo chứ không theo chỗ người dùng đang đứng.
+mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"
 
 cd "$ROOT"
 
@@ -193,4 +221,4 @@ GUIDE
 
 echo
 echo "==> Xong: $OUT  ($(du -sh "$OUT" | cut -f1))"
-echo "    Thử ngay:  cd delivery && ./run.sh"
+echo "    Thử ngay:  cd \"$OUT\" && ./run.sh"
