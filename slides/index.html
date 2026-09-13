@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<title>Vietnamese MRC — CS116 T11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&family=Nunito:wght@300..900&display=swap" rel="stylesheet">
+<!--
+  Slide thuyết trình. Mở thẳng bằng trình duyệt, không cần server.
+
+  ⚠️ Deck này KHÔNG gõ con số EM/F1 nào. Mọi số liệu hiện lên qua HÌNH sinh từ
+  results/ (report/assets/figures/*.png) — cùng bất biến #1 với báo cáo: sửa kết
+  quả, chạy lại scripts/make_figures.py, slide tự đúng theo.
+
+  Điều hướng: → ← Space, phím S bật/tắt ghi chú người nói, P in ra PDF.
+-->
+<style>
+:root{
+  --bg:#f5ead8; --surface:#ebddc5; --text:#201e1d;
+  --accent:#c67139; --accent-2:#7a8a5e;
+  --muted:#645c50; --line:#d3c9ba;
+  --heading:"Baloo 2",system-ui,sans-serif;
+  --body:"Nunito",system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:16px}
+.slide{
+  display:none;min-height:100vh;padding:5vh 7vw 12vh;
+  flex-direction:column;justify-content:center;
+}
+.slide.on{display:flex}
+h1,h2,h3{font-family:var(--heading);font-weight:800;line-height:1.1;margin:0 0 .5em}
+h1{font-size:clamp(32px,5.5vw,64px)}
+h2{font-size:clamp(24px,3.6vw,44px)}
+h3{font-size:clamp(18px,2vw,24px);color:var(--accent)}
+p,li{font-size:clamp(15px,1.6vw,22px);line-height:1.5;max-width:60ch}
+ul{padding-left:1.2em}li{margin:.45em 0}
+.kicker{font-size:clamp(11px,1.1vw,14px);letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent);margin-bottom:1em}
+.big{font-size:clamp(28px,4.2vw,52px);font-family:var(--heading);font-weight:800;
+  line-height:1.15;max-width:22ch}
+.dim{color:var(--muted)}
+.cols{display:flex;gap:4vw;flex-wrap:wrap;align-items:flex-start}
+.cols>*{flex:1 1 320px;min-width:0}
+figure{margin:0}
+img{display:block;max-width:100%;max-height:52vh;margin:0 auto;
+  border-radius:14px;background:#fff;padding:8px}
+figcaption{font-size:13px;color:var(--muted);text-align:center;margin-top:.6em}
+table{border-collapse:collapse;font-size:clamp(13px,1.4vw,18px);width:100%}
+th,td{text-align:left;padding:.5em .7em;border-bottom:1px solid var(--line)}
+th{font-size:.8em;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+code{background:#f9f4ed;padding:.1em .35em;border-radius:6px;font-size:.9em}
+blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
+  font-size:clamp(16px,1.9vw,26px);font-family:var(--heading);font-weight:600;max-width:46ch}
+.pill{display:inline-block;background:var(--surface);border-radius:999px;
+  padding:.3em .9em;font-size:.8em;margin:.2em .3em .2em 0}
+.bar{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;gap:12px;
+  padding:10px 18px;background:color-mix(in srgb,var(--bg) 88%,transparent);
+  border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+.bar .grow{flex:1}
+.notes{display:none;position:fixed;right:18px;bottom:52px;width:min(420px,38vw);
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:14px 16px;font-size:13px;line-height:1.45;color:var(--muted);
+  max-height:42vh;overflow:auto}
+.notes.on{display:block}
+@media print{.slide{display:flex;page-break-after:always}.bar,.notes{display:none}}
+</style>
+</head>
+<body>
+
+<section class="slide on" data-notes="Chào thầy và các bạn. Nhóm em làm đề tài T11 — đọc hiểu và trả lời câu hỏi tiếng Việt. Em sẽ đi qua: bài toán, dữ liệu, bốn hệ thống, kết quả, và ba điều bảng số nói ra mà con số tổng thì không.">
+  <div class="kicker">CS116 · Đề tài T11 · UIT, ĐHQG-HCM</div>
+  <h1>Hệ thống đọc hiểu<br>và trả lời câu hỏi tiếng Việt</h1>
+  <p class="dim">Vietnamese Extractive Machine Reading Comprehension<br>trên UIT-ViQuAD 2.0</p>
+  <p style="margin-top:2em">
+    <span class="pill">Nguyễn Quang Lâm · 25210289</span>
+    <span class="pill">Trần Trọng Tấn · 25210334</span><br>
+    <span class="pill">Lê Quang Thi · 25210337</span>
+    <span class="pill">Vỏ Cẩm Thu · 25210342</span>
+  </p>
+</section>
+
+<section class="slide" data-notes="Nhấn mạnh chữ TRÍCH XUẤT. Model không sinh chữ mới — nó chỉ ra vị trí. Điều đó cho ta một bất biến kiểm được bằng máy, và bọn em test nó cho MỌI model.">
+  <div class="kicker">Bài toán</div>
+  <h2>Trích xuất, không phải sinh</h2>
+  <div class="cols">
+    <div>
+      <p>Cho <b>đoạn văn</b> + <b>câu hỏi</b>, trả về <b>một đoạn con</b> của
+      chính đoạn văn đó.</p>
+      <p class="dim">Model <b>không sinh</b> chữ mới. Nó <b>chỉ ra vị trí</b>.</p>
+    </div>
+    <div>
+      <blockquote>Vì đáp án luôn nằm trong context, ta có một bất biến
+      <b>kiểm được bằng máy</b> — và nó được test cho mọi model.</blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-notes="Phát hiện đầu tiên, và nó đổi cả thiết kế đánh giá. Test split không chấm được. Nếu chạy nhầm sẽ ra EM 100% — model trả rỗng, gold rỗng, khớp hoàn toàn. Bọn em chặn bằng code chứ không bằng lời hứa.">
+  <div class="kicker">Dữ liệu · Phát hiện 1</div>
+  <h2>Test split là blind set</h2>
+  <div class="cols">
+    <div>
+      <p>Toàn bộ câu trong split <code>test</code>: <b>gold rỗng</b>, đồng thời
+      <code>is_impossible = False</code>.</p>
+      <p>Hai điều đó <b>mâu thuẫn nhau</b> ⇒ đáp án đã bị lược bỏ cho
+      leaderboard.</p>
+    </div>
+    <div>
+      <blockquote>Chạy nhầm trên test sẽ báo <b>EM 100%</b>: model trả rỗng, gold
+      rỗng, khớp hoàn toàn.</blockquote>
+      <p class="dim" style="margin-top:1em"><code>assert_gradeable</code> ném lỗi
+      thay vì để điều đó xảy ra.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-notes="Bốn hệ thống trả lời bốn câu hỏi khác nhau. Quan trọng: ViSoBERT là model tiếng Việt chuyên biệt — giả thuyết ghi TRƯỚC khi chạy là nó phải thắng.">
+  <div class="kicker">Phương pháp</div>
+  <h2>Bốn hệ thống, bốn câu hỏi</h2>
+  <table>
+    <tr><th>Hệ thống</th><th>Loại</th><th>Trả lời câu hỏi</th></tr>
+    <tr><td>TF-IDF Baseline</td><td>Cosine</td><td>Sàn ở đâu?</td></tr>
+    <tr><td>mBERT + QA</td><td>Fine-tune</td><td>Mốc chuẩn ở đâu?</td></tr>
+    <tr><td><b>ViSoBERT + QA</b></td><td>Fine-tune</td><td><b>Chuyên biệt hoá tiếng Việt có giúp không?</b></td></tr>
+    <tr><td>XLM-R squad2</td><td>Zero-shot</td><td>Chuyển giao xuyên ngữ đi được bao xa?</td></tr>
+  </table>
+  <p class="dim" style="margin-top:1.2em">Giả thuyết ghi <b>trước</b> khi chạy và
+  commit vào git: ViSoBERT sẽ thắng.</p>
+</section>
+
+<section class="slide" data-notes="Bảng chính. Đừng đọc từng số — chỉ vào ba điều ở các slide sau. Nhắc: validation split, cùng một mẫu, cùng một máy.">
+  <div class="kicker">Kết quả · validation split</div>
+  <h2>Bốn hệ thống, cùng một mẫu</h2>
+  <figure>
+    <img src="../report/assets/figures/model_comparison.png" alt="So sánh EM và F1 của bốn mô hình">
+    <figcaption>Sinh tự động từ <code>results/*.json</code> — không con số nào gõ tay</figcaption>
+  </figure>
+</section>
+
+<section class="slide" data-notes="Điều thứ nhất. Baseline trả về CẢ MỘT CÂU, gold là cụm vài từ. Overlap thì có, trùng khít thì không bao giờ. Minh hoạ trực quan nhất cho việc EM và F1 đo hai thứ khác nhau.">
+  <div class="kicker">Điều bảng nói ra · 1/3</div>
+  <h2>F1 cao, EM gần bằng không</h2>
+  <p class="big">Baseline trả về <span style="color:var(--accent)">cả một câu</span>.<br>
+  Gold là <span style="color:var(--accent-2)">một cụm vài từ</span>.</p>
+  <p style="margin-top:1.5em">Overlap token thì có. Trùng khít thì không bao giờ.</p>
+  <blockquote style="margin-top:1em">EM và F1 đo <b>hai thứ khác nhau</b> — và
+  khoảng cách ấy cho thấy điều đó bằng hình ảnh.</blockquote>
+</section>
+
+<section class="slide" data-notes="Điều thứ hai, kết quả đáng chú ý nhất của bài. Nhìn EM tổng thì mBERT thắng. Nhưng chỉ tính câu CÓ đáp án thì XLM-R zero-shot tốt hơn. Cái làm mBERT thắng là cột impossible.">
+  <div class="kicker">Điều bảng nói ra · 2/3</div>
+  <h2>mBERT thắng — nhưng không phải vì đọc giỏi hơn</h2>
+  <div class="cols">
+    <div>
+      <figure>
+        <img src="../report/assets/figures/em_answerable_vs_impossible.png" alt="EM tách theo câu trả lời được và câu không trả lời được">
+      </figure>
+    </div>
+    <div>
+      <p>Trên câu <b>có đáp án</b>, XLM-R zero-shot thực ra <b>tốt hơn</b>.</p>
+      <p>mBERT thắng tổng thể vì nó <b>biết khi nào không nên trả lời</b>.</p>
+      <blockquote>Fine-tune không dạy mBERT đọc hiểu giỏi hơn.<br>
+      Nó dạy mBERT <b>im lặng đúng lúc</b>.</blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-notes="Điều thứ ba: giả thuyết của bọn em SAI. Nhưng sai có giải thích. ViSoBERT có impossible cao nhất, answerable thấp nhất — nó học cách trả rỗng chứ không học tìm span. Nguyên nhân: vocab nhỏ và lệch miền.">
+  <div class="kicker">Điều bảng nói ra · 3/3</div>
+  <h2>ViSoBERT thất bại — và vì sao vẫn là kết quả hợp lệ</h2>
+  <div class="cols">
+    <div>
+      <p>Model <b>tiếng Việt chuyên biệt</b> xếp <b>dưới cả XLM-R zero-shot</b>.</p>
+      <p>Nó có <b>impossible cao nhất</b>, <b>answerable thấp nhất</b> ⇒ học được
+      cách trả rỗng, không học được cách tìm span.</p>
+      <p class="dim">Vocab ~15 nghìn token, pretrain trên <b>mạng xã hội</b>.
+      MRC Wikipedia đòi hỏi nhận diện <b>tên riêng</b>.</p>
+    </div>
+    <div>
+      <blockquote>Pretrain đúng <b>ngôn ngữ</b> là điều kiện cần, không phải điều
+      kiện đủ. <b>Miền văn bản</b> quan trọng ngang ngôn ngữ.</blockquote>
+      <p class="dim" style="margin-top:1em">Một giả thuyết <b>sai có giải
+      thích</b> đáng giá hơn một giả thuyết đúng không kiểm chứng.</p>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-notes="Chỗ này nên DEMO TRỰC TIẾP. Mở màn Hỏi đáp, chọn đoạn impossible, kéo ngưỡng từ 0 lên 1,5. Model chuyển từ trả lời sang từ chối, cả giao diện đi theo.">
+  <div class="kicker">Demo</div>
+  <h2>Ngưỡng từ chối — bài học của ViQuAD 2.0</h2>
+  <p class="big">Kéo ngưỡng <span style="color:var(--accent-2)">+0,0</span> →
+  <span style="color:var(--accent)">+1,5</span></p>
+  <p style="margin-top:1em">Model chuyển từ <b>trả lời</b> sang <b>từ chối</b> trên
+  cùng một đoạn văn.</p>
+  <p><code>null_delta = null_score − best_span_score</code></p>
+  <p class="dim">Demo hiển thị <b>biên độ</b> chứ không chỉ hiển thị đáp án — vì
+  quyết định mới là thứ đáng xem.</p>
+</section>
+
+<section class="slide" data-notes="Phân tích lỗi. Nhấn mạnh dấu sao: nhóm dưới 30 mẫu được HARNESS tự đánh dấu, không phải người viết nhớ ra. Và nhắc question_type là heuristic tự gán.">
+  <div class="kicker">Phân tích lỗi</div>
+  <h2>Lỗi tập trung ở đâu</h2>
+  <div class="cols">
+    <figure>
+      <img src="../report/assets/figures/f1_by_context_length.png" alt="F1 theo độ dài context">
+      <figcaption>Theo độ dài context (âm tiết)</figcaption>
+    </figure>
+    <figure>
+      <img src="../report/assets/figures/f1_by_question_type.png" alt="F1 theo phạm vi suy luận">
+      <figcaption>Theo phạm vi suy luận — <b>heuristic tự gán</b></figcaption>
+    </figure>
+  </div>
+  <p class="dim" style="margin-top:.8em"><code>*</code> = nhóm có n &lt; 30, harness
+  <b>tự</b> gắn cờ. Không phụ thuộc người viết có nhớ hay không.</p>
+</section>
+
+<section class="slide" data-notes="Đường cong huấn luyện. Điểm hay: hai epoch đầu của ViSoBERT có val_EM bằng val_F1 — dấu hiệu model trả rỗng cho gần như mọi câu. Loss vẫn giảm nên rất dễ đọc nhầm là đang học tốt.">
+  <div class="kicker">Huấn luyện</div>
+  <h2>Khi loss giảm nhưng model đang sụp</h2>
+  <figure>
+    <img src="../report/assets/figures/training_curves.png" alt="Đường cong huấn luyện">
+  </figure>
+  <p style="margin-top:.8em">ViSoBERT hai epoch đầu: <code>val_EM == val_F1</code>
+  ⇒ <b>trả rỗng gần như mọi câu</b>. Epoch 3 mới thoát ra.</p>
+</section>
+
+<section class="slide" data-notes="Phần kỹ thuật. Điểm mạnh nhất của dự án là mọi con số truy được về commit. Kể câu chuyện v1 chết vì báo cáo số chưa từng được sinh ra.">
+  <div class="kicker">Chất lượng kỹ thuật</div>
+  <h2>Bốn bất biến — bắt buộc bằng code</h2>
+  <table>
+    <tr><th>#</th><th>Bất biến</th><th>Cách bắt buộc</th></tr>
+    <tr><td>1</td><td>Đáp án là chuỗi con của context</td><td>Test cho <b>mọi</b> predictor</td></tr>
+    <tr><td>2</td><td>Không leakage giữa các split</td><td><code>assert_no_leakage</code> làm fail run</td></tr>
+    <tr><td>3</td><td>Mỗi số ⟶ file ⟶ commit hash</td><td>Phụ lục xuất xứ, sinh tự động</td></tr>
+    <tr><td>4</td><td>Có <code>n</code> kèm mọi số</td><td>n &lt; 30 tự gắn cờ</td></tr>
+  </table>
+  <blockquote style="margin-top:1.2em">Bản v1 của đề tài này chết vì <b>báo cáo số
+  liệu chưa từng được sinh ra</b>. Đó là lỗi kiến trúc, không phải lỗi cẩu thả.</blockquote>
+</section>
+
+<section class="slide" data-notes="Nói rõ: báo cáo và demo đọc CÙNG file results. Không có đường nào để hai bên nói hai con số khác nhau. Và chạy được chỉ bằng Docker.">
+  <div class="kicker">Tái lập</div>
+  <h2>Một lệnh, không cần cài gì</h2>
+  <div class="cols">
+    <div>
+      <p><code>./run.sh</code> → demo tại <code>localhost:8501</code></p>
+      <p><code>./run.sh test</code> → toàn bộ bộ test</p>
+      <p class="dim">Chỉ cần Docker. Không Python, không mạng, không dựng lại ảnh.</p>
+    </div>
+    <div>
+      <blockquote>Demo và báo cáo đọc <b>cùng</b> những file
+      <code>results/*.json</code> — không có đường nào để lệch số.</blockquote>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-notes="Bốn giới hạn. Nói thẳng, không giấu. Đây là phần cho thấy nhóm hiểu dữ liệu chứ không phải phần trừ điểm.">
+  <div class="kicker">Trung thực</div>
+  <h2>Bốn giới hạn — nêu rõ, không giấu</h2>
+  <ul>
+    <li>Đánh giá trên <b>validation</b>, không phải test — test split là blind set.</li>
+    <li>Tỉ lệ câu <b>impossible</b> đáng kể ⇒ metric tổng <b>trộn hai kỹ năng</b>.</li>
+    <li><code>question_type</code> là <b>heuristic tự gán</b>, không phải nhãn của ViQuAD.</li>
+    <li><b>Cỡ mẫu hữu hạn</b> ⇒ khoảng cách vài điểm <b>không kết luận được</b>.</li>
+  </ul>
+</section>
+
+<section class="slide" data-notes="Kết. Ba điều muốn người nghe nhớ. Rồi mở demo trực tiếp nếu còn thời gian.">
+  <div class="kicker">Kết luận</div>
+  <h2>Ba điều đáng nhớ</h2>
+  <ul>
+    <li>Metric tổng <b>trộn hai kỹ năng</b> — tìm span, và biết khi nào im lặng.
+    Tách ra mới thấy model nào giỏi cái gì.</li>
+    <li>Pretrain đúng <b>ngôn ngữ</b> chưa đủ — <b>miền văn bản</b> quan trọng ngang thế.</li>
+    <li>Mọi con số <b>truy được về một commit</b>. Báo cáo và demo không thể lệch nhau.</li>
+  </ul>
+  <p style="margin-top:2em" class="dim">Cảm ơn thầy và các bạn — mời đặt câu hỏi.</p>
+</section>
+
+<div class="bar">
+  <span id="pos">1 / 15</span>
+  <span class="grow"></span>
+  <span>← → di chuyển · <b>S</b> ghi chú người nói · <b>P</b> in ra PDF</span>
+</div>
+<div class="notes" id="notes"></div>
+
+<script>
+const slides = [...document.querySelectorAll('.slide')];
+const notesBox = document.getElementById('notes');
+const pos = document.getElementById('pos');
+let i = 0, showNotes = false;
+
+function render(){
+  slides.forEach((s, n) => s.classList.toggle('on', n === i));
+  pos.textContent = `${i + 1} / ${slides.length}`;
+  notesBox.textContent = slides[i].dataset.notes || '(không có ghi chú)';
+  notesBox.classList.toggle('on', showNotes);
+  history.replaceState(null, '', '#' + (i + 1));
+}
+function go(step){ i = Math.min(slides.length - 1, Math.max(0, i + step)); render(); }
+
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); go(1); }
+  else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }
+  else if (e.key === 'Home') { i = 0; render(); }
+  else if (e.key === 'End') { i = slides.length - 1; render(); }
+  else if (e.key.toLowerCase() === 's') { showNotes = !showNotes; render(); }
+  else if (e.key.toLowerCase() === 'p') { print(); }
+});
+addEventListener('click', e => { if (!e.target.closest('.notes, .bar')) go(1); });
+
+const start = parseInt(location.hash.slice(1), 10);
+if (start >= 1 && start <= slides.length) i = start - 1;
+render();
+</script>
+</body>
+</html>

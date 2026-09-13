@@ -56,6 +56,12 @@ COPY tests/ ./tests/
 COPY results/ ./results/
 COPY README.md ./
 
+# Báo cáo và slide: nhẹ (~330 kB), và phải có mặt để hai test "cấm gõ tay số đo"
+# CHẠY THẬT trong container. Thiếu chúng thì hai test đó lặng lẽ skip — đúng kiểu
+# xanh giả đã gặp một lần với .dockerignore.
+COPY report/ ./report/
+COPY slides/ ./slides/
+
 # Chính hai file đã dựng ra ảnh này. ``tests/test_docker.py`` đọc chúng để ghim
 # các quyết định đóng gói, và test đó chạy BÊN TRONG container — không mang theo
 # thì ``docker compose run --rm tests`` bỏ qua đúng phần cần kiểm nhất.
