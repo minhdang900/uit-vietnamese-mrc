@@ -138,6 +138,33 @@ Chưa fine-tune thì cứ chạy: thư mục `models/` rỗng làm sidebar báo 
 còn thiếu, XLM-R zero-shot và baseline TF-IDF vẫn dùng được. Cache HuggingFace
 nằm trong named volume `hf-cache`, nên XLM-R chỉ tải một lần (~1,1 GB).
 
+### Đóng gói để nộp
+
+```bash
+docker compose build app                # cần có ảnh trước
+./scripts/make_delivery.sh              # → delivery/  (~1,5 GB, có checkpoint)
+./scripts/make_delivery.sh --no-models  # → delivery/  (~500 MB, không checkpoint)
+```
+
+Sinh ra `delivery/` gồm ảnh Docker đã `docker save`, mã nguồn lấy bằng
+`git archive HEAD`, checkpoint, dữ liệu, `HUONG_DAN.md` và `run.sh`. Người chấm
+chỉ cần Docker:
+
+```bash
+./run.sh            # nạp ảnh rồi mở demo tại http://localhost:8501
+./run.sh test       # chạy bộ test
+./run.sh stop
+```
+
+Không cần Python, không cần mạng, không dựng lại ảnh — `compose.yaml` khai báo
+sẵn `image:` nên nó dùng luôn ảnh vừa nạp. `tests/test_docker.py` ghim tag ảnh
+giữa `make_delivery.sh` và `compose.yaml`: lệch tag thì compose lặng lẽ dựng lại
+từ đầu ngay trên máy người chấm.
+
+Gói **không** kèm `models/*/epoch*/` — đó là checkpoint giữa chừng của quá trình
+huấn luyện, 1,3 GB mà demo không bao giờ nạp (transformers đọc thẳng ở thư mục
+gốc của model). Bỏ chúng là khác biệt giữa gói 1,5 GB và gói 4 GB.
+
 ### Trong container là CPU, không phải MPS
 
 Container Linux không thấy Metal. Demo chạy trong Docker ghi `thiết bị cpu` ở

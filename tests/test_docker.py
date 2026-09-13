@@ -215,3 +215,20 @@ def test_docker_files_are_not_excluded_from_the_build_context():
     """
     assert "Dockerfile" not in dockerignore_patterns()
     assert "compose.yaml" not in dockerignore_patterns()
+
+
+def test_delivery_script_packages_the_same_image_compose_runs():
+    """Gói nộp bài và compose.yaml phải nói về CÙNG một tag ảnh.
+
+    ``make_delivery.sh`` chạy ``docker save <tag>``, còn người chấm chạy
+    ``docker compose up`` — nếu hai bên lệch tag thì compose không thấy ảnh vừa
+    load và lặng lẽ **dựng lại từ đầu**, mất nhiều phút và cần mạng. Đúng thứ
+    không được phép xảy ra trên máy người chấm.
+    """
+    script = ROOT / "scripts" / "make_delivery.sh"
+    assert script.is_file(), "thiếu scripts/make_delivery.sh"
+
+    tag = compose()["services"]["app"]["image"]
+    assert tag in script.read_text(encoding="utf-8"), (
+        f"make_delivery.sh không đóng gói tag {tag!r} mà compose.yaml dùng"
+    )

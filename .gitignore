@@ -10,3 +10,6 @@ models/
 *.safetensors
 .DS_Store
 .omc/
+
+# Gói nộp bài do scripts/make_delivery.sh sinh ra — chứa ảnh Docker ~600 MB.
+delivery/
