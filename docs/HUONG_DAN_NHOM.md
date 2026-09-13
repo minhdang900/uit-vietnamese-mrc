@@ -21,7 +21,7 @@ Python-ML/
 | Cần gì | Vào đâu |
 |---|---|
 | Chạy demo, chạy test | `uit-vietnamese-mrc/` |
-| Sửa báo cáo | `06_BaoCao_T11/src/chapters/*.tex` |
+| Sửa báo cáo | `06_BaoCao_T11/02_NGUON_BAO_CAO/chapters/*.tex` |
 | Slide thuyết trình | `uit-vietnamese-mrc/slides/index.html` |
 | Bảng số, hình cho báo cáo | `uit-vietnamese-mrc/report/assets/` |
 | Kết quả gốc (nguồn của mọi con số) | `uit-vietnamese-mrc/results/*.json` |
@@ -127,16 +127,16 @@ cho thấy đáp án cuối cùng."*
 
 ## 3. Báo cáo — đang ở đâu, sửa thế nào
 
-**File nộp:** `06_BaoCao_T11/Bao_Cao_Do_An_CS116_T11.pdf` — A4, **55 trang**,
+**File nộp:** `06_BaoCao_T11/01_NOP_BAI/Bao_Cao_Do_An_CS116_T11.pdf` — A4, **55 trang**,
 theo đúng cấu trúc mẫu báo cáo cuối kỳ của trường.
 
 ### 3.1 Sửa và biên dịch
 
 ```bash
-cd 06_BaoCao_T11/src
+cd 06_BaoCao_T11/02_NGUON_BAO_CAO
 # sửa chapters/*.tex
 latexmk -xelatex main.tex
-cp main.pdf ../Bao_Cao_Do_An_CS116_T11.pdf
+cp main.pdf ../01_NOP_BAI/Bao_Cao_Do_An_CS116_T11.pdf
 ```
 
 Cần TeX Live có XeLaTeX. Chương nào ở file nào:
