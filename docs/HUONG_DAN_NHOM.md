@@ -127,7 +127,7 @@ cho thấy đáp án cuối cùng."*
 
 ## 3. Báo cáo — đang ở đâu, sửa thế nào
 
-**File nộp:** `06_BaoCao_T11/01_NOP_BAI/Bao_Cao_Do_An_CS116_T11.pdf` — A4, **55 trang**,
+**File nộp:** `06_BaoCao_T11/01_NOP_BAI/Bao_Cao_Do_An_CS116_T11.pdf` — A4, **60 trang**,
 theo đúng cấu trúc mẫu báo cáo cuối kỳ của trường.
 
 ### 3.1 Sửa và biên dịch
@@ -159,7 +159,7 @@ Cần TeX Live có XeLaTeX. Chương nào ở file nào:
 | Số test | 251 (210+41) | **474 (423+51)**, độ phủ 75% |
 | Kích thước từ vựng ViSoBERT | 15.004 | **15.002** |
 | Ảnh demo | bản một trang cũ | bản sáu màn hình, có minh hoạ ngưỡng |
-| PDF nộp | cũ, 49 trang | dựng lại, **55 trang** |
+| PDF nộp | cũ, 49 trang | dựng lại, **60 trang** (bổ sung phân tích từ `08_PHAN_TICH/`) |
 
 > **Vì sao đổi 15.004 → 15.002:** `config.json` khai báo ma trận nhúng 15.004
 > hàng, nhưng tokenizer chỉ sinh ra 15.002 token phân biệt — hai hàng nhúng không
@@ -199,8 +199,8 @@ Chi tiết bốn bất biến: `docs/PLAN_TDD.md` §10.1.
 | Việc | Trạng thái |
 |---|---|
 | PR #2 (báo cáo + slide) | **Đang mở**, chưa merge |
-| Độ dài báo cáo | 55 trang, vượt mốc 30–50 ghi trong `PLAN_TDD.md` §10.2. Mẫu của trường là 42 trang — có thể vẫn ổn, nên hỏi thầy |
-| Tên trong `05_DoAn_T11_MRC/` | Vẫn là "Võ Cẩm Thu" ở 4 file. Đó là dự án v1 đã bỏ, chưa sửa |
+| Độ dài báo cáo | 60 trang tổng, nhưng **thân bài (ch. 1–5) chỉ 41 trang** — nằm trong mốc 30–50 của `PLAN_TDD.md` §10.2. Mười trang còn lại là tài liệu tham khảo + phụ lục A–E |
+| Tên trong `05_DoAn_T11_MRC/` | **Đã sửa** thành "Vỏ Cẩm Thu" ở cả 4 file (dự án v1 đã bỏ) |
 | `docs/ARCHITECTURE.md`, `docs/SYSTEM_DESIGN.md` | Chưa commit, chưa ai rà lại |
 | `results/streamlit.log` | Đang sửa đổi trong working tree, cố ý chưa commit (log chạy demo) |
 
