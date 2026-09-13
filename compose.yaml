@@ -1,0 +1,95 @@
+# Chạy dự án bằng Docker Compose — kiểm thử và demo, không cần cài Python.
+#
+#     docker compose run --rm tests      # bộ test nhanh, không mạng, không model
+#     docker compose up app              # demo web tại http://localhost:8501
+#
+# Bốn service, một ảnh. Khác nhau ở ``command`` và ở chỗ thư mục nào được mount
+# cho ghi — chứ không ở thư viện, để không bao giờ có chuyện test xanh trên một
+# bộ thư viện còn demo chạy trên bộ khác.
+
+name: vietnamese-mrc
+
+# ── Mảnh dùng lại ────────────────────────────────────────────────────────────
+x-image: &image
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: vietnamese-mrc:latest
+
+x-runtime-env: &runtime-env
+  # Tokenizer của HuggingFace fork thread rồi cảnh báo ầm ĩ khi tiến trình cha
+  # cũng fork. Tắt hẳn: demo chạy một câu hỏi một lần, song song hoá ở tầng
+  # tokenizer không đem lại gì ngoài log rác.
+  TOKENIZERS_PARALLELISM: "false"
+  # Giới hạn thread của torch. Mặc định nó lấy hết số CPU mà container *nhìn
+  # thấy* (kể cả phần bị cgroup cắt), rồi tự bóp cổ mình vì tranh chấp thread.
+  OMP_NUM_THREADS: "4"
+
+services:
+  # ── Demo: sáu màn hình, mỗi màn hình một URL ───────────────────────────────
+  app:
+    <<: *image
+    environment:
+      <<: *runtime-env
+      # Cấu hình server đặt ở đây chứ KHÔNG phải .streamlit/config.toml: file đó
+      # là hệ thiết kế, dùng chung với lúc chạy trên máy thật. Nhét
+      # ``headless = true`` vào đó thì chạy ở máy sẽ không tự mở trình duyệt nữa.
+      STREAMLIT_SERVER_ADDRESS: "0.0.0.0"
+      STREAMLIT_SERVER_PORT: "8501"
+      STREAMLIT_SERVER_HEADLESS: "true"
+      STREAMLIT_BROWSER_GATHER_USAGE_STATS: "false"
+      # Bộ theo dõi file của Streamlit duyệt đệ quy ``__path__`` của mọi module
+      # đã nạp, và với ``torch.classes`` việc đó ném RuntimeError ngay lúc khởi
+      # động. Trong container mã nguồn là bất biến nên chẳng có gì để theo dõi.
+      STREAMLIT_SERVER_FILE_WATCHER_TYPE: "none"
+    ports:
+      - "${MRC_PORT:-8501}:8501"
+    volumes:
+      # Ba thư mục này là DỮ LIỆU, không phải mã nguồn — chúng đổi khi ta huấn
+      # luyện lại hoặc chấm lại, nên mount để thay được mà không dựng lại ảnh.
+      # Tất cả read-only: demo chỉ đọc, và ``:ro`` biến bất biến "demo không sinh
+      # ra con số nào" thành thứ kernel tự bắt buộc.
+      - ./models:/app/models:ro
+      - ./data:/app/data:ro
+      - ./results:/app/results:ro
+      # XLM-R zero-shot tải ~1,1 GB từ Hub ở lần hỏi đầu tiên. Named volume giữ
+      # lại, nên chỉ lần ``up`` đầu là chậm.
+      - hf-cache:/home/app/.cache/huggingface
+    restart: unless-stopped
+
+  # ── Bộ test nhanh: vòng lặp TDD, ~1 giây ──────────────────────────────────
+  tests:
+    <<: *image
+    profiles: ["test"]
+    environment:
+      <<: *runtime-env
+      # Bộ test nhanh KHÔNG được chạm mạng — fixture là mini-dataset inline.
+      # Đặt cờ offline để lỡ ai lén thêm một lần tải model vào test thì nó gãy
+      # ngay tại đây, thay vì làm CI chậm đi vài phút mà không ai để ý.
+      HF_HUB_OFFLINE: "1"
+    command: ["pytest", "-m", "not slow"]
+
+  # ── Bộ test đầy đủ: có cả test tải model thật ─────────────────────────────
+  tests-full:
+    <<: *image
+    profiles: ["test-full"]
+    environment: *runtime-env
+    volumes:
+      - hf-cache:/home/app/.cache/huggingface
+    command: ["pytest"]
+
+  # ── Một lần: tải UIT-ViQuAD 2.0 về data/raw/ ──────────────────────────────
+  # Màn hình "Dữ liệu" đếm thống kê trực tiếp từ file này; không có nó thì màn
+  # hình tự nói ra là cần chạy bước này. Đây là service DUY NHẤT mount ./data
+  # cho ghi.
+  fetch-data:
+    <<: *image
+    profiles: ["data"]
+    environment: *runtime-env
+    volumes:
+      - ./data:/app/data
+      - hf-cache:/home/app/.cache/huggingface
+    command: ["python", "scripts/fetch_data.py"]
+
+volumes:
+  hf-cache:
