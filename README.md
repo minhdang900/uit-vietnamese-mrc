@@ -365,6 +365,8 @@ biên độ từ chối lấy từ `TransformerQA.predict_detailed`, không ph�
 
 ## Tài liệu
 
+- **`docs/HUONG_DAN_NHOM.md` — hướng dẫn cho thành viên nhóm: chạy, thuyết trình,
+  bắt kịp báo cáo. Bắt đầu từ đây nếu bạn chưa theo sát phần code.**
 - `docs/SOLUTION.md` — đề xuất giải pháp và tech stack, kèm lý do từng lựa chọn
 - `docs/PLAN_TDD.md` — kế hoạch TDD 9 phase với đặc tả test từng phase
 - `results/hypotheses.md` — giả thuyết đăng ký **trước** khi chạy thực nghiệm
