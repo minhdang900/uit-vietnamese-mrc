@@ -96,6 +96,96 @@ uv pip install -r requirements.txt
 Yêu cầu Python **3.12+** (PyTorch không có wheel cho 3.9). Trên Apple Silicon,
 PyTorch tự dùng **MPS**; không cần cấu hình gì thêm.
 
+## Chạy bằng Docker — không cần cài gì ngoài Docker
+
+Dành cho lúc nộp bài và lúc chấm: một lệnh chạy test, một lệnh mở demo.
+
+```bash
+docker compose run --rm tests     # 398 test, ~1 giây, KHÔNG cần mạng
+docker compose up app             # demo tại http://localhost:8501
+docker compose down               # dọn
+```
+
+Cả hai dùng **chung một ảnh**, khác nhau ở lệnh chạy — nên không bao giờ có
+chuyện test xanh trên một bộ thư viện còn demo chạy trên bộ khác.
+
+| Service | Lệnh | Việc |
+|---|---|---|
+| `app` | `docker compose up app` | Demo web, cổng 8501 (đổi bằng `MRC_PORT=8600`) |
+| `tests` | `docker compose run --rm tests` | Bộ test nhanh, `HF_HUB_OFFLINE=1` |
+| `tests-full` | `docker compose run --rm tests-full` | Đủ 449 test, có tải model thật |
+| `fetch-data` | `docker compose run --rm fetch-data` | Tải UIT-ViQuAD 2.0 về `data/raw/` |
+
+Ba service sau nằm sau profile nên `docker compose up` chỉ dựng demo; `run` tự
+bật profile của service nó gọi.
+
+Bản thân hợp đồng đóng gói cũng được ghim bằng test: `tests/test_docker.py` đọc
+`Dockerfile`, `compose.yaml` và `.dockerignore` để khẳng định mount dữ liệu là
+read-only, `up` không kéo theo pytest, torch đến từ index CPU trên mọi kiến
+trúc, và thư mục cache thuộc về người dùng `app`. Ba file đó được COPY vào ảnh
+nên bộ test **tự kiểm chính môi trường đang chạy nó**.
+
+### Cái gì nằm trong ảnh, cái gì được mount
+
+Ảnh chứa **mã nguồn và `results/`** — tức mọi thứ đã commit. Nó **không** chứa
+`models/` (3,4 GB) và `data/raw/` (16 MB): cả hai đều trong `.gitignore` vì là
+sản phẩm của một lần chạy trên một máy cụ thể, nướng vào ảnh thì ảnh vừa phình
+lên vừa hết tái lập được. Compose mount chúng lúc chạy, **read-only** — bất biến
+"demo không sinh ra con số nào" do đó được kernel bắt buộc chứ không chỉ là quy
+ước.
+
+Chưa fine-tune thì cứ chạy: thư mục `models/` rỗng làm sidebar báo checkpoint
+còn thiếu, XLM-R zero-shot và baseline TF-IDF vẫn dùng được. Cache HuggingFace
+nằm trong named volume `hf-cache`, nên XLM-R chỉ tải một lần (~1,1 GB).
+
+### Đóng gói để nộp
+
+```bash
+docker compose build app                # cần có ảnh trước
+./scripts/make_delivery.sh              # → delivery/  (~1,5 GB, có checkpoint)
+./scripts/make_delivery.sh --no-models  # → delivery/  (~500 MB, không checkpoint)
+```
+
+Sinh ra `delivery/` gồm ảnh Docker đã `docker save`, mã nguồn lấy bằng
+`git archive HEAD`, checkpoint, dữ liệu, `HUONG_DAN.md` và `run.sh`. Người chấm
+chỉ cần Docker:
+
+```bash
+./run.sh            # nạp ảnh rồi mở demo tại http://localhost:8501
+./run.sh test       # chạy bộ test
+./run.sh stop
+```
+
+Không cần Python, không cần mạng, không dựng lại ảnh — `compose.yaml` khai báo
+sẵn `image:` nên nó dùng luôn ảnh vừa nạp. `tests/test_docker.py` ghim tag ảnh
+giữa `make_delivery.sh` và `compose.yaml`: lệch tag thì compose lặng lẽ dựng lại
+từ đầu ngay trên máy người chấm.
+
+Gói **không** kèm `models/*/epoch*/` — đó là checkpoint giữa chừng của quá trình
+huấn luyện, 1,3 GB mà demo không bao giờ nạp (transformers đọc thẳng ở thư mục
+gốc của model). Bỏ chúng là khác biệt giữa gói 1,5 GB và gói 4 GB.
+
+### Trong container là CPU, không phải MPS
+
+Container Linux không thấy Metal. Demo chạy trong Docker ghi `thiết bị cpu` ở
+chân thẻ đáp án và **chậm hơn ~4 lần** bản chạy thẳng trên máy (đo được 57,0 ms
+so với 13,5 ms cho cùng câu hỏi mở màn). Chỉ là độ trễ — span trả về y hệt.
+
+Bảng kết quả trong `results/*.json` vẫn là của lần chạy **MPS**, và mỗi màn hình
+đều in kèm thiết bị sinh ra nó, nên hai con số không thể bị nhầm lẫn với nhau.
+
+Vì không service nào xin GPU, Dockerfile cài PyTorch từ **index CPU** của
+PyTorch trước khi đọc `requirements.txt` — trên mọi kiến trúc, không chỉ amd64.
+Bản dựng đầu tiên chỉ ép CPU cho amd64, và ảnh arm64 sinh ra mang theo 3,3 GB
+thư viện CUDA của NVIDIA cùng 817 MB Triton: wheel aarch64 của torch 2.x **cũng**
+khai báo các gói `nvidia-*`. Bỏ điều kiện theo kiến trúc, `site-packages` rút từ
+6,1 GB xuống 1,7 GB:
+
+| | ảnh đầu | sau khi ép CPU |
+|---|---:|---:|
+| Dung lượng đĩa | 10,2 GB | **2,48 GB** |
+| Dung lượng truyền (nén) | 3,52 GB | **527 MB** |
+
 ## Chạy
 
 ```bash
@@ -116,9 +206,23 @@ python scripts/run_eval.py --models baseline xlmr mbert visobert --full
 # 5. Sinh toàn bộ hình cho báo cáo từ results/*.json
 python scripts/make_figures.py
 
-# 6. Demo web
+# 5b. Gom vật liệu báo cáo (bảng + xuất xứ + bản sao hình) → report/assets/
+python scripts/make_report.py
+
+# 6. Demo web — sáu màn hình, mỗi màn hình một URL
 streamlit run app/streamlit_app.py
 ```
+
+Demo mở ở màn hình **Hỏi đáp**; năm màn hình còn lại deep-link được, tiện lúc
+thuyết trình: `/ket-qua`, `/phan-tich-loi`, `/du-lieu`, `/so-sanh`, `/huan-luyen`.
+
+Mở bằng URL là mở một phiên mới, nên model và ngưỡng quay về mặc định (mBERT,
+ngưỡng +0,0) — đúng thứ ta muốn khi nhảy thẳng vào một slide. Bấm điều hướng
+trong sidebar thì lựa chọn được giữ nguyên giữa các màn hình.
+
+Không cần `pip install -e .`: `app/streamlit_app.py` tự đưa `src/` vào `sys.path`.
+Chưa fine-tune thì demo vẫn chạy — sidebar báo checkpoint nào còn thiếu, và
+XLM-R zero-shot cùng baseline TF-IDF vẫn dùng được ngay.
 
 ## Kiểm thử
 
@@ -174,7 +278,25 @@ src/mrc/
   transformer_qa.py  inference với QA head
   features.py        map vị trí đáp án ký tự → token cho fine-tuning
   evaluate.py        harness + provenance + breakdown
+
+src/demo/            logic của demo, test được mà không chạy Streamlit
+  logic.py           gọi predictor, và quyết định trả lời/từ chối theo ngưỡng
+  results.py         CHỖ DUY NHẤT đọc results/*.json và data/raw/
+  render.py          hàm thuần dữ liệu → HTML cho từng khối giao diện
+  theme.py           token hệ thiết kế + CSS + escape
+  catalog.py         danh mục model, màn hình, thành viên nhóm (không có metric)
+  text.py, vi.py     đếm âm tiết, cắt câu; định dạng số kiểu Việt
+
+app/                 CHỈ gọi widget Streamlit — không có logic
+  streamlit_app.py   entry, điều hướng sáu màn hình
+  shell.py           theme, state dùng chung, sidebar
+  screens/*.py       một module mỗi màn hình
 ```
+
+Ranh giới `app/` ↔ `src/demo/` được giữ cố ý: một `SyntaxError` trong file app
+từng làm hỏng demo mà không test nào bắt được. Mọi thứ quyết định *nội dung* nằm
+trong `src/demo/` dưới dạng hàm thuần; `app/` chỉ ghép chúng lại. Test compile và
+import **mọi** file trong `app/`, không riêng file entry.
 
 ### Ba quyết định đặc thù tiếng Việt (đều được pin bằng test)
 
@@ -223,6 +345,12 @@ phần giới hạn của báo cáo.
 2. **Không leakage** — `assert_no_leakage()` chạy trong mọi đường split và **làm fail run**.
 3. **Truy vết được** — mọi kết quả mang `commit`, `timestamp`, `device`, `split`, `n`.
 4. **Có n kèm số** — nhóm `count < 30` tự gắn `unreliable: true`; không bảng nào có số thiếu n.
+
+Demo web chịu đúng bốn bất biến đó: mọi con số trên màn hình đọc từ
+`results/*.json` hoặc đo trực tiếp từ `data/raw/` qua `demo.results`, kể cả thứ
+hạng "tốt nhất" và ô in đậm trong bảng so sánh — chúng được **tính** từ dữ liệu,
+không gõ tay, nên huấn luyện lại là màn hình tự nói đúng. Thanh "độ tin cậy" và
+biên độ từ chối lấy từ `TransformerQA.predict_detailed`, không phải số minh hoạ.
 
 ## Giới hạn (nêu rõ trong báo cáo)
 

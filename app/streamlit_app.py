@@ -1,84 +1,69 @@
 """Demo web cho hệ thống đọc hiểu tiếng Việt.
 
-Chỉ là lớp UI: mọi logic nằm trong ``demo.logic``, nơi nó được test không cần
-chạy Streamlit.
+Chỉ là lớp UI: mọi logic nằm trong ``demo.*``, nơi nó được test không cần chạy
+Streamlit. Tệp này và mọi tệp trong ``app/`` chỉ được phép gọi widget Streamlit
+và ghép các mảnh đã có test lại với nhau.
 
     streamlit run app/streamlit_app.py
+
+Sáu màn hình, mỗi màn hình một URL riêng (``?/ket-qua``) để lúc thuyết trình mở
+thẳng được chỗ cần thay vì bấm qua từng bước.
 """
 
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
-from demo.logic import answer, highlight
+# Đặt sys.path TRƯỚC mọi import của dự án. ``streamlit run`` chỉ đưa thư mục
+# ``app/`` vào path, còn pytest đưa gốc repo vào — không bối cảnh nào tự thấy
+# ``src/``. Vài dòng ở đây rẻ hơn việc bắt người chấm phải ``pip install -e .``
+# trước khi demo chạy được.
+_ROOT = Path(__file__).resolve().parents[1]
+for _path in (_ROOT, _ROOT / "src"):
+    if str(_path) not in sys.path:
+        sys.path.insert(0, str(_path))
 
-AVAILABLE_MODELS = {
-    "XLM-R (squad2, zero-shot)": "deepset/xlm-roberta-base-squad2",
-    "mBERT (fine-tuned trên ViQuAD)": "models/mbert",
-    "ViSoBERT (fine-tuned trên ViQuAD)": "models/visobert",
+from app import shell  # noqa: E402
+from app.screens import ask, compare, data, errors, results, training  # noqa: E402
+from demo.catalog import APP_TITLE, NAV  # noqa: E402
+
+#: Hàm dựng của từng màn hình, khớp khoá với ``demo.catalog.NAV``.
+SCREENS = {
+    "ask": ask.render,
+    "results": results.render,
+    "errors": errors.render,
+    "data": data.render,
+    "compare": compare.render,
+    "training": training.render,
 }
-
-#: ViSoBERT chia từ nhỏ hơn nhiều (vocab 15k) nên cần giới hạn span dài hơn.
-MAX_ANSWER_LEN = {"models/visobert": 64}
-
-DEFAULT_CONTEXT = (
-    "Hà Nội là thủ đô của nước Cộng hoà Xã hội chủ nghĩa Việt Nam. "
-    "Thành phố nằm bên bờ sông Hồng, có diện tích khoảng 3.359 km² và "
-    "dân số hơn tám triệu người. Hà Nội được UNESCO công nhận là Thành phố "
-    "vì hoà bình vào năm 1999."
-)
 
 
 def main() -> None:  # pragma: no cover - lớp UI
     import streamlit as st
 
-    st.set_page_config(page_title="Đọc hiểu tiếng Việt — CS116 T11", page_icon="📖")
-    st.title("📖 Hệ thống đọc hiểu và trả lời câu hỏi tiếng Việt")
-    st.caption(
-        "Extractive MRC trên UIT-ViQuAD 2.0 · CS116 đề tài T11 · "
-        "Mô hình trích xuất answer span từ context, không sinh chữ mới."
+    st.set_page_config(
+        page_title=APP_TITLE,
+        page_icon="📖",
+        layout="wide",
+        initial_sidebar_state="expanded",
     )
 
-    installed = {
-        label: path for label, path in AVAILABLE_MODELS.items()
-        if not path.startswith("models/") or Path(path).exists()
+    shell.inject_theme()
+    shell.init_state()
+
+    # ``url_path`` chỉ truyền khi khác rỗng: trang mặc định sống ở gốc ``/`` và
+    # Streamlit từ chối một url_path rỗng.
+    pages = {
+        key: st.Page(SCREENS[key], title=label, default=(url == ""),
+                     **({"url_path": url} if url else {}))
+        for key, label, url in NAV
     }
-    if not installed:
-        st.error("Chưa có model nào. Chạy `python scripts/finetune.py` trước.")
-        return
+    shell.register_pages(pages)
+    page = st.navigation(list(pages.values()), position="hidden")
 
-    label = st.sidebar.selectbox("Mô hình", list(installed))
-    null_threshold = st.sidebar.slider(
-        "Ngưỡng 'không có đáp án'", -10.0, 10.0, 0.0, 0.5,
-        help="Tăng ⇒ model dè dặt hơn, hay trả lời rỗng (Precision ↑). "
-             "Giảm ⇒ mạnh dạn trả lời hơn (Recall ↑).",
-    )
-
-    @st.cache_resource(show_spinner="Đang tải model…")
-    def load(path: str, threshold: float):
-        from mrc.transformer_qa import TransformerQA
-
-        return TransformerQA(path, null_threshold=threshold, name=path,
-                             max_answer_len=MAX_ANSWER_LEN.get(path, 30))
-
-    predictor = load(installed[label], null_threshold)
-    st.sidebar.success(f"device: `{predictor.device}`")
-
-    context = st.text_area("Đoạn văn (context)", DEFAULT_CONTEXT, height=170)
-    question = st.text_input("Câu hỏi", "Hà Nội được UNESCO công nhận vào năm nào?")
-
-    if st.button("Trả lời", type="primary"):
-        result = answer(context, question, predictor)
-        if result["found"]:
-            st.success(f"**Đáp án:** {result['answer']}")
-            st.markdown("**Vị trí trong đoạn văn:**")
-            st.markdown(highlight(context, result["span"]))
-        else:
-            st.warning(
-                "Model cho rằng **đoạn văn không chứa câu trả lời**. Đây là hành vi "
-                "đúng với ViQuAD 2.0 — khoảng 30% câu hỏi thuộc loại không có đáp án "
-                "(unanswerable)."
-            )
-        st.caption(f"Thời gian suy luận: {result['latency_ms']} ms · "
-                   f"thiết bị: {predictor.device}")
+    shell.sidebar(pages, page)
+    page.run()
 
 
 if __name__ == "__main__":  # pragma: no cover

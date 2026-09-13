@@ -212,3 +212,123 @@ class TestMakeWindows:
         a = make_windows("q?", ctx, tok, max_length=128, doc_stride=32)
         b = make_windows("q?", ctx, tok, max_length=128, doc_stride=32)
         assert [w.offset_mapping for w in a] == [w.offset_mapping for w in b]
+
+
+# ══════════════════════════════════════════════════════════════════════
+# score_spans — bằng chứng mà select_best_span vứt đi
+#
+# ĐẶC TẢ: chấm mọi cặp (start, end) hợp lệ, trả về top-k kèm xác suất và điểm
+# null, KHÔNG áp ngưỡng. Demo đọc những số này để giải thích quyết định của
+# model; nếu chúng không khớp với span mà select_best_span chọn thì giao diện
+# đang nói dối về chính model của nó.
+# ══════════════════════════════════════════════════════════════════════
+from mrc.windowing import score_spans  # noqa: E402
+
+#: [CLS] q [SEP] "Hà" "Nội" "là" "thủ đô" [SEP] — hai token đầu là đáp án.
+_OFFSETS = [None, None, None, (0, 2), (3, 6), (7, 9), (10, 16), None]
+
+
+def _logits(*pairs):
+    """Dựng (start_logits, end_logits) dài 8 từ các cặp (index, giá trị)."""
+    start = [0.0] * 8
+    end = [0.0] * 8
+    for idx, s, e in pairs:
+        start[idx], end[idx] = s, e
+    return start, end
+
+
+def test_score_spans_ranks_the_same_span_select_best_span_picks():
+    start, end = _logits((3, 5.0, 0.0), (4, 0.0, 4.0))
+    scores = score_spans(start, end, _OFFSETS)
+    assert (scores.best.start_char, scores.best.end_char) == select_best_span(
+        start, end, _OFFSETS
+    )
+
+
+def test_score_spans_returns_alternatives_below_the_winner():
+    start, end = _logits((3, 5.0, 0.0), (4, 1.0, 4.0), (6, 0.5, 2.0))
+    scores = score_spans(start, end, _OFFSETS, top_k=3)
+    assert len(scores.candidates) > 1
+    assert scores.candidates[0].score > scores.candidates[1].score
+
+
+def test_score_spans_alternatives_are_distinct_character_ranges():
+    start, end = _logits((3, 5.0, 1.0), (4, 2.0, 4.0), (5, 1.0, 3.0), (6, 0.5, 2.0))
+    spans = score_spans(start, end, _OFFSETS, top_k=3).candidates
+    ranges = [(s.start_char, s.end_char) for s in spans]
+    assert len(ranges) == len(set(ranges))
+
+
+def test_score_spans_probabilities_are_between_zero_and_one():
+    start, end = _logits((3, 5.0, 0.0), (4, 0.0, 4.0), (6, 1.0, 1.0))
+    for span in score_spans(start, end, _OFFSETS, top_k=3).candidates:
+        assert 0.0 <= span.prob <= 1.0
+
+
+def test_score_spans_probabilities_are_ordered_like_scores():
+    start, end = _logits((3, 5.0, 0.0), (4, 1.0, 4.0), (6, 0.5, 2.0))
+    spans = score_spans(start, end, _OFFSETS, top_k=3).candidates
+    assert spans[0].prob > spans[1].prob
+
+
+def test_score_spans_survives_large_logits_without_overflow():
+    """log-sum-exp chạy dòng: logit 800 làm math.exp tràn nếu tính ngây thơ."""
+    start, end = _logits((3, 800.0, 0.0), (4, 0.0, 800.0))
+    assert score_spans(start, end, _OFFSETS).best.prob > 0.0
+
+
+def test_score_spans_reports_the_null_score():
+    start, end = _logits((0, 3.0, 2.0), (3, 5.0, 0.0), (4, 0.0, 4.0))
+    assert score_spans(start, end, _OFFSETS).null_score == 5.0
+
+
+def test_null_delta_is_negative_when_the_span_beats_null():
+    start, end = _logits((0, 0.0, 0.0), (3, 5.0, 0.0), (4, 0.0, 4.0))
+    assert score_spans(start, end, _OFFSETS).null_delta < 0
+
+
+def test_null_delta_is_positive_when_null_beats_the_span():
+    start, end = _logits((0, 9.0, 9.0), (3, 1.0, 0.0), (4, 0.0, 1.0))
+    assert score_spans(start, end, _OFFSETS).null_delta > 0
+
+
+def test_null_delta_sign_matches_the_abstain_decision_of_select_best_span():
+    """Bất biến gắn thanh đo của demo với quyết định thật của model."""
+    start, end = _logits((0, 4.0, 4.0), (3, 3.0, 0.0), (4, 0.0, 3.0))
+    delta = score_spans(start, end, _OFFSETS).null_delta
+    for threshold in (-4.0, -1.0, 0.0, 1.0, 4.0):
+        abstains = select_best_span(start, end, _OFFSETS, null_threshold=threshold) is None
+        assert abstains == (delta + threshold >= 0)
+
+
+def test_score_spans_start_end_probabilities_favour_the_chosen_tokens():
+    start, end = _logits((3, 8.0, 0.0), (4, 0.0, 8.0))
+    scores = score_spans(start, end, _OFFSETS)
+    assert scores.start_prob > 0.9 and scores.end_prob > 0.9
+
+
+def test_score_spans_ignores_question_tokens_in_the_probabilities():
+    """Token của question có logit cao vẫn không được vào mẫu số softmax."""
+    start, end = _logits((1, 50.0, 50.0), (3, 8.0, 0.0), (4, 0.0, 8.0))
+    assert score_spans(start, end, _OFFSETS).start_prob > 0.9
+
+
+def test_score_spans_respects_max_answer_len():
+    start, end = _logits((3, 5.0, 0.0), (6, 0.0, 5.0))
+    best = score_spans(start, end, _OFFSETS, max_answer_len=1).best
+    assert best.end_char - best.start_char <= 2
+
+
+def test_score_spans_returns_none_without_context_tokens():
+    start, end = _logits((0, 1.0, 1.0))
+    assert score_spans(start, end, [None, None, None]) is None
+
+
+def test_score_spans_returns_none_on_empty_logits():
+    assert score_spans([], [], _OFFSETS) is None
+
+
+def test_score_spans_null_score_is_none_without_a_cls_token():
+    start, end = _logits((3, 5.0, 0.0), (4, 0.0, 4.0))
+    scores = score_spans(start, end, _OFFSETS, cls_index=99)
+    assert scores.null_score is None and scores.null_delta is None

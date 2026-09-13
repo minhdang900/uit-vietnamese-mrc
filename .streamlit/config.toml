@@ -1,0 +1,58 @@
+# Hệ thiết kế "Organic" khai báo bằng chính theme engine của Streamlit.
+#
+# Đặt ở đây thay vì nhồi CSS: token nào Streamlit hiểu được thì mọi widget dựng
+# sẵn (nút, slider, bảng, biểu đồ) tự theo, kể cả những widget demo chưa dùng tới.
+# CSS trong ``demo.theme`` chỉ lo phần còn lại — bố cục vỏ và các khối HTML tự vẽ.
+#
+# ⚠️ Hai font được chọn vì phủ ĐỦ dấu tiếng Việt. Caprasimo và Figtree của hệ
+# thiết kế gốc chỉ có subset latin/latin-ext, nên mọi chữ có dấu (ế, ộ, ữ, ậ…) rơi
+# về font hệ thống và trang đọc như hai kiểu chữ dán vào nhau. Thay font khác phải
+# kiểm tra lại: cần phủ U+0102-0103, U+0110-0111, U+01A0-01A1, U+01AF-01B0,
+# U+1EA0-1EF9.
+
+[theme]
+base = "light"
+
+primaryColor = "#c67139"            # accent — terracotta
+backgroundColor = "#f5ead8"         # nền cột chính
+secondaryBackgroundColor = "#ebddc5"
+textColor = "#201e1d"
+borderColor = "#d3c9ba"             # = #201e1d 16% trên nền, tô phẳng
+linkColor = "#8c491a"               # accent-700: accent thuần chỉ đạt ~3:1
+codeBackgroundColor = "#f9f4ed"     # neutral-100
+codeTextColor = "#474238"           # neutral-800
+
+font = "Nunito:https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300..900;1,400&display=swap"
+headingFont = "Baloo 2:https://fonts.googleapis.com/css2?family=Baloo+2:wght@400..800&display=swap"
+headingFontWeights = [800, 800, 800, 800, 800, 800]
+headingFontSizes = ["38px", "22px", "25px", "20px", "16px", "13px"]
+baseFontSize = 15
+
+# Badge màu của Streamlit được kéo về đúng ramp của hệ thiết kế, nhờ vậy
+# ``:green-badge[đúng]`` trong nhãn widget ra đúng cặp màu sage/terracotta mà bản
+# thiết kế quy định cho phán quyết, không phải màu mặc định của Streamlit.
+greenColor = "#56633f"
+greenBackgroundColor = "#e1eecc"
+greenTextColor = "#3d472b"
+orangeColor = "#8c491a"
+orangeBackgroundColor = "#ffe1d0"
+orangeTextColor = "#643312"
+grayColor = "#645c50"
+grayBackgroundColor = "#eee7db"
+grayTextColor = "#474238"
+
+baseRadius = "16px"                 # radius-md cho khối
+buttonRadius = "full"               # nút, chip, segmented control là viên thuốc
+showSidebarBorder = false
+
+# EM dùng accent, F1 dùng accent-2 — giống quy ước màu của các thanh trong báo cáo.
+chartCategoricalColors = ["#c67139", "#8fa073", "#b2622d", "#728157", "#82796a"]
+chartSequentialColors = [
+  "#fff2eb", "#ffe1d0", "#ffc6a5", "#f6a06b", "#d67f48",
+  "#c67139", "#b2622d", "#8c491a", "#643312", "#402310",
+]
+
+[theme.sidebar]
+backgroundColor = "#ebddc5"         # surface
+secondaryBackgroundColor = "#f5ead8"
+borderColor = "#cbbeaa"             # = #201e1d 16% trên surface

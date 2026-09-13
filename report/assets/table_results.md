@@ -1,0 +1,6 @@
+| model | EM | F1 | answerable_EM | answerable_F1 | impossible_EM | latency_ms | n |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| TF-IDF Baseline | 0.8 | 23.09 | 1.11 | 31.99 | 0.0 | 0.536 | 500 |
+| visobert (fine-tuned) | 27.8 | 31.31 | 6.93 | 11.78 | 82.01 | 22.734 | 500 |
+| XLM-R (squad2, zero-shot) | 40.6 | 56.84 | 45.71 | 68.2 | 27.34 | 14.349 | 500 |
+| mbert (fine-tuned) | 50.8 | 59.49 | 54.57 | 66.6 | 41.01 | 12.264 | 500 |

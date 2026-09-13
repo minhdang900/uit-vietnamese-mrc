@@ -1,0 +1,32 @@
+# Build context = mã nguồn + kết quả đã chấm. Không hơn.
+#
+# Hai thứ nặng nhất của repo đều KHÔNG vào ảnh mà được mount lúc chạy:
+# ``models/`` (3,4 GB checkpoint) và ``data/raw/`` (16 MB dataset). Cả hai đều
+# nằm trong .gitignore — chúng là sản phẩm của một lần chạy trên máy cụ thể, nên
+# nướng vào ảnh thì ảnh hết tái lập được, mà vẫn phình lên hàng gigabyte.
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+models/
+data/
+*.pt
+*.safetensors
+
+.git/
+.github/
+.omc/
+.DS_Store
+
+# ``Dockerfile``, ``compose.yaml`` và chính file này CỐ Ý không bị loại:
+# tests/test_docker.py đọc cả ba để ghim hợp đồng đóng gói, và test đó phải chạy
+# được cả bên trong ảnh. Chúng được COPY ở cuối Dockerfile nên cache của các lớp
+# pip vẫn nguyên.
+#
+# File này từng tự loại chính nó. Bộ test trên máy vẫn xanh — chỉ lần chạy trong
+# container mới lòi ra FileNotFoundError. Đó là lý do lệnh chấm là
+# ``docker compose run --rm tests`` chứ không phải pytest trên máy.

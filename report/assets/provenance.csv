@@ -1,0 +1,5 @@
+model,split,n,device,torch,platform,commit,date
+TF-IDF Baseline,validation,500,mps,2.14.0,macOS-26.4.1-arm64-arm-64bit,590e775,12/09/2026
+visobert (fine-tuned),validation,500,mps,2.14.0,macOS-26.4.1-arm64-arm-64bit,c63b28c,12/09/2026
+"XLM-R (squad2, zero-shot)",validation,500,mps,2.14.0,macOS-26.4.1-arm64-arm-64bit,c63b28c,12/09/2026
+mbert (fine-tuned),validation,500,mps,2.14.0,macOS-26.4.1-arm64-arm-64bit,590e775,12/09/2026

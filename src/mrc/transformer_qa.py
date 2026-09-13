@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from mrc.device import pick_device
 from mrc.predictor import TimedPredictorMixin
-from mrc.windowing import decode_span, make_windows, select_best_span
+from mrc.windowing import decode_span, make_windows, score_spans
 
 __all__ = ["TransformerQA", "DEFAULT_MODEL"]
 
@@ -78,34 +78,105 @@ class TransformerQA(TimedPredictorMixin):
 
     def predict(self, context: str, question: str) -> str:
         """Answer span (substring của ``context``), hoặc ``""`` nếu không có đáp án."""
+        return self.predict_detailed(context, question)["answer"]
+
+    def predict_detailed(
+        self, context: str, question: str, top_k: int = 3
+    ) -> dict:
+        """Như :meth:`predict`, nhưng giữ lại bằng chứng thay vì vứt đi.
+
+        ``predict`` chỉ trả về chuỗi đáp án; mọi thứ giải thích *vì sao* model
+        chọn chuỗi đó — biên độ so với null, xác suất start/end, các span xếp sau —
+        đã được tính trong :func:`mrc.windowing.score_spans` rồi bị bỏ. Demo cần
+        đúng những số đó, và lấy từ đây thì chúng là số ĐO ĐƯỢC chứ không phải số
+        minh hoạ viết tay.
+
+        Returns:
+            dict với các khoá:
+
+            ``answer``
+                Span thắng cuộc, hoặc ``""`` nếu model từ chối.
+            ``span``
+                ``(start_char, end_char)`` trong ``context``, hoặc ``None``.
+            ``found``
+                ``bool``, đáp án có rỗng hay không.
+            ``null_delta``
+                ``null_score − best_score`` của cửa sổ tự tin nhất. Model trả lời
+                khi và chỉ khi ``null_delta + null_threshold < 0``, nên đây là
+                đại lượng mà thanh ngưỡng của demo so sánh. ``None`` nếu không có
+                cửa sổ nào chấm được.
+            ``start_prob`` / ``end_prob``
+                Softmax của logit start/end trên các token thuộc context, đọc tại
+                hai đầu của span thắng cuộc. ``None`` nếu không có bằng chứng.
+            ``top_k``
+                ``[{"text", "score", "prob"}]`` — các span xếp sau span thắng cuộc,
+                giảm dần theo điểm.
+
+        Note:
+            Với context nhiều cửa sổ, ``null_delta`` lấy GIÁ TRỊ NHỎ NHẤT trên các
+            cửa sổ, vì model trả lời nếu *có* một cửa sổ vượt ngưỡng. Nhờ vậy dấu
+            của ``null_delta + null_threshold`` khớp chính xác với quyết định mà
+            :func:`mrc.windowing.select_best_span` đưa ra từng cửa sổ.
+        """
+        empty: dict = {
+            "answer": "", "span": None, "found": False, "null_delta": None,
+            "start_prob": None, "end_prob": None, "top_k": [],
+        }
         if not context or not context.strip():
-            return ""
+            return empty
 
         windows = make_windows(question, context, self.tokenizer,
                                max_length=self.max_length, doc_stride=self.doc_stride)
         if not windows:
-            return ""
+            return empty
 
-        best_score, best_span = float("-inf"), None
+        best_score, best_span, best_scores = float("-inf"), None, None
+        evidence, evidence_delta = None, None
+
         for window in windows:
             start_logits, end_logits = self._score_window(window)
-            span = select_best_span(
+            scores = score_spans(
                 start_logits, end_logits, window.offset_mapping,
-                max_answer_len=self.max_answer_len,
-                null_threshold=self.null_threshold,
+                max_answer_len=self.max_answer_len, top_k=top_k,
             )
-            if span is None:
-                continue  # window này nói "không có đáp án"
+            if scores is None or scores.best is None:
+                continue
 
-            # Điểm của span, để so sánh GIỮA các window.
-            start_token = next(i for i, off in enumerate(window.offset_mapping)
-                               if off and off[0] == span[0])
-            end_token = max(i for i, off in enumerate(window.offset_mapping)
-                            if off and off[1] == span[1])
-            score = start_logits[start_token] + end_logits[end_token]
-            if score > best_score:
-                best_score, best_span = score, span
+            # Cửa sổ tự tin nhất, kể cả khi nó từ chối: thanh đo của demo vẫn phải
+            # hiện biên độ để người xem thấy mình đang cách ranh giới bao xa.
+            delta = scores.null_delta
+            if delta is not None and (evidence_delta is None or delta < evidence_delta):
+                evidence, evidence_delta = scores, delta
+
+            if scores.null_score is not None:
+                if scores.best.score <= scores.null_score + self.null_threshold:
+                    continue  # window này nói "không có đáp án"
+
+            if scores.best.score > best_score:
+                best_score = scores.best.score
+                best_span = (scores.best.start_char, scores.best.end_char)
+                best_scores = scores
+
+        shown = best_scores or evidence
+        detail: dict = {
+            "answer": "", "span": None, "found": False,
+            "null_delta": evidence_delta,
+            "start_prob": shown.start_prob if shown else None,
+            "end_prob": shown.end_prob if shown else None,
+            "top_k": [
+                {
+                    "text": decode_span(context, s.start_char, s.end_char),
+                    "score": s.score,
+                    "prob": s.prob,
+                }
+                for s in (shown.candidates[1:] if shown else ())
+            ],
+        }
 
         if best_span is None:
-            return ""      # mọi window đều nói "không có đáp án"
-        return decode_span(context, *best_span)
+            return detail  # mọi window đều nói "không có đáp án"
+
+        detail["span"] = best_span
+        detail["answer"] = decode_span(context, *best_span)
+        detail["found"] = bool(detail["answer"])
+        return detail

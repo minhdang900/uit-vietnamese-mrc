@@ -1,6 +1,9 @@
-"""Vỏ mỏng cho ``reporting.figures`` — logic nằm trong module đã có test.
+"""Vỏ mỏng cho ``reporting.assets`` — logic nằm trong module đã có test.
 
-    python scripts/make_figures.py
+    python scripts/make_report.py
+
+Sinh bảng, tờ xuất xứ và bản sao hình vào ``report/assets/``. Chạy lại bất cứ
+lúc nào: mọi thứ trong đó là sản phẩm của ``results/``, không có gì viết tay.
 """
 
 import argparse
@@ -16,16 +19,16 @@ for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from reporting.figures import make_all_figures
+from reporting.assets import build_report_assets
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--results-dir", default="results")
-    ap.add_argument("--out-dir", default="results/figures")
+    ap.add_argument("--out-dir", default="report/assets")
     args = ap.parse_args()
 
-    for path in make_all_figures(args.results_dir, args.out_dir):
+    for path in build_report_assets(args.results_dir, args.out_dir):
         print(f"  {path}  ({path.stat().st_size // 1024} KB)")
 
 
