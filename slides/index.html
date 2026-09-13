@@ -128,7 +128,8 @@ blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
     <tr><td>XLM-R squad2</td><td>Zero-shot</td><td>Chuyển giao xuyên ngữ đi được bao xa?</td></tr>
   </table>
   <p class="dim" style="margin-top:1.2em">Giả thuyết ghi <b>trước</b> khi chạy và
-  commit vào git: ViSoBERT sẽ thắng.</p>
+  commit vào git nói tới <b>PhoBERT</b>. PhoBERT không có fast tokenizer nên
+  không chạy được; ViSoBERT là mô hình <b>thay thế</b>.</p>
 </section>
 
 <section class="slide" data-notes="Bảng chính. Đừng đọc từng số — chỉ vào ba điều ở các slide sau. Nhắc: validation split, cùng một mẫu, cùng một máy.">
@@ -170,20 +171,22 @@ blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
 
 <section class="slide" data-notes="Điều thứ ba: giả thuyết của bọn em SAI. Nhưng sai có giải thích. ViSoBERT có impossible cao nhất, answerable thấp nhất — nó học cách trả rỗng chứ không học tìm span. Nguyên nhân: vocab nhỏ và lệch miền.">
   <div class="kicker">Điều bảng nói ra · 3/3</div>
-  <h2>ViSoBERT thất bại — và vì sao vẫn là kết quả hợp lệ</h2>
+  <h2>ViSoBERT suy sụp — một ca lỗi đã được chẩn đoán</h2>
   <div class="cols">
     <div>
       <p>Model <b>tiếng Việt chuyên biệt</b> xếp <b>dưới cả XLM-R zero-shot</b>.</p>
       <p>Nó có <b>impossible cao nhất</b>, <b>answerable thấp nhất</b> ⇒ học được
       cách trả rỗng, không học được cách tìm span.</p>
-      <p class="dim">Vocab ~15 nghìn token, pretrain trên <b>mạng xã hội</b>.
-      MRC Wikipedia đòi hỏi nhận diện <b>tên riêng</b>.</p>
+      <p class="dim">Yếu tố mạnh nhất: <code>max_length</code> đặt theo tokenizer
+      mBERT và <b>chưa được chỉnh lại</b> cho từ vựng nhỏ hơn của ViSoBERT.
+      (<code>max_answer_len</code> thì đã bù — đừng nói lẫn hai tham số này.)</p>
     </div>
     <div>
-      <blockquote>Pretrain đúng <b>ngôn ngữ</b> là điều kiện cần, không phải điều
-      kiện đủ. <b>Miền văn bản</b> quan trọng ngang ngôn ngữ.</blockquote>
-      <p class="dim" style="margin-top:1em">Một giả thuyết <b>sai có giải
-      thích</b> đáng giá hơn một giả thuyết đúng không kiểm chứng.</p>
+      <blockquote>Bốn yếu tố — trong đó có một <b>nguyên nhân cấu hình chưa bù
+      trừ</b> — đã đủ để giải thích. Nên <b>chưa kết luận được</b> rằng tiền
+      huấn luyện tiếng Việt không giúp ích.</blockquote>
+      <p class="dim" style="margin-top:1em">Đây là <b>một lần huấn luyện thất
+      bại đã được chẩn đoán</b>, không phải một phép đo năng lực encoder.</p>
     </div>
   </div>
 </section>
@@ -247,7 +250,8 @@ blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
   <div class="cols">
     <div>
       <p><code>./run.sh</code> → demo tại <code>localhost:8501</code></p>
-      <p><code>./run.sh test</code> → toàn bộ bộ test</p>
+      <p><code>./run.sh test</code> → bộ test nhanh ·
+      <code>./run.sh test-full</code> → toàn bộ</p>
       <p class="dim">Chỉ cần Docker. Không Python, không mạng, không dựng lại ảnh.</p>
     </div>
     <div>
@@ -264,7 +268,10 @@ blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
     <li>Đánh giá trên <b>validation</b>, không phải test — test split là blind set.</li>
     <li>Tỉ lệ câu <b>impossible</b> đáng kể ⇒ metric tổng <b>trộn hai kỹ năng</b>.</li>
     <li><code>question_type</code> là <b>heuristic tự gán</b>, không phải nhãn của ViQuAD.</li>
-    <li><b>Cỡ mẫu hữu hạn</b> ⇒ khoảng cách vài điểm <b>không kết luận được</b>.</li>
+    <li><b>Cỡ mẫu hữu hạn</b>, một seed duy nhất ⇒ khoảng cách vài điểm
+    <b>không kết luận được</b>.</li>
+    <li><b>PhoBERT chưa từng được chạy</b> ⇒ giả thuyết trung tâm vẫn
+    <b>chưa kiểm được</b>, không phải bị bác bỏ.</li>
   </ul>
 </section>
 
@@ -274,7 +281,8 @@ blockquote{margin:0;border-left:4px solid var(--accent-2);padding-left:1em;
   <ul>
     <li>Metric tổng <b>trộn hai kỹ năng</b> — tìm span, và biết khi nào im lặng.
     Tách ra mới thấy model nào giỏi cái gì.</li>
-    <li>Pretrain đúng <b>ngôn ngữ</b> chưa đủ — <b>miền văn bản</b> quan trọng ngang thế.</li>
+    <li>Câu hỏi <b>“encoder tiếng Việt có giúp không?”</b> vẫn <b>để ngỏ</b> —
+    và nói rõ điều đó cũng là một kết quả.</li>
     <li>Mọi con số <b>truy được về một commit</b>. Báo cáo và demo không thể lệch nhau.</li>
   </ul>
   <p style="margin-top:2em" class="dim">Cảm ơn thầy và các bạn — mời đặt câu hỏi.</p>
