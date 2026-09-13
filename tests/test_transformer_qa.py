@@ -120,3 +120,83 @@ def test_max_answer_len_bounds_the_span(qa):
     tight = TransformerQA(max_answer_len=2, null_threshold=-50.0)
     out = tight.predict(CTX, "Thủ đô của Việt Nam là gì?")
     assert len(out.split()) <= 4        # 2 token subword -> vài từ là cùng
+
+
+# ── bằng chứng đi kèm đáp án ─────────────────────────────────────────
+#
+# ĐẶC TẢ: ``predict_detailed`` trả về ĐÚNG đáp án của ``predict``, kèm những đại
+# lượng mà ``predict`` vứt đi — biên độ so với null, xác suất start/end, các span
+# xếp sau. Demo hiển thị chính những số này, nên chúng phải là số đo được và phải
+# NHẤT QUÁN với quyết định model thực sự đưa ra.
+
+def test_predict_detailed_agrees_with_predict(qa):
+    """Hai đường phải không bao giờ tách nhau: ``predict`` gọi thẳng vào đây."""
+    assert qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")["answer"] == \
+        qa.predict(CTX, "Thủ đô của Việt Nam là gì?")
+
+
+def test_detailed_answer_is_a_substring_of_the_context(qa):
+    detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+    assert detail["answer"] in CTX
+
+
+def test_detailed_span_points_at_the_answer(qa):
+    detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+    start, end = detail["span"]
+    assert CTX[start:end] == detail["answer"]
+
+
+def test_null_delta_is_negative_when_the_model_answers(qa):
+    detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+    assert detail["found"] and detail["null_delta"] < 0
+
+
+def test_null_delta_sign_matches_the_live_abstain_decision(qa):
+    """Bất biến gắn thanh đo của demo với quyết định thật của model: nếu dấu này
+    lệch, giao diện báo "trả lời" đúng lúc model im lặng."""
+    question = "Thủ đô của Việt Nam là gì?"
+    delta = qa.predict_detailed(CTX, question)["null_delta"]
+    original = qa.null_threshold
+    try:
+        for threshold in (-5.0, 0.0, 5.0):
+            qa.null_threshold = threshold
+            refused = qa.predict(CTX, question) == ""
+            assert refused == (delta + threshold >= 0)
+    finally:
+        qa.null_threshold = original
+
+
+def test_start_and_end_probabilities_are_probabilities(qa):
+    detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+    assert 0.0 <= detail["start_prob"] <= 1.0
+    assert 0.0 <= detail["end_prob"] <= 1.0
+
+
+def test_alternative_spans_are_substrings_of_the_context(qa):
+    """Span xếp sau cũng phải tôn trọng bất biến extractive."""
+    for alternative in qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")["top_k"]:
+        assert alternative["text"] in CTX
+
+
+def test_alternative_spans_rank_below_the_answer(qa):
+    detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+    if detail["top_k"]:
+        assert detail["top_k"][0]["prob"] <= 1.0
+        assert all(a["prob"] >= 0.0 for a in detail["top_k"])
+
+
+def test_evidence_survives_a_refusal(qa):
+    """Model từ chối thì thanh đo VẪN phải hiện biên độ, để người xem thấy mình
+    đang cách ranh giới bao xa."""
+    original = qa.null_threshold
+    try:
+        qa.null_threshold = 50.0
+        detail = qa.predict_detailed(CTX, "Thủ đô của Việt Nam là gì?")
+        assert detail["answer"] == "" and detail["null_delta"] is not None
+    finally:
+        qa.null_threshold = original
+
+
+def test_empty_context_reports_no_evidence(qa):
+    detail = qa.predict_detailed("", "Câu hỏi?")
+    assert detail["null_delta"] is None and detail["top_k"] == []

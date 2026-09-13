@@ -18,14 +18,213 @@ trong vài millisecond.
 
 from __future__ import annotations
 
+import heapq
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-__all__ = ["select_best_span", "decode_span", "make_windows", "Window"]
+__all__ = [
+    "select_best_span",
+    "score_spans",
+    "decode_span",
+    "make_windows",
+    "Window",
+    "ScoredSpan",
+    "SpanScores",
+]
 
 #: Offset của token không thuộc context (``[CLS]``, ``[SEP]``, token của question)
 #: được biểu diễn bằng ``None``. Chỉ token có offset mới là ứng viên đáp án.
 Offset = tuple[int, int] | None
+
+
+@dataclass(frozen=True)
+class ScoredSpan:
+    """Một ứng viên đáp án đã map về ký tự trong context GỐC.
+
+    Attributes:
+        start_char: offset ký tự bắt đầu trong context gốc.
+        end_char: offset ký tự kết thúc.
+        score: ``start_logit + end_logit`` — thang logit, so sánh được giữa các
+            span trong CÙNG một cửa sổ.
+        prob: softmax của ``score`` trên TOÀN BỘ cặp (start, end) hợp lệ của cửa
+            sổ, cộng thêm null. Đây là con số đưa lên UI: nó nằm trong [0, 1] và
+            cộng lại bằng 1, khác với logit thô vốn không đọc được.
+    """
+
+    start_char: int
+    end_char: int
+    score: float
+    prob: float
+
+
+@dataclass(frozen=True)
+class SpanScores:
+    """Toàn bộ bằng chứng QA head sinh ra cho MỘT cửa sổ.
+
+    ``select_best_span`` chỉ trả về span thắng cuộc và vứt phần còn lại đi. Demo
+    cần phần còn lại — biên độ so với null và các span xếp sau là thứ giải thích
+    được *vì sao* model trả lời hay từ chối, nên chúng được giữ lại ở đây thay vì
+    tính lại bằng số viết tay.
+
+    Attributes:
+        candidates: các span tốt nhất, giảm dần theo ``score``, đã khử trùng lặp
+            theo khoảng ký tự. Phần tử đầu là span thắng cuộc.
+        null_score: ``start_logits[cls] + end_logits[cls]`` — điểm của phương án
+            "không có đáp án". ``None`` nếu cửa sổ không có token ``[CLS]``.
+        start_prob: softmax của ``start_logits`` trên các token THUỘC CONTEXT, lấy
+            tại token bắt đầu của span thắng cuộc.
+        end_prob: tương tự cho ``end_logits``.
+    """
+
+    candidates: tuple[ScoredSpan, ...]
+    null_score: float | None
+    start_prob: float
+    end_prob: float
+
+    @property
+    def best(self) -> ScoredSpan | None:
+        """Span điểm cao nhất, hoặc ``None`` nếu cửa sổ không có ứng viên nào."""
+        return self.candidates[0] if self.candidates else None
+
+    @property
+    def null_delta(self) -> float | None:
+        """``null_score − best.score``.
+
+        Dấu của nó là quyết định: ``null_delta < −null_threshold`` thì cửa sổ này
+        trả lời, ngược lại nó từ chối. Đây chính là "biên độ" trên thanh đo của
+        demo, và là lý do giá trị này được trả về thay vì bị vứt đi.
+        """
+        if self.null_score is None or self.best is None:
+            return None
+        return self.null_score - self.best.score
+
+
+def _softmax_at(logits: Sequence[float], indices: Sequence[int], pick: int) -> float:
+    """Softmax của ``logits`` giới hạn trong ``indices``, đọc tại ``pick``.
+
+    Giới hạn trong ``indices`` (các token thuộc context) chứ không trên cả chuỗi:
+    token của question và token đặc biệt không phải ứng viên đáp án, để chúng vào
+    mẫu số sẽ làm loãng xác suất theo độ dài câu hỏi.
+    """
+    if not indices:
+        return 0.0
+    ceiling = max(logits[i] for i in indices)
+    total = sum(math.exp(logits[i] - ceiling) for i in indices)
+    if total <= 0.0:
+        return 0.0
+    return math.exp(logits[pick] - ceiling) / total
+
+
+def score_spans(
+    start_logits: Sequence[float],
+    end_logits: Sequence[float],
+    offset_mapping: Sequence[Offset],
+    max_answer_len: int = 30,
+    cls_index: int = 0,
+    top_k: int = 3,
+) -> SpanScores | None:
+    """Chấm mọi cặp ``(start, end)`` hợp lệ, giữ lại top-k và điểm null.
+
+    Hàm THUẦN: không tokenizer, không model, không ngưỡng. Quyết định trả lời hay
+    từ chối thuộc về :func:`select_best_span`, hàm này chỉ cung cấp bằng chứng.
+
+    Args:
+        start_logits: logit vị trí bắt đầu, một giá trị mỗi token.
+        end_logits: logit vị trí kết thúc.
+        offset_mapping: ``(start_char, end_char)`` cho token thuộc context,
+            ``None`` cho token khác.
+        max_answer_len: giới hạn độ dài span tính theo SỐ TOKEN.
+        cls_index: vị trí token ``[CLS]``, dùng để tính null score.
+        top_k: số span giữ lại sau span thắng cuộc.
+
+    Returns:
+        ``SpanScores``, hoặc ``None`` nếu cửa sổ không có token context nào.
+
+    Note:
+        ``prob`` được chuẩn hoá trên TOÀN BỘ cặp hợp lệ cộng null, tính bằng
+        log-sum-exp chạy dòng — không dựng mảng 147.456 phần tử cho cửa sổ 384
+        token, và không tràn số khi logit lớn.
+    """
+    if not start_logits or not end_logits or not offset_mapping:
+        return None
+
+    candidates = [i for i, off in enumerate(offset_mapping) if off is not None]
+    if not candidates:
+        return None
+
+    has_null = cls_index < len(start_logits) and cls_index < len(end_logits)
+    null_score = (start_logits[cls_index] + end_logits[cls_index]) if has_null else None
+
+    # Heap nhỏ giữ top-k, kèm số thứ tự để hoà điểm thì span sinh TRƯỚC thắng —
+    # đúng quy tắc của vòng lặp gốc trong select_best_span.
+    keep = max(1, top_k) * 4 + 4
+    heap: list[tuple[float, int, int, int]] = []
+    order = 0
+
+    best_score = float("-inf")
+    best_pair: tuple[int, int] | None = None
+
+    # log-sum-exp chạy dòng.
+    ceiling = float("-inf")
+    total = 0.0
+
+    for start_idx in candidates:
+        for end_idx in candidates:
+            if end_idx < start_idx:
+                continue
+            if end_idx - start_idx + 1 > max_answer_len:
+                continue
+            score = start_logits[start_idx] + end_logits[end_idx]
+
+            if score > best_score:
+                best_score, best_pair = score, (start_idx, end_idx)
+
+            if score > ceiling:
+                total *= math.exp(ceiling - score) if ceiling > float("-inf") else 0.0
+                ceiling = score
+            total += math.exp(score - ceiling)
+
+            entry = (score, -order, start_idx, end_idx)
+            order += 1
+            if len(heap) < keep:
+                heapq.heappush(heap, entry)
+            elif entry > heap[0]:
+                heapq.heapreplace(heap, entry)
+
+    if best_pair is None:
+        return None
+
+    if null_score is not None:
+        if null_score > ceiling:
+            total *= math.exp(ceiling - null_score) if ceiling > float("-inf") else 0.0
+            ceiling = null_score
+        total += math.exp(null_score - ceiling)
+
+    log_z = ceiling + math.log(total) if total > 0.0 else ceiling
+
+    # Khử trùng lặp theo KHOẢNG KÝ TỰ: nhiều cặp token khác nhau có thể trỏ về
+    # cùng một chuỗi, và một danh sách "span xếp sau" lặp lại chính nó thì vô dụng.
+    seen: set[tuple[int, int]] = set()
+    ranked: list[ScoredSpan] = []
+    for score, _, start_idx, end_idx in sorted(heap, reverse=True):
+        start_char = offset_mapping[start_idx][0]  # type: ignore[index]
+        end_char = offset_mapping[end_idx][1]  # type: ignore[index]
+        if (start_char, end_char) in seen:
+            continue
+        seen.add((start_char, end_char))
+        ranked.append(
+            ScoredSpan(start_char, end_char, score, math.exp(score - log_z))
+        )
+        if len(ranked) >= max(1, top_k) + 1:
+            break
+
+    return SpanScores(
+        candidates=tuple(ranked),
+        null_score=null_score,
+        start_prob=_softmax_at(start_logits, candidates, best_pair[0]),
+        end_prob=_softmax_at(end_logits, candidates, best_pair[1]),
+    )
 
 
 def select_best_span(
@@ -57,39 +256,19 @@ def select_best_span(
         32,4% câu trong ViQuAD 2.0 train là impossible, nên nhánh trả về ``None``
         KHÔNG phải trường hợp biên hiếm gặp — nó là một phần ba dữ liệu.
     """
-    if not start_logits or not end_logits or not offset_mapping:
-        return None
-
-    # Chỉ token thuộc context mới là ứng viên (loại [CLS], [SEP], question).
-    candidates = [i for i, off in enumerate(offset_mapping) if off is not None]
-    if not candidates:
-        return None
-
-    best_score = float("-inf")
-    best: tuple[int, int] | None = None
-    for start_idx in candidates:
-        for end_idx in candidates:
-            if end_idx < start_idx:
-                continue  # lỗi #2: span đảo ngược
-            if end_idx - start_idx + 1 > max_answer_len:
-                continue  # span quá dài
-            score = start_logits[start_idx] + end_logits[end_idx]
-            if score > best_score:
-                best_score = score
-                best = (start_idx, end_idx)
-
-    if best is None:
+    scores = score_spans(
+        start_logits, end_logits, offset_mapping,
+        max_answer_len=max_answer_len, cls_index=cls_index, top_k=1,
+    )
+    if scores is None or scores.best is None:
         return None
 
     # So với null score: model nói "không có đáp án" bằng cách dồn xác suất về [CLS].
-    if cls_index < len(start_logits) and cls_index < len(end_logits):
-        null_score = start_logits[cls_index] + end_logits[cls_index]
-        if best_score <= null_score + null_threshold:
+    if scores.null_score is not None:
+        if scores.best.score <= scores.null_score + null_threshold:
             return None
 
-    start_char = offset_mapping[best[0]][0]  # type: ignore[index]
-    end_char = offset_mapping[best[1]][1]  # type: ignore[index]
-    return start_char, end_char
+    return scores.best.start_char, scores.best.end_char
 
 
 def decode_span(context: str, start_char: int, end_char: int) -> str:
