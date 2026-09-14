@@ -240,26 +240,33 @@ def test_the_real_report_template_contains_no_hand_written_metrics():
 
 
 def test_the_slide_deck_contains_no_hand_written_metrics():
-    """Bất biến #1, áp cho cả slide.
+    """Bất biến #1, áp cho cả slide — CẢ deck HTML lẫn mã dựng deck .pptx.
 
     Slide dễ bị chép số hơn báo cáo — người ta gõ nhanh một con số cho đẹp ô
-    rồi quên. Deck này chỉ được hiển thị số qua HÌNH sinh từ ``results/``, nên
-    chấm lại model là slide tự đúng theo mà không ai phải sửa.
+    rồi quên. Deck chỉ được hiển thị số qua HÌNH sinh từ ``results/`` hoặc đọc
+    thẳng ``results/*.json`` lúc dựng, nên chấm lại model là slide tự đúng theo.
+
+    Vì sao soi cả ``build_deck.js``: bản nộp bài là ``.pptx`` dựng từ tệp đó,
+    nhưng test cũ chỉ soi ``index.html`` — và đúng ở tệp quan trọng nhất thì bất
+    biến âm thầm ngừng bảo vệ (số test trong deck đã trôi 398 → 423 mà không ai
+    phát hiện). Đổi định dạng deliverable thì phải dời test theo.
     """
     from pathlib import Path
 
     from reporting.figures import collect_results
 
     root = Path(__file__).resolve().parents[1]
-    deck = root / "slides" / "index.html"
-    if not deck.is_file():
+    decks = [root / "slides" / "index.html", root / "slides" / "build_deck.js"]
+    decks = [d for d in decks if d.is_file()]
+    if not decks:
         pytest.skip("chưa có slide")
 
-    text = deck.read_text(encoding="utf-8")
-    offenders = [n for n in metric_literals(collect_results(root / "results"))
-                 if n in text]
+    literals = metric_literals(collect_results(root / "results"))
+    for deck in decks:
+        text = deck.read_text(encoding="utf-8")
+        offenders = [n for n in literals if n in text]
 
-    assert not offenders, (
-        f"Số đo bị gõ tay vào slide: {offenders}. Dùng hình trong "
-        f"report/assets/figures/ thay vì chép số."
-    )
+        assert not offenders, (
+            f"Số đo bị gõ tay vào {deck.name}: {offenders}. Đọc từ results/ "
+            f"lúc dựng, hoặc dùng hình trong report/assets/figures/, thay vì chép số."
+        )
