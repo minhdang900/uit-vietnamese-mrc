@@ -33,8 +33,25 @@ Chạy lại `make_report.py` bất cứ lúc nào; nó ghi đè `assets/`.
 | `assets/provenance.md` | ✅ | Phụ lục truy vết: commit, thiết bị, torch, ngày, `n` |
 | `assets/provenance.csv` | ✅ | Cùng nội dung, dạng bảng tính |
 | `assets/figures/*.png` | ✅ | 5 hình, bản sao từ `results/figures/` |
+| `BAO_CAO.md` | ✅ | **Bản báo cáo hoàn chỉnh** — ghép từ template + bảng |
+| `BAO_CAO.template.md` | ❌ | Văn xuôi báo cáo; nhúng bảng bằng `<!-- include: -->` |
 | `outline.md` | ❌ | Dàn ý + danh sách kiểm bắt buộc (viết tay) |
 | `README.md` | ❌ | Chính file này |
+| `../slides/index.html` | ❌ | Slide thuyết trình (mở bằng trình duyệt) |
+
+Hai file viết tay có nội dung số — `BAO_CAO.template.md` và `slides/index.html` —
+đều bị một test **cấm gõ tay giá trị EM/F1**: số chỉ được vào qua
+`<!-- include: -->` (báo cáo) hoặc qua hình sinh từ `results/` (slide). Chấm lại
+model là cả hai tự đúng theo.
+
+Xuất báo cáo sang PDF hoặc Word:
+
+```bash
+pandoc report/BAO_CAO.md -o BAO_CAO.pdf --resource-path=report
+pandoc report/BAO_CAO.md -o BAO_CAO.docx --resource-path=report
+```
+
+Slide in ra PDF bằng phím `P` ngay trong trình duyệt.
 
 Hai file không sinh tự động là **văn xuôi và cấu trúc**, không chứa số liệu —
 cố ý như vậy, để không có chỗ nào cho một con số lạc đường.

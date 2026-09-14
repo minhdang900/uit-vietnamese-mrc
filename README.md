@@ -46,7 +46,8 @@ answerable EM chỉ **6,93** — nó gần như chỉ ăn điểm từ việc t�
 
 ### Vì sao ViSoBERT thất bại — và vì sao đó là kết quả hợp lệ
 
-Đã loại trừ ba confound trước khi kết luận:
+Đã kiểm bốn nghi vấn trước khi kết luận — nhưng xem dòng ngay dưới bảng: **một trục
+vẫn chưa được bù trừ**, và nó không có trong bảng này.
 
 | Nghi vấn | Kiểm tra | Kết quả |
 |---|---|---|
@@ -55,8 +56,11 @@ answerable EM chỉ **6,93** — nó gần như chỉ ăn điểm từ việc t�
 | learning rate quá thấp? | 3e-5 → 5e-5 | có cải thiện (F1 12,25 → 30,48) nhưng vẫn kém xa |
 | ngưỡng null lệch? | quét `null_threshold` | tốt nhất F1 34,77; ép trả lời cho EM **11,50** |
 
-Sau khi loại hết, ViSoBERT vẫn kém xa mBERT ⇒ đây là **giới hạn thật của model**,
-không phải lỗi cấu hình.
+Trục **chưa** được kiểm ở bảng trên là `max_length`: giữ nguyên 384 (và `doc_stride`
+128) cho cả hai model, dù tokenizer ViSoBERT sinh chuỗi dài hơn ~60% — 154/557 context
+vượt ngân sách so với 16/557 của mBERT. Đây là **nguyên nhân cấu hình chưa được bù
+trừ**, không phải giới hạn thật của model. (`max_answer_len` thì đã bù, 30 → 64 —
+hai tham số này rất dễ nói lẫn.)
 
 **Giải thích:** ViSoBERT pretrain trên văn bản **mạng xã hội** với vocab **15.004**
 (mBERT: 119.547). MRC trên Wikipedia đòi **biên span chính xác** trên văn phong
@@ -68,9 +72,17 @@ trang trọng dày đặc **tên riêng** — đúng thứ mà vocab nhỏ chia 
   mBERT    (17 token): ['Hà','Nội','là','thủ','đô','của','nước','Cộng',...]
 ```
 
-⇒ **Pretraining đúng ngôn ngữ không bù được pretraining sai miền.** Đây là câu trả
-lời có bằng chứng cho câu hỏi "tiếng Việt chuyên biệt có giúp không?", và nó thú vị
-hơn một chiến thắng phẳng.
+⇒ Đây là **lời giải thích phù hợp với bằng chứng**, chưa phải nhân quả đã chứng
+minh. Yếu tố mạnh nhất là `max_length = 384` — đặt theo tokenizer mBERT và **chưa
+được chỉnh lại** cho ViSoBERT (`max_answer_len` thì đã bù, 30 → 64: đừng nói lẫn
+hai tham số). Cùng với loss chưa hội tụ, sức chứa nhỏ hơn 45% và hố cực tiểu do
+32,39% câu impossible, **bốn yếu tố đó đã đủ** để giải thích sự suy sụp mà không
+cần nói gì về ViSoBERT như một encoder.
+
+⇒ Vì vậy **chưa kết luận được** rằng tiền huấn luyện tiếng Việt không giúp ích.
+Câu hỏi "tiếng Việt chuyên biệt có giúp không?" vẫn **để ngỏ**: PhoBERT chưa từng
+được chạy, và ViSoBERT chưa được huấn luyện lại sau chẩn đoán. Phép kiểm trực
+tiếp: `max_length` 768, lr 3e-5, giữ nguyên mọi thứ khác.
 
 ### Đường cong huấn luyện
 
@@ -101,7 +113,7 @@ PyTorch tự dùng **MPS**; không cần cấu hình gì thêm.
 Dành cho lúc nộp bài và lúc chấm: một lệnh chạy test, một lệnh mở demo.
 
 ```bash
-docker compose run --rm tests     # 398 test, ~1 giây, KHÔNG cần mạng
+docker compose run --rm tests     # 423 test, ~1 giây, KHÔNG cần mạng
 docker compose up app             # demo tại http://localhost:8501
 docker compose down               # dọn
 ```
@@ -113,7 +125,7 @@ chuyện test xanh trên một bộ thư viện còn demo chạy trên bộ khá
 |---|---|---|
 | `app` | `docker compose up app` | Demo web, cổng 8501 (đổi bằng `MRC_PORT=8600`) |
 | `tests` | `docker compose run --rm tests` | Bộ test nhanh, `HF_HUB_OFFLINE=1` |
-| `tests-full` | `docker compose run --rm tests-full` | Đủ 449 test, có tải model thật |
+| `tests-full` | `docker compose run --rm tests-full` | Đủ 474 test (423 + 51 slow), có tải model thật |
 | `fetch-data` | `docker compose run --rm fetch-data` | Tải UIT-ViQuAD 2.0 về `data/raw/` |
 
 Ba service sau nằm sau profile nên `docker compose up` chỉ dựng demo; `run` tự
@@ -365,6 +377,8 @@ biên độ từ chối lấy từ `TransformerQA.predict_detailed`, không ph�
 
 ## Tài liệu
 
+- **`docs/HUONG_DAN_NHOM.md` — hướng dẫn cho thành viên nhóm: chạy, thuyết trình,
+  bắt kịp báo cáo. Bắt đầu từ đây nếu bạn chưa theo sát phần code.**
 - `docs/SOLUTION.md` — đề xuất giải pháp và tech stack, kèm lý do từng lựa chọn
 - `docs/PLAN_TDD.md` — kế hoạch TDD 9 phase với đặc tả test từng phase
 - `results/hypotheses.md` — giả thuyết đăng ký **trước** khi chạy thực nghiệm

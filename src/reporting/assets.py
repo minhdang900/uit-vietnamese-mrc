@@ -14,11 +14,18 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import shutil
 from pathlib import Path
 
 __all__ = ["markdown_table", "csv_table", "provenance_rows", "impossible_share",
-           "build_report_assets"]
+           "build_report_assets", "render_report", "metric_literals"]
+
+#: Chỗ đánh dấu nhúng bảng trong template báo cáo.
+INCLUDE = re.compile(
+    r"^[ \t]*<!--[ \t]*include:[ \t]*(?P<name>[\w.\-/]+)[ \t]*-->[ \t]*$",
+    re.MULTILINE,
+)
 
 #: Trường bắt buộc để một kết quả được phép xuất hiện trong báo cáo. Thiếu bất
 #: kỳ trường nào thì con số ấy không dựng lại được, và bất biến #3 đứt.
@@ -123,6 +130,45 @@ def impossible_share(results: list[dict]) -> float:
     return round(100.0 * first["impossible_only"]["count"] / total, 2)
 
 
+def render_report(template: str, assets_dir: str | Path) -> str:
+    """Thay mọi ``<!-- include: tên.md -->`` bằng nội dung ``assets_dir/tên.md``.
+
+    Báo cáo do đó KHÔNG chứa con số nào của riêng nó: mỗi bảng là bảng đã sinh
+    từ ``results/``. Sửa kết quả rồi chạy lại là báo cáo tự đúng theo.
+    """
+    assets_dir = Path(assets_dir)
+
+    def swap(match: re.Match) -> str:
+        path = assets_dir / match.group("name")
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Báo cáo nhúng {match.group('name')} nhưng {path} không có. "
+                f"Chạy scripts/make_report.py trước."
+            )
+        return path.read_text(encoding="utf-8").rstrip("\n")
+
+    return INCLUDE.sub(swap, template)
+
+
+def _vn(value: float) -> str:
+    """``50.8`` → ``"50,80"`` — dấu phẩy thập phân như phần còn lại của dự án."""
+    return f"{value:.2f}".replace(".", ",")
+
+
+def metric_literals(results: list[dict]) -> list[str]:
+    """Những chuỗi số KHÔNG được phép gõ tay vào văn xuôi báo cáo.
+
+    Chỉ lấy EM/F1 tổng thể: đó là các con số dễ bị chép nhất, và cũng là các con
+    số mà bản v1 đã chép sai. Không quét mọi số trong file, vì báo cáo còn nhiều
+    số hợp lệ khác (năm, mã môn, số trang) mà chặn thì chỉ gây phiền.
+    """
+    out: list[str] = []
+    for result in results:
+        overall = result.get("overall") or {}
+        out.extend(_vn(overall[key]) for key in ("EM", "F1") if key in overall)
+    return out
+
+
 def _write(path: Path, text: str) -> Path:
     path.write_text(text, encoding="utf-8")
     return path
@@ -158,6 +204,14 @@ def build_report_assets(results_dir: str | Path, out_dir: str | Path) -> list[Pa
         "`impossible_only`: metric tổng trộn hai kỹ năng khác nhau.\n",
     ))
     written.append(_write(out_dir / "provenance.csv", csv_table(provenance)))
+
+    # Báo cáo ghép sau cùng: nó nhúng chính các bảng vừa ghi ở trên.
+    template = out_dir.parent / "BAO_CAO.template.md"
+    if template.is_file():
+        written.append(_write(
+            out_dir.parent / "BAO_CAO.md",
+            render_report(template.read_text(encoding="utf-8"), out_dir),
+        ))
 
     figures = sorted((results_dir / "figures").glob("*.png"))
     if figures:

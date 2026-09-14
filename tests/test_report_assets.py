@@ -21,7 +21,9 @@ from reporting.assets import (
     csv_table,
     impossible_share,
     markdown_table,
+    metric_literals,
     provenance_rows,
+    render_report,
 )
 
 
@@ -180,3 +182,84 @@ def test_build_fails_loudly_when_no_evaluation_exists(tmp_path):
 
     with pytest.raises(FileNotFoundError):
         build_report_assets(empty, tmp_path / "out")
+
+
+# ── Báo cáo: ghép từ template + bảng đã sinh ────────────────────────────────
+
+def test_render_report_replaces_an_include_marker_with_the_asset(tmp_path):
+    """Báo cáo KHÔNG chép số; nó nhúng bảng đã sinh tại chỗ đánh dấu."""
+    (tmp_path / "table_results.md").write_text("| model |\n| --- |\n| A |\n",
+                                               encoding="utf-8")
+
+    out = render_report("Kết quả:\n\n<!-- include: table_results.md -->\n", tmp_path)
+
+    assert "| model |" in out
+    assert "include:" not in out, "còn sót chỗ đánh dấu chưa thay"
+
+
+def test_render_report_fails_when_an_included_asset_is_missing(tmp_path):
+    """Thiếu bảng thì gãy, không để lại một lỗ trống trong báo cáo đã nộp."""
+    with pytest.raises(FileNotFoundError, match="table_results.md"):
+        render_report("<!-- include: table_results.md -->", tmp_path)
+
+
+def test_metric_literals_lists_the_numbers_that_must_never_be_typed_by_hand():
+    """Rút ra chính những con số chỉ được phép đến từ results/."""
+    literals = metric_literals([make_eval(model="A", em=50.8, f1=59.49)])
+
+    assert "50,80" in literals and "59,49" in literals, (
+        "phải bắt được EM/F1 ở định dạng số Việt Nam"
+    )
+
+
+def test_the_real_report_template_contains_no_hand_written_metrics():
+    """Bất biến #1, áp cho chính bản báo cáo — cơ chế, không phải kỷ luật.
+
+    Đây là test duy nhất trong file đọc repo thật thay vì tmp_path, và có lý do:
+    thứ cần bảo vệ là BẢN BÁO CÁO SẼ NỘP. Nếu một ngày ai đó gõ "50,80" thẳng
+    vào văn xuôi rồi sau đó chấm lại model, con số ấy lặng lẽ sai — đúng kịch
+    bản đã giết bản v1.
+    """
+    from pathlib import Path
+
+    from reporting.figures import collect_results
+
+    root = Path(__file__).resolve().parents[1]
+    template = root / "report" / "BAO_CAO.template.md"
+    if not template.is_file():
+        pytest.skip("chưa có template báo cáo")
+
+    text = template.read_text(encoding="utf-8")
+    offenders = [n for n in metric_literals(collect_results(root / "results"))
+                 if n in text]
+
+    assert not offenders, (
+        f"Số đo bị gõ tay vào template: {offenders}. Nhúng bảng bằng "
+        f"<!-- include: ... --> thay vì chép."
+    )
+
+
+def test_the_slide_deck_contains_no_hand_written_metrics():
+    """Bất biến #1, áp cho cả slide.
+
+    Slide dễ bị chép số hơn báo cáo — người ta gõ nhanh một con số cho đẹp ô
+    rồi quên. Deck này chỉ được hiển thị số qua HÌNH sinh từ ``results/``, nên
+    chấm lại model là slide tự đúng theo mà không ai phải sửa.
+    """
+    from pathlib import Path
+
+    from reporting.figures import collect_results
+
+    root = Path(__file__).resolve().parents[1]
+    deck = root / "slides" / "index.html"
+    if not deck.is_file():
+        pytest.skip("chưa có slide")
+
+    text = deck.read_text(encoding="utf-8")
+    offenders = [n for n in metric_literals(collect_results(root / "results"))
+                 if n in text]
+
+    assert not offenders, (
+        f"Số đo bị gõ tay vào slide: {offenders}. Dùng hình trong "
+        f"report/assets/figures/ thay vì chép số."
+    )
