@@ -9,8 +9,10 @@ Hai điều kiện bắt buộc, sai là hỏng âm thầm chứ không báo l�
 * **Fast tokenizer.** Chỉ nó có ``return_offsets_mapping``, thứ cần để map token
   span về ký tự trong context gốc. Không có nó, cách duy nhất lấy lại chuỗi là
   ``tokenizer.decode()`` — và decode **làm mất dấu tiếng Việt** (``"hoà"`` ->
-  ``"hoa"``), phá cả EM lẫn bất biến substring. PhoBERT rơi đúng vào trường hợp
-  này, nên lớp này TỪ CHỐI khởi tạo thay vì chạy rồi cho kết quả sai.
+  ``"hoa"``), phá cả EM lẫn bất biến substring. Model nào không có fast tokenizer
+  thì lớp này TỪ CHỐI khởi tạo thay vì chạy rồi cho kết quả sai. PhoBERT chỉ có
+  bản chậm qua ``AutoTokenizer``, nhưng ``tokenizer.json`` của nó bọc được thành
+  bản nhanh (:func:`mrc.tokenization.load_fast_tokenizer`).
 * **Windowing tự cài.** transformers 5.17 giới hạn ``return_overflowing_tokens`` ở
   2 window bất kể context dài bao nhiêu, cắt mất phần đuôi mà không cảnh báo.
 
@@ -49,7 +51,9 @@ class TransformerQA(TimedPredictorMixin):
         name: str | None = None,
     ) -> None:
         import torch
-        from transformers import AutoModelForQuestionAnswering, AutoTokenizer
+        from transformers import AutoModelForQuestionAnswering
+
+        from mrc.tokenization import load_fast_tokenizer
 
         self.model_name = model_name
         self.max_length = max_length
@@ -60,15 +64,8 @@ class TransformerQA(TimedPredictorMixin):
         self.name = name or model_name
         self._torch = torch
 
-        tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-        if not getattr(tokenizer, "is_fast", False):
-            raise RuntimeError(
-                f"{model_name}: không có fast tokenizer ⇒ không có offset_mapping ⇒ "
-                "không map được token span về ký tự gốc. Cách thay thế duy nhất là "
-                "tokenizer.decode(), nhưng decode làm mất dấu tiếng Việt. "
-                "Không dùng được model này cho extractive QA."
-            )
-        self.tokenizer = tokenizer
+        # Raise nếu không có đường nào ra fast tokenizer (xem mrc.tokenization).
+        self.tokenizer = load_fast_tokenizer(model_name)
 
         self.model = AutoModelForQuestionAnswering.from_pretrained(model_name)
         self.model.to(self.device)

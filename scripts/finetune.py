@@ -123,6 +123,25 @@ def preregistration(args) -> dict:
     return {**info, "smoke": False}
 
 
+def check_position_budget(args, config) -> None:
+    """``max_length`` không được vượt số vị trí model có (PhoBERT: 258 − 2 = 256).
+
+    Vượt thì embedding vị trí tràn chỉ số — lỗi CUDA/MPS khó đọc giữa epoch, hoặc
+    tệ hơn là chạy với vị trí vô nghĩa. Chặn trước khi tải dữ liệu.
+    """
+    limit = getattr(config, "max_position_embeddings", None)
+    if limit is None:
+        return
+    # RoBERTa/PhoBERT dành 2 vị trí đầu cho padding_idx; BERT thì không.
+    usable = limit - 2 if getattr(config, "model_type", "") in ("roberta", "xlm-roberta") else limit
+    if args.max_length > usable:
+        raise SystemExit(
+            f"--max-length {args.max_length} > {usable} vị trí dùng được của {args.model} "
+            f"(max_position_embeddings={limit}). Dùng --max-length {usable} và giảm "
+            "--doc-stride tương ứng."
+        )
+
+
 def load_and_split(args, results_dir: Path) -> tuple[list, list]:
     """Tách dev khỏi train, kiểm leakage ba chiều, ghi ``split_dev.json``.
 
@@ -226,8 +245,8 @@ def main(argv=None) -> None:
     import torch
     from torch.utils.data import DataLoader
     from transformers import (
+        AutoConfig,
         AutoModelForQuestionAnswering,
-        AutoTokenizer,
         get_linear_schedule_with_warmup,
     )
 
@@ -239,12 +258,13 @@ def main(argv=None) -> None:
     device = pick_device()
     print(f"device={device}  model={args.model}  run_id={args.run_id}")
 
-    tokenizer = AutoTokenizer.from_pretrained(args.model, use_fast=True)
-    if not tokenizer.is_fast:
-        raise SystemExit(
-            f"{args.model} không có fast tokenizer ⇒ không có offset_mapping ⇒ "
-            "không map được token span về ký tự gốc. Không dùng được cho extractive QA."
-        )
+    from mrc.tokenization import load_fast_tokenizer
+
+    try:
+        tokenizer = load_fast_tokenizer(args.model)
+    except RuntimeError as e:
+        raise SystemExit(str(e))
+    check_position_budget(args, AutoConfig.from_pretrained(args.model))
 
     train_ex, dev_ex = load_and_split(args, results_dir)
 

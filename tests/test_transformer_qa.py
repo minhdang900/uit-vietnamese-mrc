@@ -34,12 +34,16 @@ def test_requires_a_fast_tokenizer(qa):
     assert qa.tokenizer.is_fast
 
 
-def test_rejects_model_without_fast_tokenizer():
-    """PhoBERT không có fast tokenizer — phải BÁO LỖI RÕ, không âm thầm hỏng."""
-    from mrc.transformer_qa import TransformerQA
+def test_phobert_now_loads_with_a_fast_tokenizer():
+    """PhoBERT chỉ có bản chậm qua AutoTokenizer; bản bọc tokenizer.json phải nhanh.
 
-    with pytest.raises((RuntimeError, ValueError), match="fast|offset"):
-        TransformerQA("vinai/phobert-base-v2")
+    Việc TỪ CHỐI model không có fast tokenizer được kiểm ở test_tokenization.py.
+    """
+    from mrc.tokenization import load_fast_tokenizer
+
+    tok = load_fast_tokenizer("vinai/phobert-base-v2")
+    assert tok.is_fast
+    assert "offset_mapping" in tok("Hà Nội", return_offsets_mapping=True)
 
 
 def test_runs_on_an_accelerator_when_available(qa):
