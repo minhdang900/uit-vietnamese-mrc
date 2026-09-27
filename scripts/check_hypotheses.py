@@ -49,7 +49,11 @@ OPS = {"<": operator.lt, "<=": operator.le, ">": operator.gt, ">=": operator.ge,
 
 
 def metric(r: dict, name: str) -> float:
-    """Tên metric trong giả thuyết -> giá trị trong eval JSON (đều theo %)."""
+    """Tên metric trong giả thuyết -> giá trị trong eval JSON (đều theo %).
+
+    Nhận tên ngắn (``EM``, ``HasAns_EM``, ``empty_rate`` …) hoặc đường dẫn chấm
+    thẳng vào eval JSON (``answerable_only.EM``, ``empty_prediction_rate``).
+    """
     table = {
         "EM": lambda: r["overall"]["EM"],
         "F1": lambda: r["overall"]["F1"],
@@ -58,34 +62,123 @@ def metric(r: dict, name: str) -> float:
         "NoAns_EM": lambda: r["impossible_only"]["EM"],
         "empty_rate": lambda: r["empty_prediction_rate"],
     }
-    if name not in table:
-        raise KeyError(f"metric không hỗ trợ: {name!r} (có: {sorted(table)})")
-    return table[name]()
+    if name in table:
+        return table[name]()
+    node = r
+    for part in name.split("."):
+        if not isinstance(node, dict) or part not in node:
+            raise KeyError(f"metric không hỗ trợ: {name!r} (có: {sorted(table)} hoặc "
+                           "đường dẫn chấm trong eval JSON)")
+        node = node[part]
+    return node
 
 
 class MissingReference(LookupError):
-    """Cổng so với một run khác mà run đó chưa được chấm."""
+    """Cổng so với một run khác (hoặc tệp preds) chưa có."""
 
 
-def evaluate_gate(gate: dict, r: dict, runs: dict | None = None) -> bool:
-    """``{metric, op, value}``, hoặc ``{"any": [...]}`` / ``{"all": [...]}`` lồng nhau.
+def _ref(runs: dict | None, run_id: str) -> dict:
+    ref = (runs or {}).get(run_id)
+    if ref is None:
+        raise MissingReference(run_id)
+    return ref
 
-    Có ``ref_run`` thì so HIỆU ``metric(r) − metric(ref_run)``; op ``abs_le`` là
-    ``|hiệu| <= value`` (dự đoán "nằm trong ±value của run tham chiếu").
+
+def _compare(value: float, op: str, target: float) -> bool:
+    if op == "abs_le":
+        return abs(value) <= target
+    if op == "abs_gt":
+        return abs(value) > target
+    return OPS[op](value, target)
+
+
+def mcnemar_counts(results_dir: Path, a: str, b: str, subset: str = "all",
+                   split: str = "validation") -> tuple[int, int]:
+    """``(b01, b10)`` từ hai preds JSONL, ghép theo qid. b10 = ``a`` đúng & ``b`` sai."""
+    recs = {}
+    for run in (a, b):
+        path = results_dir / f"preds_{run}_{split}.jsonl"
+        if not path.exists():
+            raise MissingReference(str(path))
+        with path.open(encoding="utf-8") as f:
+            recs[run] = {x["qid"]: x for x in map(json.loads, filter(str.strip, f))}
+    if set(recs[a]) != set(recs[b]):
+        raise ValueError(f"preds của {a} và {b} không cùng tập qid — không ghép cặp được")
+    keep = {"all": lambda x: True, "has_ans": lambda x: not x["is_impossible"],
+            "no_ans": lambda x: x["is_impossible"]}[subset]
+    b01 = b10 = 0
+    for qid, x in recs[a].items():
+        if not keep(x):
+            continue
+        ra, rb = x["em"] >= 1.0, recs[b][qid]["em"] >= 1.0
+        b10 += ra and not rb
+        b01 += rb and not ra
+    return b01, b10
+
+
+def seed_std(runs: dict | None, run_ids, name: str) -> float:
+    """Độ lệch chuẩn mẫu (ddof=1) của ``name`` qua các run seed."""
+    values = [metric(_ref(runs, rid), name) for rid in run_ids]
+    mean = sum(values) / len(values)
+    return (sum((v - mean) ** 2 for v in values) / (len(values) - 1)) ** 0.5
+
+
+def evaluate_gate(gate: dict, r: dict, runs: dict | None = None,
+                  results_dir: Path | None = None) -> bool:
+    """Cổng dự đoán, lồng được.
+
+    * ``{"any": [...]}`` / ``{"all": [...]}``.
+    * ``{"if": g, "then": g, "else": g}`` — nhánh chọn CƠ HỌC theo một cổng khác
+      (vd. P4 rẽ nhánh theo việc đối chứng ``visobert-dev`` có suy sụp không).
+    * ``"run": id`` ở bất kỳ cổng nào ⇒ chấm trên run đó thay vì ``r``.
+    * ``{metric, op, value}`` (``kind`` mặc định ``abs``); ``ref_run`` hoặc
+      ``kind: "delta"`` + ``vs`` ⇒ so HIỆU ``metric(r) − metric(vs)``. op thêm
+      ``abs_le`` (``|hiệu| <= value``) và ``abs_gt``.
+    * ``{"kind": "mcnemar", "subset": "has_ans"|"no_ans"|"all", "vs", "alternative",
+      "alpha"}`` — McNemar chính xác từ hai preds JSONL; đạt khi ``p < alpha``.
+      ``alternative="greater"`` là H1: b10 > b01 (``r`` đúng mà ``vs`` sai nhiều hơn).
+    * ``{"kind": "seed_std", "runs": [...], "metric", "op", "value"}`` — std (ddof=1).
     """
+    if "run" in gate:
+        r = _ref(runs, gate["run"])
+        gate = {k: v for k, v in gate.items() if k != "run"}
+    if "if" in gate:
+        branch = "then" if evaluate_gate(gate["if"], r, runs, results_dir) else "else"
+        return evaluate_gate(gate[branch], r, runs, results_dir)
     if "any" in gate:
-        return any(evaluate_gate(g, r, runs) for g in gate["any"])
+        return any(evaluate_gate(g, r, runs, results_dir) for g in gate["any"])
     if "all" in gate:
-        return all(evaluate_gate(g, r, runs) for g in gate["all"])
+        return all(evaluate_gate(g, r, runs, results_dir) for g in gate["all"])
+
+    kind = gate.get("kind", "abs")
+    if kind == "mcnemar":
+        from mrc.stats import mcnemar_exact
+
+        if results_dir is None:
+            raise MissingReference("results_dir")
+        b01, b10 = mcnemar_counts(results_dir, r["run_id"], gate["vs"],
+                                  gate.get("subset", "all"))
+        return mcnemar_exact(b01, b10, alternative=gate.get("alternative", "two-sided")) \
+            < gate["alpha"]
+    if kind == "seed_std":
+        return _compare(seed_std(runs, gate["runs"], gate["metric"]), gate["op"], gate["value"])
+
     value = metric(r, gate["metric"])
-    if "ref_run" in gate:
-        ref = (runs or {}).get(gate["ref_run"])
-        if ref is None:
-            raise MissingReference(gate["ref_run"])
-        value -= metric(ref, gate["metric"])
-    if gate["op"] == "abs_le":
-        return abs(value) <= gate["value"]
-    return OPS[gate["op"]](value, gate["value"])
+    vs = gate.get("vs") if kind == "delta" else gate.get("ref_run")
+    if vs is not None:
+        value -= metric(_ref(runs, vs), gate["metric"])
+    return _compare(value, gate["op"], gate["value"])
+
+
+def gate_branch(gate: dict, r: dict, runs: dict | None, results_dir: Path | None) -> str | None:
+    """Nhánh (``then``/``else``) mà cổng ``if`` ở cấp trên cùng đã chọn, để ghi vào báo cáo."""
+    if "if" not in gate:
+        return None
+    try:
+        target = _ref(runs, gate["if"]["run"]) if "run" in gate["if"] else r
+        return "then" if evaluate_gate(gate["if"], target, runs, results_dir) else "else"
+    except MissingReference:
+        return None
 
 
 def _registrations(spec: dict) -> list[tuple[str, dict]]:
@@ -152,7 +245,8 @@ def legacy_alarms(r: dict, alarms: dict) -> list[str]:
     return out
 
 
-def registration_alarms(r: dict, reg: dict, results_dir: Path) -> list[str]:
+def registration_alarms(r: dict, reg: dict, results_dir: Path,
+                        runs: dict | None = None) -> list[str]:
     """Báo động v2: chỉ áp cho run_id thuộc đăng ký đó (hoặc ``run_ids`` của báo động)."""
     out = []
     run_id = r.get("run_id")
@@ -179,6 +273,19 @@ def registration_alarms(r: dict, reg: dict, results_dir: Path) -> list[str]:
         elif kind == "tau_at_grid_edge":
             if selection.get("tau_at_grid_edge"):
                 out.append(f"[{name}]: τ={selection.get('tau')} nằm ở mép lưới — {a['meaning']}")
+        elif kind == "gate":
+            # Báo động = một cổng ĐÚNG (vd. EM > mbert-dev + 10). Thiếu run tham chiếu thì im.
+            try:
+                if evaluate_gate(a["gate"], r, runs, results_dir):
+                    out.append(f"[{name}]: {a['meaning']}")
+            except MissingReference:
+                pass
+        elif kind == "config_differs":
+            curve = _read_json(results_dir / f"training_curve_{run_id}.json") or {}
+            got = (curve.get("config") or {}).get(a["key"])
+            if got is not None and got != a["expected"]:
+                out.append(f"[{name}]: {a['key']}={got!r} ≠ {a['expected']!r} đã đăng ký "
+                           f"— {a['meaning']}")
         elif kind in ("em_equals_f1", "em_equals_impossible_rate") or "metric" in a:
             out.extend(legacy_alarms(r, {name: a}))
     return out
@@ -234,7 +341,7 @@ def check(results_dir: Path, repo: Path | None = None) -> tuple[int, dict]:
         run_id = r.get("run_id")
         for _, reg in _registrations(spec):
             if run_id and run_id in (reg.get("run_ids") or []):
-                found += registration_alarms(r, reg, results_dir)
+                found += registration_alarms(r, reg, results_dir, by_run)
         if run_id in registered:
             order = prereg_order_alarm(r, results_dir, repo)
             if order:
@@ -247,15 +354,20 @@ def check(results_dir: Path, repo: Path | None = None) -> tuple[int, dict]:
         for p in reg.get("predictions") or []:
             r = by_run.get(p["run_id"])
             expected = p.get("expected", True)
+            branch = None
             try:
                 if r is None:
                     raise MissingReference(p["run_id"])
-                verdict = ("CONFIRMED" if evaluate_gate(p["gate"], r, by_run) == expected
+                branch = gate_branch(p["gate"], r, by_run, results_dir)
+                verdict = ("CONFIRMED"
+                           if evaluate_gate(p["gate"], r, by_run, results_dir) == expected
                            else "REFUTED")
             except MissingReference:
                 verdict = "PENDING"
-            print(f"  [{phase}] {p['id']}: {verdict} — {p.get('claim', '')}")
-            report["predictions"].append({"phase": phase, **p, "verdict": verdict})
+            shown = f" (nhánh {branch})" if branch else ""
+            print(f"  [{phase}] {p['id']}: {verdict}{shown} — {p.get('claim', '')}")
+            report["predictions"].append({"phase": phase, **p, "verdict": verdict,
+                                          "branch": branch})
 
     (results_dir / "hypotheses_report.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
