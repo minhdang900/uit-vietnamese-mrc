@@ -375,9 +375,11 @@ câu cùng một đoạn văn cùng dễ hoặc cùng khó, khoảng tính theo 
 vì vậy báo cáo thêm khoảng bootstrap lấy mẫu lại theo đoạn văn.
 \ifhasStats
 Đo trên dữ liệu, lo ngại này \emph{không} thành hiện thực ở mức đoạn văn: tương quan trong cụm
-đoạn văn của EM xấp xỉ bằng 0, và hai loại khoảng gần như trùng nhau --- với mBERT v1, khoảng
-Wilson là [\mbertVoneEMlo; \mbertVoneEMhi] còn khoảng bootstrap theo đoạn văn là
-[\mbertVoneEMclo; \mbertVoneEMchi]. Điều còn bỏ ngỏ là tương quan ở mức \emph{bài viết}: với chỉ 19
+đoạn văn của EM xấp xỉ bằng 0 (ICC một chiều của mBERT v1: \mbertVoneICC), và hai loại khoảng gần
+như trùng nhau --- với mBERT v1, khoảng Wilson là [\mbertVoneEMlo; \mbertVoneEMhi] còn khoảng
+bootstrap theo đoạn văn là [\mbertVoneEMclo; \mbertVoneEMchi]. ICC hơi âm vì ViQuAD~2.0 trộn câu
+có đáp án và câu không có đáp án trong cùng một đoạn văn: với mốc ``luôn trả rỗng'', EM chính là
+nhãn \code{is\_impossible}, và ICC của nó là \alwaysEmptyICC. Điều còn bỏ ngỏ là tương quan ở mức \emph{bài viết}: với chỉ 19
 bài viết, tương quan này không ước lượng tin cậy được và bootstrap trên 19 cụm quá bất ổn để báo
 cáo, nên độ bất định do chọn chủ đề bài viết chưa được lượng hoá.
 \else

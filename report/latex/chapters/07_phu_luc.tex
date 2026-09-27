@@ -181,23 +181,23 @@ Mục~\ref{sec:experiments}.
 \label{tab:hist-n500}
 \renewcommand{\arraystretch}{1.2}
 \footnotesize
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{@{}l c r r r r r@{}}
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{@{}l r c r c r c r@{}}
 \toprule
-& & \multicolumn{2}{c}{\textbf{EM tổng}} & \multicolumn{2}{c}{\textbf{EM theo nhóm}} & \\
-\cmidrule(lr){3-4}\cmidrule(lr){5-6}
-\textbf{Mô hình} & \textbf{Fine-tune} & \textbf{EM} & \textbf{Wilson 95\%} & \textbf{có đáp án} & \textbf{không đáp án} & \textbf{F1} \\
-& & & & $n = \histHasAnsN$ & $n = \histNoAnsN$ & \\
+& \multicolumn{2}{c}{\textbf{EM tổng}} & \multicolumn{2}{c}{\textbf{EM có đáp án}} & \multicolumn{2}{c}{\textbf{EM không đáp án}} & \\
+& \multicolumn{2}{c}{$n = \histN$} & \multicolumn{2}{c}{$n = \histHasAnsN$} & \multicolumn{2}{c}{$n = \histNoAnsN$} & \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+\textbf{Mô hình} & & \textbf{Wilson 95\%} & & \textbf{Wilson 95\%} & & \textbf{Wilson 95\%} & \textbf{F1} \\
 \midrule
-Luôn trả rỗng & --- & \dataHistImpPct & --- & 0 & 100 & \dataHistImpPct \\
-TF-IDF & không & \histBaselineEM & [\histBaselineEMlo; \histBaselineEMhi] & \histBaselineHasAnsEM{} $\pm$ \histBaselineHasAnsEMwald & \histBaselineNoAnsEM & \histBaselineFone \\
-ViSoBERT + QA & có & \histVisoEM & [\histVisoEMlo; \histVisoEMhi] & \histVisoHasAnsEM{} $\pm$ \histVisoHasAnsEMwald & \histVisoNoAnsEM{} $\pm$ \histVisoNoAnsEMwald & \histVisoFone \\
-XLM-R squad2 & zero-shot & \histXlmrEM & [\histXlmrEMlo; \histXlmrEMhi] & \histXlmrHasAnsEM{} $\pm$ \histXlmrHasAnsEMwald & \histXlmrNoAnsEM{} $\pm$ \histXlmrNoAnsEMwald & \histXlmrFone \\
-mBERT + QA & có & \histMbertEM & [\histMbertEMlo; \histMbertEMhi] & \histMbertHasAnsEM{} $\pm$ \histMbertHasAnsEMwald & \histMbertNoAnsEM{} $\pm$ \histMbertNoAnsEMwald & \histMbertFone \\
+Luôn trả rỗng & \dataHistImpPct & --- & 0 & --- & 100 & --- & \dataHistImpPct \\
+TF-IDF & \histBaselineEM & [\histBaselineEMlo; \histBaselineEMhi] & \histBaselineHasAnsEM & [\histBaselineHasAnsEMlo; \histBaselineHasAnsEMhi] & \histBaselineNoAnsEM & [\histBaselineNoAnsEMlo; \histBaselineNoAnsEMhi] & \histBaselineFone \\
+ViSoBERT & \histVisoEM & [\histVisoEMlo; \histVisoEMhi] & \histVisoHasAnsEM & [\histVisoHasAnsEMlo; \histVisoHasAnsEMhi] & \histVisoNoAnsEM & [\histVisoNoAnsEMlo; \histVisoNoAnsEMhi] & \histVisoFone \\
+XLM-R (zero-shot) & \histXlmrEM & [\histXlmrEMlo; \histXlmrEMhi] & \histXlmrHasAnsEM & [\histXlmrHasAnsEMlo; \histXlmrHasAnsEMhi] & \histXlmrNoAnsEM & [\histXlmrNoAnsEMlo; \histXlmrNoAnsEMhi] & \histXlmrFone \\
+mBERT & \histMbertEM & [\histMbertEMlo; \histMbertEMhi] & \histMbertHasAnsEM & [\histMbertHasAnsEMlo; \histMbertHasAnsEMhi] & \histMbertNoAnsEM & [\histMbertNoAnsEMlo; \histMbertNoAnsEMhi] & \histMbertFone \\
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-{\footnotesize Khoảng Wilson 95\% cho EM tổng (\code{scripts/ci.py} $\to$ \code{results/ci\_n500.json}); EM theo nhóm ghi nửa khoảng Wald $\pm$, coi câu hỏi độc lập --- \overlapHistContexts{} đoạn văn, \overlapHistArticles{} bài viết, nên khoảng thật rộng hơn. Dòng ``luôn trả rỗng'' suy ra trực tiếp từ nhãn: EM $=$ F1 $=$ tỉ lệ câu không có đáp án của mẫu.}
+{\footnotesize Khoảng Wilson 95\% (\code{scripts/ci.py} $\to$ \code{results/ci\_n500.json}) coi câu hỏi độc lập, trong khi mẫu gồm \overlapHistContexts{} đoạn văn thuộc \overlapHistArticles{} bài viết. Trên toàn bộ validation, tương quan trong đoạn văn đo được xấp xỉ 0 và khoảng bootstrap theo đoạn văn gần như trùng khoảng Wilson (Mục~\ref{sec:overall}); tương quan ở mức bài viết chưa lượng hoá được. Dòng ``luôn trả rỗng'' suy ra trực tiếp từ nhãn: EM $=$ F1 $=$ tỉ lệ câu không có đáp án của mẫu.}
 \end{table}
 
 \section{Cấu trúc mã nguồn}
