@@ -20,7 +20,7 @@ from pathlib import Path
 
 __all__ = ["markdown_table", "csv_table", "provenance_rows", "impossible_share",
            "build_report_assets", "render_report", "metric_literals",
-           "result_literals", "render_readme_table"]
+           "result_literals", "render_readme_table", "sync_readme_results"]
 
 #: Chỗ đánh dấu nhúng bảng trong template báo cáo.
 INCLUDE = re.compile(
@@ -226,8 +226,107 @@ README_MODEL_NAMES: dict[str, str] = {
 README_BOLD_COLUMNS = ("F1", "answerable_EM", "answerable_F1", "impossible_EM")
 
 
+#: Chuỗi con để nhận ra model trong ``result["model"]`` thô — không phụ thuộc
+#: định dạng chính xác của chuỗi đó (đổi cách viết trong eval_*.json thì đây
+#: vẫn khớp).
+README_MODEL_NEEDLES: dict[str, str] = {
+    "baseline": "tf-idf", "xlmr": "xlm-r", "mbert": "mbert",
+    "visobert": "visobert", "empty": "rỗng",
+}
+
+
+def _by_model(results: list[dict], key: str) -> dict | None:
+    needle = README_MODEL_NEEDLES[key]
+    for r in results:
+        if needle in r["model"].lower():
+            return r
+    return None
+
+
+def _read_json(results_dir: Path, name: str) -> dict | None:
+    import json
+    path = Path(results_dir) / name
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def _render_findings(results: list[dict], n: int) -> list[str]:
+    """"Ba điều bảng này nói ra" — CÙNG số với bảng, không phải bản chép lại.
+
+    Trước phần này từng là văn xuôi viết tay trích số từ bảng (bất biến #3
+    bị vi phạm ngay trong README của chính dự án chống việc đó). Sinh ra thì
+    không thể lệch nhau nữa, và số tự cập nhật khi có model mới/kết quả mới.
+    """
+    baseline, xlmr, mbert = _by_model(results, "baseline"), _by_model(results, "xlmr"), _by_model(results, "mbert")
+    viso, empty = _by_model(results, "visobert"), _by_model(results, "empty")
+    lines = ["### Ba điều bảng này nói ra, mà con số tổng thì không", ""]
+    if baseline:
+        lines += [
+            f"**1. Baseline: F1 {baseline['overall']['F1']:.0f}% nhưng EM ~"
+            f"{round(baseline['overall']['EM'])}%.** Nó trả về **cả một câu**, còn gold là **cụm "
+            "vài từ** — overlap token có, trùng khít thì không. Khoảng cách EM-F1 đó là bằng chứng "
+            "trực quan rằng hai metric đo hai thứ khác nhau.", "",
+        ]
+    if xlmr and mbert:
+        lines += [
+            "**2. mBERT thắng XLM-R KHÔNG phải vì tìm span giỏi hơn.** Trên câu answerable, "
+            f"XLM-R zero-shot thực ra **tốt hơn** (F1 {xlmr['answerable_only']['F1']:.2f} so với "
+            f"{mbert['answerable_only']['F1']:.2f}). mBERT thắng tổng thể vì **biết khi nào KHÔNG "
+            f"nên trả lời** tốt hơn hẳn (impossible EM {mbert['impossible_only']['EM']:.2f} so với "
+            f"{xlmr['impossible_only']['EM']:.2f}). Với ~30% câu là unanswerable, kỹ năng thứ hai "
+            "quyết định bảng xếp hạng. Đây là lý do báo cáo tách `answerable_only` và "
+            "`impossible_only` — con số tổng trộn hai kỹ năng và che mất điều này.", "",
+        ]
+    if viso and empty:
+        gap = viso["overall"]["EM"] - empty["overall"]["EM"]
+        lines += [
+            "**3. ViSoBERT gần suy sụp về \"luôn trả rỗng\".** EM tổng "
+            f"{viso['overall']['EM']:.2f} chỉ nhỉnh hơn **{empty['overall']['EM']:.2f}** — EM của "
+            f"chính mốc *luôn trả rỗng* (tỉ lệ câu không có đáp án của tập) — đúng **{gap:.2f} "
+            f"điểm** (quan sát ở n={n}, không phải một đẳng thức luôn đúng). Bóc tách ra: "
+            f"impossible EM **{viso['impossible_only']['EM']:.2f}** nhưng answerable EM chỉ "
+            f"**{viso['answerable_only']['EM']:.2f}** — nó gần như chỉ ăn điểm từ việc từ chối trả "
+            "lời. `scripts/check_hypotheses.py` phát hiện tự động điều này.", "",
+        ]
+    return lines
+
+
+#: (nhãn hiển thị, tên tệp ``training_curve_*.json``).
+TRAINING_CURVES = (("mBERT", "training_curve_mbert.json"), ("ViSoBERT", "training_curve_visobert.json"))
+
+
+def _render_training_curves(results_dir: str | Path) -> list[str]:
+    """Đường cong huấn luyện — ĐỌC ``training_curve_*.json``, không chép tay.
+
+    Model chưa có ``training_curve_*.json`` (chưa fine-tune) thì hàng của nó
+    vắng mặt thay vì lỗi — script chạy được ở bất kỳ giai đoạn nào của lộ trình.
+    """
+    rows: list[str] = []
+    for label, fname in TRAINING_CURVES:
+        curve = _read_json(Path(results_dir), fname)
+        if not curve:
+            continue
+        lr = f"{curve['config']['lr']:.0e}".replace("e-0", "e-")
+        for i, point in enumerate(curve["curve"]):
+            model_cell = f"**{label}** (lr {lr})" if i == 0 else ""
+            rows.append(
+                f"| {model_cell} | {point['epoch']} | {point['train_loss']:.4f} | "
+                f"{point['val_em']:.2f} | {point['val_f1']:.2f} |"
+            )
+    if not rows:
+        return []
+    return ["### Đường cong huấn luyện", "",
+            "| | epoch | train loss | val EM | val F1 |",
+            "|---|---:|---:|---:|---:|", *rows]
+
+
 def render_readme_table(results_dir: str | Path) -> str:
-    """Bảng kết quả cho README, giữa ``<!-- BEGIN:results -->``/``<!-- END:results -->``.
+    """Toàn bộ vùng SINH của README giữa ``<!-- BEGIN:results -->``/``<!-- END:results -->``.
+
+    Không chỉ bảng: bất biến #3 (mọi số kết quả ⟶ ``results/*.json``) từng bị
+    chính README vi phạm — phần văn xuôi "Ba điều bảng này nói ra" và bảng
+    "Đường cong huấn luyện" chép tay lại đúng những số đã có trong bảng/JSON
+    phía trên, và hai bản chép đó lệch nhau là chuyện chỉ còn là thời gian.
+    Gộp cả ba vào một hàm SINH duy nhất thì không còn chỗ nào để lệch.
 
     Cùng nguồn với ``report/assets/table_results.md``
     (``figures.collect_results`` + ``format_results_table``): mọi
@@ -243,6 +342,7 @@ def render_readme_table(results_dir: str | Path) -> str:
 
     results = collect_results(results_dir)
     rows = format_results_table(results)
+    n = rows[0]["n"]
 
     best_em_model = max(rows, key=lambda r: r["EM"])["model"]
     col_best = {col: max(r[col] for r in rows) for col in README_BOLD_COLUMNS}
@@ -265,7 +365,38 @@ def render_readme_table(results_dir: str | Path) -> str:
             f"{cell(row, 'answerable_EM')} / {cell(row, 'answerable_F1')} | "
             f"{cell(row, 'impossible_EM')} | {row['latency_ms']:.1f} ms |"
         )
+    lines += ["", *_render_findings(results, n), *_render_training_curves(results_dir)]
     return "\n".join(lines) + "\n"
+
+
+#: Cặp đánh dấu vùng sinh trong README — ``BEGIN`` luôn đứng đầu dòng riêng.
+README_MARKERS = ("<!-- BEGIN:results -->\n", "<!-- END:results -->")
+
+
+def sync_readme_results(results_dir: str | Path, readme_path: str | Path = "README.md") -> Path:
+    """Ghi lại vùng đánh dấu của README bằng ``render_readme_table`` hiện tại.
+
+    Đây là hành động thật đứng sau lời hứa ở đầu README ("chạy lại
+    ``scripts/make_report.py`` để cập nhật"). Không tự thêm marker nếu README
+    chưa có — gãy ồn ào thay vì âm thầm bỏ qua, cùng triết lý với phần còn lại
+    của module này (thiếu bằng chứng thì dừng, không đoán).
+    """
+    readme_path = Path(readme_path)
+    text = readme_path.read_text(encoding="utf-8")
+    begin, end = README_MARKERS
+    start = text.find(begin)
+    # tìm END SAU START: README có thể nhắc marker trong văn xuôi (vd. hướng dẫn
+    # ở đầu mục "Kết quả"), và END của câu văn đó đứng trước BEGIN thật.
+    stop = text.find(end, start + len(begin)) if start != -1 else -1
+    if start == -1 or stop == -1:
+        raise ValueError(
+            f"{readme_path} thiếu cặp {begin.strip()!r} / {end!r} — không đồng bộ được."
+        )
+    start += len(begin)
+    new_text = text[:start] + render_readme_table(results_dir) + text[stop:]
+    if new_text != text:
+        readme_path.write_text(new_text, encoding="utf-8")
+    return readme_path
 
 
 def _write(path: Path, text: str) -> Path:

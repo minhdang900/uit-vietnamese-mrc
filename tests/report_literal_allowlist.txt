@@ -3,3 +3,5 @@
 # Tối đa 10 mục; mục không còn khớp (stale) làm test đỏ. Ưu tiên macro hơn allowlist.
 report/latex/chapters/08_phu_luc_kien_truc.tex:10,2  # Dung lượng đĩa ảnh Docker đo tại ADR-007 (GB) — trùng ngẫu nhiên với chênh lệch EM mBERT-XLM-R, không liên quan
 slides/build_deck.js:10,2  # Cùng dung lượng Docker (GB) như trên, lặp lại trong DATA.docker của deck — không liên quan
+README.md:10,2  # Cùng dung lượng Docker (GB) như trên, lặp lại trong bảng "trước/sau ép CPU" của README — không liên quan
+README.md:30,4  # Tỉ lệ câu impossible của validation (data_stats.json) — BẰNG ĐÚNG EM của baseline "luôn trả rỗng" theo định nghĩa (trả rỗng chỉ đúng cho câu impossible), không phải trùng ngẫu nhiên nhưng cũng không phải số gõ tay sai lệch

@@ -14,10 +14,12 @@ Cho một đoạn văn (`context`) và một câu hỏi (`question`), hệ thố
 ## Kết quả
 
 UIT-ViQuAD 2.0, **toàn bộ validation split** (n = 3.814, cùng một tập cho mọi
-model), thiết bị **MPS (Apple M5 Pro)**. Bảng dưới đây **sinh tự động** từ
-`results/eval_*_validation.json` — sửa `<!-- BEGIN:results -->` … `<!-- END:results -->`
-bằng tay thì `pytest` báo đỏ; chạy lại `python scripts/make_report.py` để cập
-nhật sau khi có kết quả mới:
+model), thiết bị **MPS (Apple M5 Pro)**. Từ bảng đến hết đường cong huấn luyện
+bên dưới — bảng kết quả, "Ba điều bảng này nói ra", đường cong huấn luyện — là
+MỘT vùng **sinh tự động** từ `results/*.json` (`reporting.assets.render_readme_table`),
+kể cả phần văn xuôi: sửa `<!-- BEGIN:results -->` … `<!-- END:results -->` bằng
+tay thì `pytest` báo đỏ; chạy lại `python scripts/make_report.py` để cập nhật
+sau khi có kết quả mới:
 
 <!-- BEGIN:results -->
 | Model | EM | F1 | answerable EM / F1 | impossible EM | Latency |
@@ -27,29 +29,32 @@ nhật sau khi có kết quả mới:
 | ViSoBERT + QA (fine-tuned) | 31.99 | 34.66 | 8.29 / 12.14 | 86.13 | 27.2 ms |
 | XLM-R squad2 (zero-shot) | 39.22 | 54.24 | 43.20 / **64.78** | 30.15 | 13.5 ms |
 | **mBERT + QA (fine-tuned)** | **48.95** | **57.98** | **50.70** / 63.67 | 44.96 | 13.4 ms |
-<!-- END:results -->
-
-Đối chiếu với giả thuyết ghi **trước** khi chạy (`results/hypotheses.md`):
-`python scripts/check_hypotheses.py`.
 
 ### Ba điều bảng này nói ra, mà con số tổng thì không
 
-**1. Baseline: F1 22% nhưng EM ~1%.** Nó trả về **cả một câu**, còn gold là **cụm
-vài từ** — overlap token có, trùng khít thì không. Khoảng cách EM–F1 đó là bằng
-chứng trực quan rằng hai metric đo hai thứ khác nhau.
+**1. Baseline: F1 22% nhưng EM ~1%.** Nó trả về **cả một câu**, còn gold là **cụm vài từ** — overlap token có, trùng khít thì không. Khoảng cách EM-F1 đó là bằng chứng trực quan rằng hai metric đo hai thứ khác nhau.
 
-**2. mBERT thắng XLM-R KHÔNG phải vì tìm span giỏi hơn.** Trên câu answerable,
-XLM-R zero-shot thực ra **tốt hơn** (F1 64,78 so với 63,67). mBERT thắng tổng thể
-vì **biết khi nào KHÔNG nên trả lời** tốt hơn hẳn (impossible EM 44,96 so với
-30,15). Với ~30% câu là unanswerable, kỹ năng thứ hai quyết định bảng xếp hạng.
-Đây là lý do báo cáo tách `answerable_only` và `impossible_only` — con số tổng
-trộn hai kỹ năng và che mất điều này.
+**2. mBERT thắng XLM-R KHÔNG phải vì tìm span giỏi hơn.** Trên câu answerable, XLM-R zero-shot thực ra **tốt hơn** (F1 64.78 so với 63.67). mBERT thắng tổng thể vì **biết khi nào KHÔNG nên trả lời** tốt hơn hẳn (impossible EM 44.96 so với 30.15). Với ~30% câu là unanswerable, kỹ năng thứ hai quyết định bảng xếp hạng. Đây là lý do báo cáo tách `answerable_only` và `impossible_only` — con số tổng trộn hai kỹ năng và che mất điều này.
 
-**3. ViSoBERT suy sụp gần về "luôn trả rỗng".** EM tổng 31,99 chỉ nhỉnh hơn
-**30,44** — EM của chính mốc *luôn trả rỗng* (tỉ lệ câu không có đáp án của tập)
-— đúng **1,55 điểm**. Bóc tách ra: impossible EM **86,13** nhưng answerable EM
-chỉ **8,29** — nó gần như chỉ ăn điểm từ việc từ chối trả lời.
-`scripts/check_hypotheses.py` phát hiện tự động điều này.
+**3. ViSoBERT gần suy sụp về "luôn trả rỗng".** EM tổng 31.99 chỉ nhỉnh hơn **30.44** — EM của chính mốc *luôn trả rỗng* (tỉ lệ câu không có đáp án của tập) — đúng **1.55 điểm** (quan sát ở n=3814, không phải một đẳng thức luôn đúng). Bóc tách ra: impossible EM **86.13** nhưng answerable EM chỉ **8.29** — nó gần như chỉ ăn điểm từ việc từ chối trả lời. `scripts/check_hypotheses.py` phát hiện tự động điều này.
+
+### Đường cong huấn luyện
+
+| | epoch | train loss | val EM | val F1 |
+|---|---:|---:|---:|---:|
+| **mBERT** (lr 3e-5) | 1 | 2.1316 | 46.00 | 58.39 |
+|  | 2 | 1.2960 | 52.00 | 59.75 |
+| **ViSoBERT** (lr 5e-5) | 1 | 3.0512 | 25.67 | 25.67 |
+|  | 2 | 2.5678 | 25.33 | 25.61 |
+|  | 3 | 2.1908 | 27.00 | 30.48 |
+<!-- END:results -->
+
+mBERT: loss giảm, val tăng ⇒ **chưa overfit, thậm chí còn thiếu epoch**.
+ViSoBERT epoch 1–2: `val_EM == val_F1` ⇒ dấu hiệu **suy sụp về luôn-trả-rỗng**;
+epoch 3 mới bắt đầu thoát ra.
+
+Đối chiếu với giả thuyết ghi **trước** khi chạy (`results/hypotheses.md`):
+`python scripts/check_hypotheses.py`.
 
 ### Vì sao ViSoBERT thất bại — và vì sao đó là kết quả hợp lệ
 
@@ -59,8 +64,8 @@ vẫn chưa được bù trừ**, và nó không có trong bảng này.
 | Nghi vấn | Kiểm tra | Kết quả |
 |---|---|---|
 | `max_position_embeddings` < 384? | đọc config | 514 — không phải nguyên nhân |
-| `max_answer_len=30` quá ngắn? | đo p95 gold answer | **đúng là confound** — 27,8% gold vượt 30 token (p95 = 67). Sửa thành 64 |
-| learning rate quá thấp? | 3e-5 → 5e-5 | có cải thiện (F1 12,25 → 30,48) nhưng vẫn kém xa |
+| `max_answer_len=30` quá ngắn? | đo p95 gold answer | **đúng là confound** — hơn một phần tư gold vượt 30 token (p95 = 67; số chính xác ở `docs/ARCHITECTURE.md` §7.2, từ `results/tokenizer_stats.json`). Sửa thành 64 |
+| learning rate quá thấp? | 3e-5 → 5e-5 | có cải thiện rõ rệt trên val F1 (xem đường cong huấn luyện phía trên) nhưng vẫn kém xa |
 | ngưỡng null lệch? | quét `null_threshold` | tốt nhất F1 34,77; ép trả lời cho EM **11,50** |
 
 Trục **chưa** được kiểm ở bảng trên là `max_length`: giữ nguyên 384 (và `doc_stride`
@@ -85,30 +90,17 @@ MRC trên Wikipedia đòi **biên span chính xác** trên văn phong trang tr�
 minh. Yếu tố mạnh nhất là `max_length = 384` — đặt theo tokenizer mBERT và **chưa
 được chỉnh lại** cho ViSoBERT (`max_answer_len` thì đã bù, 30 → 64: đừng nói lẫn
 hai tham số). Cùng với loss chưa hội tụ, **cùng một thân encoder ở cả hai model
-(~85M tham số) — khác biệt chỉ nằm ở bảng embedding: 91,8M (mBERT) so với 11,5M
-(ViSoBERT), KHÔNG phải "sức chứa nhỏ hơn 45%"** như từng viết, và hố cực tiểu do
-32,39% câu impossible, **bốn yếu tố đó đã đủ** để giải thích sự suy sụp mà không
-cần nói gì về ViSoBERT như một encoder.
+(~85M tham số) — khác biệt chỉ nằm ở bảng embedding (số chính xác:
+`docs/ARCHITECTURE.md` §7.2, từ `results/tokenizer_stats.json`), KHÔNG phải
+"sức chứa nhỏ hơn 45%"** như từng viết, và hố cực tiểu do 32,39% câu impossible,
+**bốn yếu tố đó đã đủ** để giải thích sự suy sụp mà không cần nói gì về ViSoBERT
+như một encoder.
 
 ⇒ Vì vậy **chưa kết luận được** rằng tiền huấn luyện tiếng Việt không giúp ích.
 Câu hỏi "tiếng Việt chuyên biệt có giúp không?" vẫn **để ngỏ**: PhoBERT chưa từng
 được chạy, và ViSoBERT chưa được huấn luyện lại sau chẩn đoán. Phép kiểm trực
 tiếp: `max_length` **512** (giới hạn bởi `max_position_embeddings = 514 = 512+2`
 của model — 768 KHÔNG dùng được), lr 3e-5, giữ nguyên mọi thứ khác.
-
-### Đường cong huấn luyện
-
-| | epoch | train loss | val EM | val F1 |
-|---|---:|---:|---:|---:|
-| **mBERT** (lr 3e-5) | 1 | 2.1316 | 46.00 | 58.39 |
-| | 2 | 1.2960 | 52.00 | 59.75 |
-| **ViSoBERT** (lr 5e-5) | 1 | 3.0512 | 25.67 | 25.67 |
-| | 2 | 2.5678 | 25.33 | 25.61 |
-| | 3 | 2.1908 | 27.00 | 30.48 |
-
-mBERT: loss giảm, val tăng ⇒ **chưa overfit, thậm chí còn thiếu epoch**.
-ViSoBERT epoch 1–2: `val_EM == val_F1` ⇒ dấu hiệu **suy sụp về luôn-trả-rỗng**;
-epoch 3 mới bắt đầu thoát ra.
 
 ## Cài đặt
 
@@ -192,8 +184,8 @@ gốc của model). Bỏ chúng là khác biệt giữa gói 1,5 GB và gói 4 G
 ### Trong container là CPU, không phải MPS
 
 Container Linux không thấy Metal. Demo chạy trong Docker ghi `thiết bị cpu` ở
-chân thẻ đáp án và **chậm hơn ~4 lần** bản chạy thẳng trên máy (đo được 57,0 ms
-so với 13,5 ms cho cùng câu hỏi mở màn). Chỉ là độ trễ — span trả về y hệt.
+chân thẻ đáp án và **chậm hơn đáng kể** (quan sát được: khoảng ~4 lần) so với
+bản chạy thẳng trên máy cho cùng câu hỏi mở màn. Chỉ là độ trễ — span trả về y hệt.
 
 Bảng kết quả trong `results/*.json` vẫn là của lần chạy **MPS**, và mỗi màn hình
 đều in kèm thiết bị sinh ra nó, nên hai con số không thể bị nhầm lẫn với nhau.

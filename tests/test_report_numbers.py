@@ -445,7 +445,6 @@ def test_4a_readme_results_table_is_generated():
     assert m.group(1) == render_readme_table(RESULTS)
 
 
-@pytest.mark.xfail(strict=True, reason=WORDING_PENDING)
 def test_4b_readme_has_no_result_literal_outside_the_markers():
     readme = ROOT / "README.md"
     text = readme.read_text(encoding="utf-8")
