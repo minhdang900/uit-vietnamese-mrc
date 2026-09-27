@@ -319,6 +319,34 @@ def _render_training_curves(results_dir: str | Path) -> list[str]:
             "|---|---:|---:|---:|---:|", *rows]
 
 
+def _vn_int(n: int) -> str:
+    """``9216`` → ``"9.216"`` — dấu chấm hàng nghìn, cùng quy ước với mục Dữ liệu."""
+    return f"{n:,}".replace(",", ".")
+
+
+def _render_impossible_share(results_dir: str | Path) -> list[str]:
+    """Tỉ lệ câu không có đáp án theo split — ĐỌC ``data_stats.json``.
+
+    Mục "## Dữ liệu" bên dưới trích đúng số này (đếm) chứ không nhắc lại phần
+    trăm bằng tay: ``validation.impossible_pct`` trùng đúng bằng EM của mốc
+    "luôn trả rỗng" (một là bằng EM của lời-luôn-đúng cho câu impossible), nên
+    gõ tay dễ lệch so với bảng ngay phía trên trong chính vùng sinh này.
+    """
+    stats = _read_json(Path(results_dir), "data_stats.json")
+    if not stats:
+        return []
+    rows = []
+    for split in ("train", "validation"):   # test luôn 0/blind (xem mục Dữ liệu) — bỏ qua
+        s = stats.get(split)
+        if not s:
+            continue
+        rows.append(f"| {split} | {_vn_int(s['num_impossible'])} | {s['impossible_pct']:.2f}% |")
+    if not rows:
+        return []
+    return ["### Tỉ lệ câu không có đáp án theo split", "",
+            "| Split | Impossible | % |", "|---|---:|---:|", *rows]
+
+
 def render_readme_table(results_dir: str | Path) -> str:
     """Toàn bộ vùng SINH của README giữa ``<!-- BEGIN:results -->``/``<!-- END:results -->``.
 
@@ -365,7 +393,8 @@ def render_readme_table(results_dir: str | Path) -> str:
             f"{cell(row, 'answerable_EM')} / {cell(row, 'answerable_F1')} | "
             f"{cell(row, 'impossible_EM')} | {row['latency_ms']:.1f} ms |"
         )
-    lines += ["", *_render_findings(results, n), *_render_training_curves(results_dir)]
+    lines += ["", *_render_findings(results, n), *_render_training_curves(results_dir),
+              "", *_render_impossible_share(results_dir)]
     return "\n".join(lines) + "\n"
 
 

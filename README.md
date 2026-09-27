@@ -47,6 +47,13 @@ sau khi có kết quả mới:
 | **ViSoBERT** (lr 5e-5) | 1 | 3.0512 | 25.67 | 25.67 |
 |  | 2 | 2.5678 | 25.33 | 25.61 |
 |  | 3 | 2.1908 | 27.00 | 30.48 |
+
+### Tỉ lệ câu không có đáp án theo split
+
+| Split | Impossible | % |
+|---|---:|---:|
+| train | 9.216 | 32.39% |
+| validation | 1.161 | 30.44% |
 <!-- END:results -->
 
 mBERT: loss giảm, val tăng ⇒ **chưa overfit, thậm chí còn thiếu epoch**.
@@ -253,12 +260,13 @@ pytest --cov=mrc        # kèm coverage
 ## Dữ liệu
 
 **UIT-ViQuAD 2.0** (`taidng/UIT-ViQuAD2.0`), định dạng SQuAD-2.0. Số liệu **đo trực
-tiếp từ file tải về**, không chép từ tài liệu:
+tiếp từ file tải về**, không chép từ tài liệu (tỉ lệ % của cột Impossible — bảng
+"Tỉ lệ câu không có đáp án theo split" ở mục Kết quả, sinh từ `data_stats.json`):
 
 | Split | Questions | Contexts | Articles | Impossible | Có gold | **Chấm được** |
 |---|---:|---:|---:|---:|---:|---:|
-| train | 28.454 | 4.101 | 138 | 9.216 (32,4%) | 19.238 | 28.454 |
-| validation | 3.814 | 557 | 19 | 1.161 (30,4%) | 2.653 | 3.814 |
+| train | 28.454 | 4.101 | 138 | 9.216 | 19.238 | 28.454 |
+| validation | 3.814 | 557 | 19 | 1.161 | 2.653 | 3.814 |
 | test | 7.301 | 1.241 | 48 | 0 | **0** | **0** |
 
 ### ⚠️ Test split là blind set — không thể đánh giá trên đó
