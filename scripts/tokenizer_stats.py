@@ -94,11 +94,23 @@ def compute_tokenizer_stats(
             for e in train_examples[:n_train_answers] if e.answers
         )
 
-        gt2_windows = sum(
-            1 for e in val_examples
-            if len(list(make_windows(e.question, e.context, tokenizer,
-                                      max_length=max_length, doc_stride=doc_stride))) > 2
-        )
+        # Cửa sổ phụ thuộc CẢ context lẫn câu hỏi (ngân sách trừ đi độ dài câu
+        # hỏi), nên hai câu cùng context có thể cho số cửa sổ khác nhau. Một
+        # PARAGRAPH (context) được tính là ">2 cửa sổ" nếu BẤT KỲ câu hỏi nào
+        # của nó cần >2 cửa sổ — đây là định nghĩa G5 dùng (khớp
+        # "questions_gt2_windows" ở mức câu hỏi, gộp lên mức context).
+        gt2_windows_qids: set[str] = set()
+        gt2_windows_contexts: set[str] = set()
+        for e in val_examples:
+            n_windows = len(list(make_windows(
+                e.question, e.context, tokenizer,
+                max_length=max_length, doc_stride=doc_stride,
+            )))
+            if n_windows > 2:
+                gt2_windows_qids.add(e.qid)
+                gt2_windows_contexts.add(e.context)
+        gt2_windows = len(gt2_windows_qids)
+        ctx_gt2_windows = len(gt2_windows_contexts)
 
         row = {
             "vocab_size": getattr(tokenizer, "vocab_size", None),
@@ -108,6 +120,7 @@ def compute_tokenizer_stats(
             "val_ctx_over_357": sum(1 for x in ctx_lens if x > _LONG_CTX_THRESHOLD),
             "val_ctx_total": len(ctx_lens),
             "questions_gt2_windows": gt2_windows,
+            "val_ctx_gt2_windows": ctx_gt2_windows,
             "questions_gt2_windows_config": {"max_length": max_length, "doc_stride": doc_stride},
             "train_answers_sampled": len(answer_lens),
             "train_answers_p95": answer_lens[int(0.95 * len(answer_lens))] if answer_lens else None,

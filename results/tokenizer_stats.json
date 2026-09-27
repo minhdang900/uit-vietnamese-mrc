@@ -7,6 +7,7 @@
   "val_ctx_over_357": 16,
   "val_ctx_total": 557,
   "questions_gt2_windows": 14,
+  "val_ctx_gt2_windows": 2,
   "questions_gt2_windows_config": {
    "max_length": 384,
    "doc_stride": 128
@@ -28,6 +29,7 @@
   "val_ctx_over_357": 154,
   "val_ctx_total": 557,
   "questions_gt2_windows": 132,
+  "val_ctx_gt2_windows": 23,
   "questions_gt2_windows_config": {
    "max_length": 384,
    "doc_stride": 128
@@ -41,6 +43,6 @@
   "embedding_params": 11523072,
   "encoder_body_params": 85057538
  },
- "commit": "36bff4f",
- "timestamp": "2026-09-27T15:35:24+00:00"
+ "commit": "896bc5e",
+ "timestamp": "2026-09-27T15:48:22+00:00"
 }
