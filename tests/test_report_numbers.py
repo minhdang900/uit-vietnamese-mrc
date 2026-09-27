@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from pathlib import Path
 
 import pytest
@@ -230,6 +231,10 @@ def make_curve(model, lr=3e-05):
                        "val_em_biased_first300": 42.0, "val_f1_biased_first300": 49.13}]}
 
 
+EVIDENCE = ("null_labels_train.json", "tokenizer_stats.json", "ci_n500.json",
+            "sample_overlap.json", "data_stats.json")
+
+
 def write_tree(root: Path, history_moved=False) -> Path:
     """``results/`` tối thiểu: 4 eval n=500 + 2 đường cong (mọi file BẮT BUỘC)."""
     results = root / "results"
@@ -244,6 +249,8 @@ def write_tree(root: Path, history_moved=False) -> Path:
     viso = make_curve("visobert", lr=5e-05)
     viso["curve"].append({"epoch": 3, "train_loss": 2.1908, "val_em": 27.0, "val_f1": 30.48})
     (results / "training_curve_visobert.json").write_text(json.dumps(viso), encoding="utf-8")
+    for name in EVIDENCE:   # bằng chứng P1.2 là nguồn BẮT BUỘC; schema lấy từ tệp thật
+        shutil.copy(RESULTS / name, results / name)
     return results
 
 
@@ -296,6 +303,15 @@ def test_present_optional_file_turns_its_flag_on(tmp_path):
     assert flags["hasVisoLong"] is True
     assert macros["visoLongEM"] == "33{,}33"
     assert macros["visoLongEmptyRate"] == "41{,}50"
+
+
+@pytest.mark.parametrize("name", EVIDENCE)
+def test_missing_evidence_file_raises(tmp_path, name):
+    results = write_tree(tmp_path)
+    (results / name).unlink()
+
+    with pytest.raises(FileNotFoundError, match=name.removesuffix(".json")):
+        collect_all(results)
 
 
 def test_missing_required_file_raises(tmp_path):

@@ -40,7 +40,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
@@ -174,7 +174,8 @@ def _evidence() -> list[Spec]:
                 Spec(f"data{name}ImpPct", ds, f"{split}.impossible_pct", "f2", result=False)]
     out += [Spec("dataHistImpPct", ds, "subset.impossible_pct", "f2", result=False),
             Spec("dataHistImp", ds, "subset.impossible", "int", result=False)]
-    return out
+    # Bằng chứng P1 đã commit (af02099): thiếu tệp nào thì gãy, không lặng lẽ bỏ macro.
+    return [replace(spec, required=True) for spec in out]
 
 
 #: Cặp so sánh trong stats_validation.json: (tiền tố macro, a, b, cờ).
