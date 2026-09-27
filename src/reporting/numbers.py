@@ -14,6 +14,26 @@ Nguồn thiếu:
 
 Tên macro chỉ gồm chữ cái (giới hạn của TeX): ``F1`` → ``Fone``, epoch 1–3 →
 ``I``/``II``/``III``.
+
+Hợp đồng ``results/stats_validation.json`` (``scripts/compute_stats.py``, P2.2)
+— mọi metric là phần trăm 0–100, mọi CI là ``[lo, hi]``::
+
+    {"split": "validation", "commit", "timestamp", "B": 10000, "seed": 0,
+     "cluster": "paragraph_id", "n_clusters": 557,
+     "runs": {"<run_id>": {"n", "EM", "F1", "empty_rate",
+                           "EM_wilson": [lo, hi],          # → <p>EMlo / <p>EMhi
+                           "EM_cluster_ci": [lo, hi],      # → <p>EMclo / <p>EMchi
+                           "F1_cluster_ci": [lo, hi],      # → <p>Foneclo / <p>Fonechi
+                           "has_ans": {"n", "EM", "F1", "EM_wilson": [lo, hi]},
+                           "no_ans": {"n", "EM", "EM_wilson": [lo, hi]}}},
+     "pairs": [{"a", "b", "b01", "b10", "p_mcnemar",   # → <pair>P
+                "dEM",                                  # a − b → <pair>DiffEM
+                "dEM_cluster_ci": [lo, hi],             # → <pair>DiffEMclo / chi
+                "dF1_cluster_ci": [lo, hi]}],
+     "seed_summary": {"mean", "std", "n_seeds", "per_seed"}}   # chỉ sau P5
+
+Run/cặp CHƯA có trong tệp (phase chưa chạy) → macro vắng, không lỗi; mục đã có
+mà thiếu khoá → ``KeyError`` (lệch hợp đồng phải ồn).
 """
 
 from __future__ import annotations
@@ -35,7 +55,7 @@ HISTORY_N = 500
 @dataclass(frozen=True)
 class Spec:
     name: str
-    source: str                     # "hist:<run>" | "eval:<run>" | "file:<tên>.json"
+    source: str   # "hist:<run>" | "eval:<run>" | "file:<tên>.json" | "stats:<run>" | "pair:<a>:<b>" | "seeds:"
     path: str | Callable[[Any], Any]
     fmt: str = "f2"                 # f2 | f1 | f4 | int | p
     scale: float = 1.0
@@ -157,6 +177,42 @@ def _evidence() -> list[Spec]:
     return out
 
 
+#: Cặp so sánh trong stats_validation.json: (tiền tố macro, a, b, cờ).
+_PAIRS = (("mbertVoneXlmr", "mbert", "xlmr", "hasStats"),
+          ("mbertVoneVisoVone", "mbert", "visobert", "hasStats"),
+          ("xlmrBaseline", "xlmr", "baseline", "hasStats"),
+          ("mbertXlmr", "mbert-dev", "xlmr", "hasDev"),
+          ("mbertViso", "mbert-dev", "visobert-dev", "hasDev"),
+          ("mbertMbertVone", "mbert-dev", "mbert", "hasDev"))
+
+
+def _stats() -> list[Spec]:
+    """CI Wilson + bootstrap cụm đoạn văn + McNemar (P2.2). Cờ: ``hasStats`` cho
+    run v1, cờ của chính run cho run v2 (stats sinh ngay sau mỗi lần eval)."""
+    out: list[Spec] = []
+    for prefix, run, flag in _FULL + _DEV:
+        src, flag = f"stats:{run}", (flag if flag != "hasFullEval" else "hasStats")
+        out += [Spec(prefix + name, src, path, flag=flag) for name, path in (
+            ("EMlo", "EM_wilson[0]"), ("EMhi", "EM_wilson[1]"),
+            ("HasAnsEMlo", "has_ans.EM_wilson[0]"), ("HasAnsEMhi", "has_ans.EM_wilson[1]"),
+            ("NoAnsEMlo", "no_ans.EM_wilson[0]"), ("NoAnsEMhi", "no_ans.EM_wilson[1]"),
+            ("EMclo", "EM_cluster_ci[0]"), ("EMchi", "EM_cluster_ci[1]"),
+            ("Foneclo", "F1_cluster_ci[0]"), ("Fonechi", "F1_cluster_ci[1]"))]
+    for prefix, a, b, flag in _PAIRS:
+        src = f"pair:{a}:{b}"
+        out += [Spec(prefix + "P", src, "p_mcnemar", "p", flag=flag),
+                Spec(prefix + "DiffEM", src, "dEM", flag=flag),
+                Spec(prefix + "DiffEMclo", src, "dEM_cluster_ci[0]", flag=flag),
+                Spec(prefix + "DiffEMchi", src, "dEM_cluster_ci[1]", flag=flag),
+                Spec(prefix + "DiffFoneclo", src, "dF1_cluster_ci[0]", flag=flag),
+                Spec(prefix + "DiffFonechi", src, "dF1_cluster_ci[1]", flag=flag),
+                Spec(prefix + "Bzo", src, "b01", "int", flag=flag),
+                Spec(prefix + "Boz", src, "b10", "int", flag=flag)]
+    out += [Spec("mbertSeedMean", "seeds:", "mean", flag="hasSeeds"),
+            Spec("mbertSeedStd", "seeds:", "std", flag="hasSeeds")]
+    return out
+
+
 MACRO_SPEC: tuple[Spec, ...] = (
     # Bảng v1, n=500 (phụ lục lịch sử). Bắt buộc: đây là kết quả đã nộp.
     *(s for name, run in _HIST.items()
@@ -177,6 +233,7 @@ MACRO_SPEC: tuple[Spec, ...] = (
     *(s for prefix, run, flag in _DEV
       for s in _eval_metrics(prefix, f"eval:{run}", flag=flag, extra=("EmptyRate", "Tau"))),
     *_evidence(),
+    *_stats(),
 )
 
 #: Cờ → điều kiện (tên tệp phải tồn tại, tính tương đối ``results/``). Cờ bật khi
@@ -258,6 +315,8 @@ class _Sources:
         if kind == "file":
             path = self.results / name
             return (path, self._read(path)) if path.is_file() else None
+        if kind in ("stats", "pair", "seeds"):
+            return self._stats_entry(kind, name)
         top = self.results / f"eval_{name}_validation.json"
         top_data = self._read(top) if top.is_file() else None
         if kind == "hist":
@@ -273,6 +332,22 @@ class _Sources:
                 return top, top_data
             return None
         raise ValueError(f"nguồn lạ: {source!r}")
+
+
+    def _stats_entry(self, kind: str, name: str):
+        got = self.get("file:stats_validation.json")
+        if got is None:
+            return None
+        path, data = got
+        if kind == "seeds":
+            entry = data.get("seed_summary")
+        elif kind == "stats":
+            entry = data.get("runs", {}).get(name)
+        else:
+            a, b = name.split(":")
+            found = [p for p in data.get("pairs", []) if p.get("a") == a and p.get("b") == b]
+            entry = found[0] if found else None
+        return None if entry is None else (path, entry)
 
 
 def _flags(sources: _Sources) -> dict[str, bool]:

@@ -363,7 +363,9 @@ def test_1_numbers_tex_is_fresh():
     committed = (LATEX / "numbers.tex").read_text(encoding="utf-8")
 
     assert render_numbers_tex(*collect_all(RESULTS)) == committed, (
-        "numbers.tex cũ so với results/ — chạy: .venv/bin/python scripts/make_numbers.py")
+        "report/latex/numbers.tex is STALE vs results/ (a result JSON changed or landed). "
+        "Fix: run `.venv/bin/python scripts/make_numbers.py`, then commit "
+        "report/latex/numbers.tex together with the new results/*.json.")
 
 
 def test_main_tex_inputs_numbers_before_the_document():
@@ -481,3 +483,56 @@ def test_evidence_files_map_to_their_macros(tmp_path):
     assert macros["tokBodyParamsMbert"] == "85{,}1"
     assert macros["overlapSelEval"] == "284" and macros["overlapTauEval"] == "195"
     assert 49.3 in result_literals(results), "tỉ lệ nhãn null là kết quả"
+
+
+def make_stats(runs=("mbert", "xlmr"), pairs=(("mbert", "xlmr"),)):
+    def run(em):
+        return {"n": 3814, "EM": em, "F1": em + 8.0, "empty_rate": 30.0,
+                "EM_wilson": [em - 1.55, em + 1.61], "EM_cluster_ci": [em - 2.25, em + 2.35],
+                "F1_cluster_ci": [em + 5.75, em + 10.25],
+                "has_ans": {"n": 2640, "EM": 54.12, "F1": 66.3, "EM_wilson": [52.21, 56.02]},
+                "no_ans": {"n": 1174, "EM": 41.33, "EM_wilson": [38.55, 44.17]}}
+    return {"split": "validation", "B": 10000, "seed": 0, "cluster": "paragraph_id",
+            "runs": {r: run(50.5 + i) for i, r in enumerate(runs)},
+            "pairs": [{"a": a, "b": b, "b01": 150, "b10": 310, "p_mcnemar": 0.00012,
+                       "dEM": 9.87, "dEM_cluster_ci": [7.65, 12.05],
+                       "dF1_cluster_ci": [5.15, 9.35]} for a, b in pairs]}
+
+
+def test_stats_file_maps_to_ci_and_mcnemar_macros(tmp_path):
+    results = write_tree(tmp_path)
+    (results / "stats_validation.json").write_text(json.dumps(make_stats()), encoding="utf-8")
+
+    macros, flags = collect_all(results)
+
+    assert flags["hasStats"] is True
+    assert macros["mbertVoneEMlo"] == "48{,}95" and macros["mbertVoneEMhi"] == "52{,}11"
+    assert macros["mbertVoneHasAnsEMlo"] == "52{,}21"
+    assert macros["mbertVoneNoAnsEMhi"] == "44{,}17"
+    assert macros["mbertVoneEMclo"] == "48{,}25" and macros["mbertVoneEMchi"] == "52{,}85"
+    assert macros["mbertVoneFoneclo"] == "56{,}25" and macros["mbertVoneFonechi"] == "60{,}75"
+    assert macros["mbertVoneXlmrP"] == r"\ensuremath{<}0{,}001"
+    assert macros["mbertVoneXlmrDiffEM"] == "9{,}87"
+    assert macros["mbertVoneXlmrDiffEMclo"] == "7{,}65"
+    assert macros["mbertVoneXlmrDiffEMchi"] == "12{,}05"
+    assert 48.95 in result_literals(results), "CI là kết quả"
+
+
+def test_runs_and_pairs_not_yet_in_stats_are_omitted(tmp_path):
+    """P3 chưa chạy → stats chưa có mbert-dev; không gãy, macro vắng."""
+    results = write_tree(tmp_path)
+    (results / "stats_validation.json").write_text(json.dumps(make_stats()), encoding="utf-8")
+
+    macros, _ = collect_all(results)
+
+    assert "mbertEMlo" not in macros and "mbertXlmrP" not in macros
+
+
+def test_stats_entry_missing_a_key_fails_loudly(tmp_path):
+    results = write_tree(tmp_path)
+    stats = make_stats()
+    del stats["runs"]["mbert"]["EM_cluster_ci"]
+    (results / "stats_validation.json").write_text(json.dumps(stats), encoding="utf-8")
+
+    with pytest.raises(KeyError, match="mbertVoneEMclo"):
+        collect_all(results)
