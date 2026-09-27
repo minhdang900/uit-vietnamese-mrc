@@ -64,11 +64,19 @@ def _forms(value: float) -> set[str]:
 def variants(value: float) -> set[str]:
     """Mọi chuỗi đếm là "gõ tay kết quả này".
 
-    Rỗng khi giá trị là số nguyên (kể cả ``52.0``) hoặc bản thân nó có < 3 chữ số
-    có nghĩa (``1.3``: ``1,30`` chỉ là đệm số 0, không thêm độ chính xác).
+    * ``int`` (đếm, n, epoch) → rỗng.
+    * ``float`` mang giá trị nguyên (``52.0``: EM trên 300 câu) → chỉ dạng có
+      phần thập phân cố định ``52,00``/``52,0`` — không bao giờ ``52`` trần.
+    * còn lại → rỗng nếu bản thân giá trị có < 3 chữ số có nghĩa (``1.3``:
+      ``1,30`` chỉ là đệm số 0, không thêm độ chính xác).
     """
-    if isinstance(value, bool) or float(value).is_integer():
+    if isinstance(value, (bool, int)):
         return set()
+    if float(value).is_integer():
+        forms = {f for f in (f"{abs(value):.2f}", f"{abs(value):.1f}")
+                 if significant_digits(f) >= MIN_SIGNIFICANT}
+        return {v for f in forms
+                for v in (f, f.replace(".", ","), f.replace(".", "{,}"))}
     shortest = f"{abs(value):.4f}".rstrip("0")
     if significant_digits(shortest) < MIN_SIGNIFICANT:
         return set()

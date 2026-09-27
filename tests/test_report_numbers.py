@@ -86,9 +86,20 @@ def test_integers_are_excluded_entirely():
     assert variants(3814) == set()
 
 
-def test_integer_valued_floats_are_integers_too():
-    """Luật C7: chỉ giá trị KHÔNG nguyên. ``52.0`` (EM của val 300 câu) không vào."""
-    assert variants(52.0) == set()
+def test_integer_valued_floats_match_only_in_fixed_decimal_form():
+    """``52.0`` là float trong JSON (EM trên 300 câu) → ``52,00``/``52,0`` là gõ tay
+    kết quả; ``52`` trần thì không (đếm, epoch không được báo động giả)."""
+    assert {"52,00", "52{,}00", "52.00", "52,0"} <= variants(52.0)
+    assert "52" not in variants(52.0)
+    assert variants(0.0) == set(), "0,00 không có chữ số có nghĩa"
+
+
+def test_integer_valued_float_is_caught_as_decimal_but_not_as_bare_integer():
+    lits = {52.0: "training_curve_mbert.json:curve[-1].val_em"}
+    assert [h.text for h in find_literals(r"EM $52{,}00$ trên 300 câu", lits)] == ["52,00"]
+    assert [h.text for h in find_literals("EM 52,0.", lits)] == ["52,0"]
+    assert not find_literals("sau 52 bước, 52 câu", lits)
+    assert not find_literals("152,00 và 52,001", lits)
 
 
 def test_latex_decimal_comma_is_caught_after_normalisation():
