@@ -13,6 +13,63 @@ theo độ dài đoạn văn cùng phạm vi suy luận của câu hỏi. Gợi 
 ViSoBERT sau khi xác nhận PhoBERT không cung cấp offset mapping cần cho trích xuất; lý do được
 trình bày ở Mục~\ref{sec:phobert}. Hệ thống được đóng gói thành ứng dụng web chạy được.
 
+\ifhasFullEval
+Trên toàn bộ \valN{} câu của tập validation, các kết quả chính là:
+
+\begin{enumerate}
+  \item \textbf{mBERT fine-tune đạt kết quả tốt nhất: EM \mbertVoneEM{} và F1 \mbertVoneFone{}},
+        vượt XLM-R zero-shot (EM \xlmrEM{} / F1 \xlmrFone{})
+        \ifhasStats
+        với chênh lệch EM \mbertVoneXlmrDiffEM{} điểm --- kiểm định McNemar $p$
+        \mbertVoneXlmrP{}, khoảng bootstrap theo cụm đoạn văn [\mbertVoneXlmrDiffEMclo{};
+        \mbertVoneXlmrDiffEMchi{}]. Tương quan trong đoạn văn xấp xỉ 0 (ICC $\approx$
+        \mbertVoneICC{}), nên khoảng cụm này gần trùng khoảng coi câu hỏi độc lập --- phân cụm
+        không phải vấn đề lớn ở đây.
+        \else
+        (khoảng tin cậy và kiểm định cặp cho bản chấm đầy đủ chưa có; xem \code{scripts/compute\_stats.py}).
+        \fi
+        Baseline TF-IDF chỉ đạt EM \baselineEM{} / F1 \baselineFone{}: so khớp từ khoá tìm được
+        câu chứa đáp án nhưng không xác định được đáp án. Mốc \textbf{``luôn trả rỗng''} đạt EM
+        \alwaysEmptyEM{} --- đúng bằng tỉ lệ câu không có đáp án của toàn bộ validation, vì đây
+        chính là định nghĩa của mốc này, không phải một kết quả học được.
+  \item \textbf{Điểm tổng che khuất hai kỹ năng tách biệt.} So với XLM-R, mBERT tốt hơn ở cả việc
+        xác định chính xác biên đáp án (EM trên câu có đáp án \mbertVoneHasAnsEM{} so với
+        \xlmrHasAnsEM{}) lẫn việc từ chối câu không có đáp án (\mbertVoneNoAnsEM{} so với
+        \xlmrNoAnsEM{}); trong khi khả năng tìm đúng vùng đáp án, đo bằng F1 trên câu có đáp án,
+        gần tương đương nhau (\mbertVoneHasAnsFone{} so với \xlmrHasAnsFone{}). Fine-tune trong
+        miền chủ yếu dạy mô hình \emph{quy ước ranh giới đáp án} và \emph{khi nào nên từ chối}.
+  \item \textbf{ViSoBERT vẫn suy sụp trên toàn bộ validation, và đó là một ca lỗi được chẩn đoán
+        chứ không phải một phép đo năng lực.} ViSoBERT --- tiền huấn luyện trên văn bản mạng xã
+        hội tiếng Việt --- rơi vào hành vi gần như luôn trả rỗng: tỉ lệ dự đoán rỗng
+        \visoVoneEmptyRate{}\%, EM trên câu có đáp án chỉ \visoVoneHasAnsEM{} (F1
+        \visoVoneHasAnsFone{}). \textbf{Khác với quan sát trên mẫu lịch sử 500 câu, EM tổng
+        \visoVoneEM{} ở đây \emph{không} còn trùng khớp tỉ lệ câu không có đáp án của validation
+        (\alwaysEmptyEM{}) --- đó là một trùng hợp riêng của mẫu 500 câu, không phải một quy
+        luật.} Bốn yếu tố đủ để giải thích hiện tượng này mà không cần viện tới chất lượng của
+        ViSoBERT như một encoder (Mục~\ref{sec:visobert-factors}): ngân sách \code{max\_length}
+        chưa được điều chỉnh cho tokenizer \tokVocabViso{} token --- \textbf{một nguyên nhân cấu
+        hình chưa được bù trừ}, khiến \nullRateViso{}\% đặc trưng huấn luyện của ViSoBERT mang
+        nhãn ``không có đáp án'' so với \nullRateMbert{}\% của mBERT (nhiều cửa sổ hơn
+        $\Rightarrow$ nhiều cửa sổ không chứa đáp án hơn khi gán nhãn) --- cùng với hàm mất mát
+        chưa hội tụ, một bảng embedding nhỏ hơn nhiều lần (\tokEmbParamsViso{} triệu so với
+        \tokEmbParamsMbert{} triệu tham số; \textbf{không} phải toàn bộ mô hình ``nhỏ hơn 45\%''
+        như một bản nháp trước đó viết --- thân encoder hai bên giống hệt nhau, khoảng
+        \tokBodyParamsMbert{} triệu tham số), và một cực tiểu địa phương do 32,39\% câu không có
+        đáp án trong tập huấn luyện tạo ra.
+        \ifhasDev
+        \textbf{Đã kiểm chứng trực tiếp} bằng \code{visobert-dev} (lr $3\cdot10^{-5}$, chọn epoch
+        và $\tau$ trên dev): xem Mục~\ref{sec:experiments}.
+        \else
+        Lời giải thích này vẫn là giả thuyết được chẩn đoán, chưa được kiểm trực tiếp --- xem
+        phép kiểm đã đăng ký ở Mục~\ref{sec:future}. Vì vậy \textbf{báo cáo này không kết luận
+        rằng tiền huấn luyện tiếng Việt không mang lại lợi ích}; câu hỏi đó vẫn để ngỏ.
+        \fi
+  \item \textbf{Câu hỏi ít trùng từ vựng với một câu đơn lẻ khó hơn} với cả bốn mô hình (F1 thấp
+        hơn 4,51--11,44 điểm trên mẫu lịch sử $n = \histN$, Bảng~\ref{tab:hist-n500}; chưa đo lại
+        trên bản chấm đầy đủ), dù bằng chứng thống kê chỉ ở mức biên. \textbf{Ảnh hưởng của độ
+        dài đoạn văn chưa được xác định}: mẫu đánh giá chứa quá ít đoạn văn dài.
+\end{enumerate}
+\else
 Trên mẫu 500 câu của tập validation, các kết quả chính là:
 
 \begin{enumerate}
@@ -29,24 +86,25 @@ Trên mẫu 500 câu của tập validation, các kết quả chính là:
         đáp án} và \emph{khi nào nên từ chối}.
   \item \textbf{Lần huấn luyện ViSoBERT đã suy sụp, và đó là một ca lỗi được chẩn đoán chứ không
         phải một phép đo năng lực.} ViSoBERT --- tiền huấn luyện trên văn bản mạng xã hội tiếng
-        Việt --- rơi vào hành vi gần như luôn trả rỗng (EM tổng \histVisoEM{} bằng đúng tỉ lệ câu
-        không có đáp án). Bốn yếu tố đủ để giải thích hiện tượng này mà không cần viện tới chất
-        lượng của ViSoBERT như một encoder (Mục~\ref{sec:visobert-factors}): ngân sách
-        \code{max\_length} chưa được điều chỉnh cho tokenizer \tokVocabViso{} token --- \textbf{một
-        nguyên nhân cấu hình chưa được bù trừ}, khiến \nullRateViso{}\% đặc trưng huấn luyện của
-        ViSoBERT mang nhãn ``không có đáp án'' so với \nullRateMbert{}\% của mBERT (nhiều cửa sổ
-        hơn $\Rightarrow$ nhiều cửa sổ không chứa đáp án hơn khi gán nhãn, Mục~\ref{sec:experiments}) ---
-        cùng với hàm mất mát chưa hội tụ, một bảng embedding nhỏ hơn nhiều
-        lần (\tokEmbParamsViso{} triệu so với \tokEmbParamsMbert{} triệu tham số; \textbf{không}
-        phải toàn bộ mô hình ``nhỏ hơn 45\%'' như một bản nháp trước đó viết --- thân encoder hai
-        bên giống hệt nhau, khoảng \tokBodyParamsMbert{} triệu tham số), và một cực tiểu địa phương
-        do 32,39\% câu không có đáp án trong tập huấn luyện tạo ra. Vì vậy \textbf{báo cáo này
-        không kết luận rằng tiền huấn luyện tiếng Việt không mang lại lợi ích}; câu hỏi đó vẫn để
-        ngỏ.
+        Việt --- rơi vào hành vi gần như luôn trả rỗng (EM tổng \histVisoEM{}, \textbf{trùng hợp}
+        đúng bằng tỉ lệ câu không có đáp án của riêng mẫu 500 câu này). Bốn yếu tố đủ để giải
+        thích hiện tượng này mà không cần viện tới chất lượng của ViSoBERT như một encoder
+        (Mục~\ref{sec:visobert-factors}): ngân sách \code{max\_length} chưa được điều chỉnh cho
+        tokenizer \tokVocabViso{} token --- \textbf{một nguyên nhân cấu hình chưa được bù trừ},
+        khiến \nullRateViso{}\% đặc trưng huấn luyện của ViSoBERT mang nhãn ``không có đáp án''
+        so với \nullRateMbert{}\% của mBERT (nhiều cửa sổ hơn $\Rightarrow$ nhiều cửa sổ không
+        chứa đáp án hơn khi gán nhãn, Mục~\ref{sec:experiments}) --- cùng với hàm mất mát chưa
+        hội tụ, một bảng embedding nhỏ hơn nhiều lần (\tokEmbParamsViso{} triệu so với
+        \tokEmbParamsMbert{} triệu tham số; \textbf{không} phải toàn bộ mô hình ``nhỏ hơn 45\%''
+        như một bản nháp trước đó viết --- thân encoder hai bên giống hệt nhau, khoảng
+        \tokBodyParamsMbert{} triệu tham số), và một cực tiểu địa phương do 32,39\% câu không có
+        đáp án trong tập huấn luyện tạo ra. Vì vậy \textbf{báo cáo này không kết luận rằng tiền
+        huấn luyện tiếng Việt không mang lại lợi ích}; câu hỏi đó vẫn để ngỏ.
   \item \textbf{Câu hỏi ít trùng từ vựng với một câu đơn lẻ khó hơn} với cả bốn mô hình (F1 thấp
         hơn 4,51--11,44 điểm), dù bằng chứng thống kê chỉ ở mức biên. \textbf{Ảnh hưởng của độ dài
         đoạn văn chưa được xác định}: mẫu đánh giá chứa quá ít đoạn văn dài.
 \end{enumerate}
+\fi
 
 Về phương pháp, đồ án cho thấy giá trị thực tế của các cơ chế phòng vệ được cài vào pipeline.
 Cổng \code{assert\_gradeable} ngăn việc báo cáo EM vô nghĩa trên test split không có nhãn. Test
