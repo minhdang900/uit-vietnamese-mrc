@@ -4,10 +4,9 @@ Mọi số KẾT QUẢ trong ``report/latex/chapters/*.tex`` phải đi qua mộ
 từ ``results/`` (``scripts/make_numbers.py``). Test chia hai nhóm:
 
 * matcher + generator: chạy trên cây ``results/`` giả trong ``tmp_path``;
-* kiểm tra trên repo thật (1–5 của kế hoạch 1.3). Những kiểm tra NỘI DUNG còn đỏ
-  vì văn bản chưa được viết lại (làn P1.4/1.5) được đánh ``xfail(strict=True)``:
-  bộ test nhanh vẫn xanh, và ngay khi làn sửa xong thì chúng XPASS → đỏ, buộc
-  người sửa gỡ dấu xfail.
+* kiểm tra trên repo thật (1–5 của kế hoạch 1.3): chương LaTeX, README, và
+  ``numbers.tex`` còn tươi. Ngoại lệ duy nhất là ``report_literal_allowlist.txt``
+  (≤ 10 mục, mỗi mục có lý do, mục cũ làm test đỏ).
 """
 
 from __future__ import annotations
@@ -48,7 +47,6 @@ RESULTS = ROOT / "results"
 LATEX = ROOT / "report" / "latex"
 CHAPTERS = sorted((LATEX / "chapters").glob("*.tex"))
 ALLOWLIST = ROOT / "tests" / "report_literal_allowlist.txt"
-WORDING_PENDING = "P1.4/1.5 wording lanes pending"
 
 
 # ── matcher (C7) ────────────────────────────────────────────────────────────
