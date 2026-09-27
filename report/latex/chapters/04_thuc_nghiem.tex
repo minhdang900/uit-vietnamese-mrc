@@ -236,23 +236,41 @@ validation, nên số của chúng có thể lạc quan nhẹ (Mục~\ref{sec:bl
 \fi
 \label{tab:main}
 \renewcommand{\arraystretch}{1.2}
-\small
-\begin{tabular}{@{}l c r r r@{}}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}l r c c r c r@{}}
 \toprule
-\textbf{Mô hình} & \textbf{Fine-tune} & \textbf{EM} & \textbf{F1} & \textbf{\% trả rỗng} \\
+& \multicolumn{3}{c}{\textbf{EM}} & \multicolumn{2}{c}{\textbf{F1}} & \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-6}
+\textbf{Mô hình} & & \textbf{Wilson 95\%} & \textbf{Cụm đoạn văn} & & \textbf{Cụm đoạn văn} & \textbf{\% rỗng} \\
 \midrule
-Luôn trả rỗng & --- & \alwaysEmptyEM & \alwaysEmptyFone & \alwaysEmptyEmptyRate \\
-TF-IDF & không & \baselineEM & \baselineFone & \baselineEmptyRate \\
-XLM-R squad2 & zero-shot & \xlmrEM & \xlmrFone & \xlmrEmptyRate \\
-ViSoBERT + QA (v1) & có & \visoVoneEM & \visoVoneFone & \visoVoneEmptyRate \\
-mBERT + QA (v1) & có & \mbertVoneEM & \mbertVoneFone & \mbertVoneEmptyRate \\
+\ifhasStats
+Luôn trả rỗng & \alwaysEmptyEM & [\alwaysEmptyEMlo; \alwaysEmptyEMhi] & [\alwaysEmptyEMclo; \alwaysEmptyEMchi] & \alwaysEmptyFone & [\alwaysEmptyFoneclo; \alwaysEmptyFonechi] & \alwaysEmptyEmptyRate \\
+TF-IDF & \baselineEM & [\baselineEMlo; \baselineEMhi] & [\baselineEMclo; \baselineEMchi] & \baselineFone & [\baselineFoneclo; \baselineFonechi] & \baselineEmptyRate \\
+XLM-R (zero-shot) & \xlmrEM & [\xlmrEMlo; \xlmrEMhi] & [\xlmrEMclo; \xlmrEMchi] & \xlmrFone & [\xlmrFoneclo; \xlmrFonechi] & \xlmrEmptyRate \\
+ViSoBERT (v1) & \visoVoneEM & [\visoVoneEMlo; \visoVoneEMhi] & [\visoVoneEMclo; \visoVoneEMchi] & \visoVoneFone & [\visoVoneFoneclo; \visoVoneFonechi] & \visoVoneEmptyRate \\
+mBERT (v1) & \mbertVoneEM & [\mbertVoneEMlo; \mbertVoneEMhi] & [\mbertVoneEMclo; \mbertVoneEMchi] & \mbertVoneFone & [\mbertVoneFoneclo; \mbertVoneFonechi] & \mbertVoneEmptyRate \\
+\else
+Luôn trả rỗng & \alwaysEmptyEM & --- & --- & \alwaysEmptyFone & --- & \alwaysEmptyEmptyRate \\
+TF-IDF & \baselineEM & [\histBaselineEMlo; \histBaselineEMhi]$^\ast$ & --- & \baselineFone & --- & \baselineEmptyRate \\
+XLM-R (zero-shot) & \xlmrEM & [\histXlmrEMlo; \histXlmrEMhi]$^\ast$ & --- & \xlmrFone & --- & \xlmrEmptyRate \\
+ViSoBERT (v1) & \visoVoneEM & [\histVisoEMlo; \histVisoEMhi]$^\ast$ & --- & \visoVoneFone & --- & \visoVoneEmptyRate \\
+mBERT (v1) & \mbertVoneEM & [\histMbertEMlo; \histMbertEMhi]$^\ast$ & --- & \mbertVoneFone & --- & \mbertVoneEmptyRate \\
+\fi
 \ifhasDev
 \midrule
-ViSoBERT + QA (v2, dev) & có & \visoEM & \visoFone & \visoEmptyRate \\
-mBERT + QA (v2, dev) & có & \mbertEM & \mbertFone & \mbertEmptyRate \\
+\ifhasStats
+ViSoBERT (v2, dev) & \visoEM & [\visoEMlo; \visoEMhi] & [\visoEMclo; \visoEMchi] & \visoFone & [\visoFoneclo; \visoFonechi] & \visoEmptyRate \\
+mBERT (v2, dev) & \mbertEM & [\mbertEMlo; \mbertEMhi] & [\mbertEMclo; \mbertEMchi] & \mbertFone & [\mbertFoneclo; \mbertFonechi] & \mbertEmptyRate \\
+\else
+ViSoBERT (v2, dev) & \visoEM & --- & --- & \visoFone & --- & \visoEmptyRate \\
+mBERT (v2, dev) & \mbertEM & --- & --- & \mbertFone & --- & \mbertEmptyRate \\
+\fi
 \fi
 \bottomrule
 \end{tabular}
+\par\vspace{2pt}
+{\footnotesize \ifhasStats Khoảng Wilson 95\% coi câu hỏi độc lập; khoảng ``cụm đoạn văn'' là bootstrap lấy mẫu lại 557 đoạn văn (\code{results/stats\_validation.json}) và vẫn là cận dưới của độ bất định thật.\else $^\ast$ Khoảng tin cậy cho bản chấm đầy đủ chưa được tính (\code{scripts/compute\_stats.py}); cột Wilson tạm ghi khoảng của \emph{mẫu lịch sử} $n = \histN$ (Bảng~\ref{tab:hist-n500}), không phải của $n = \valN$.\fi}
 \end{table}
 
 \begin{table}[htbp]
@@ -267,20 +285,33 @@ mBERT + QA (v2, dev) & có & \mbertEM & \mbertFone & \mbertEmptyRate \\
 \cmidrule(lr){2-3}\cmidrule(l){4-4}
 \textbf{Mô hình} & \textbf{EM} & \textbf{F1} & \textbf{EM} \\
 \midrule
+\ifhasStats
+Luôn trả rỗng & \alwaysEmptyHasAnsEM{} [\alwaysEmptyHasAnsEMlo; \alwaysEmptyHasAnsEMhi] & \alwaysEmptyHasAnsFone & \alwaysEmptyNoAnsEM{} [\alwaysEmptyNoAnsEMlo; \alwaysEmptyNoAnsEMhi] \\
+TF-IDF & \baselineHasAnsEM{} [\baselineHasAnsEMlo; \baselineHasAnsEMhi] & \baselineHasAnsFone & \baselineNoAnsEM{} [\baselineNoAnsEMlo; \baselineNoAnsEMhi] \\
+XLM-R & \xlmrHasAnsEM{} [\xlmrHasAnsEMlo; \xlmrHasAnsEMhi] & \xlmrHasAnsFone & \xlmrNoAnsEM{} [\xlmrNoAnsEMlo; \xlmrNoAnsEMhi] \\
+ViSoBERT (v1) & \visoVoneHasAnsEM{} [\visoVoneHasAnsEMlo; \visoVoneHasAnsEMhi] & \visoVoneHasAnsFone & \visoVoneNoAnsEM{} [\visoVoneNoAnsEMlo; \visoVoneNoAnsEMhi] \\
+mBERT (v1) & \mbertVoneHasAnsEM{} [\mbertVoneHasAnsEMlo; \mbertVoneHasAnsEMhi] & \mbertVoneHasAnsFone & \mbertVoneNoAnsEM{} [\mbertVoneNoAnsEMlo; \mbertVoneNoAnsEMhi] \\
+\else
 Luôn trả rỗng & \alwaysEmptyHasAnsEM & \alwaysEmptyHasAnsFone & \alwaysEmptyNoAnsEM \\
 TF-IDF & \baselineHasAnsEM & \baselineHasAnsFone & \baselineNoAnsEM \\
 XLM-R & \xlmrHasAnsEM & \xlmrHasAnsFone & \xlmrNoAnsEM \\
 ViSoBERT (v1) & \visoVoneHasAnsEM & \visoVoneHasAnsFone & \visoVoneNoAnsEM \\
 mBERT (v1) & \mbertVoneHasAnsEM & \mbertVoneHasAnsFone & \mbertVoneNoAnsEM \\
+\fi
 \ifhasDev
 \midrule
+\ifhasStats
+ViSoBERT (v2, dev) & \visoHasAnsEM{} [\visoHasAnsEMlo; \visoHasAnsEMhi] & \visoHasAnsFone & \visoNoAnsEM{} [\visoNoAnsEMlo; \visoNoAnsEMhi] \\
+mBERT (v2, dev) & \mbertHasAnsEM{} [\mbertHasAnsEMlo; \mbertHasAnsEMhi] & \mbertHasAnsFone & \mbertNoAnsEM{} [\mbertNoAnsEMlo; \mbertNoAnsEMhi] \\
+\else
 ViSoBERT (v2, dev) & \visoHasAnsEM & \visoHasAnsFone & \visoNoAnsEM \\
 mBERT (v2, dev) & \mbertHasAnsEM & \mbertHasAnsFone & \mbertNoAnsEM \\
+\fi
 \fi
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-{\footnotesize Trên câu không có đáp án, F1 luôn bằng EM nên không ghi riêng.}
+{\footnotesize Trên câu không có đáp án, F1 luôn bằng EM nên không ghi riêng.\ifhasStats{} Trong ngoặc: khoảng Wilson 95\% của EM.\fi}
 \end{table}
 \else
 \begin{keybox}
@@ -312,6 +343,30 @@ văn; F1 không phải tỉ lệ nên chỉ có khoảng bootstrap. So sánh hai
 chính xác trên cặp câu --- hai mô hình được chấm trên cùng câu hỏi --- luôn đặt cạnh khoảng
 bootstrap cụm của chênh lệch EM (\code{scripts/compute\_stats.py} $\to$
 \code{results/stats\_validation.json}).
+\ifhasFullEval\ifhasStats
+Trên toàn bộ validation (chênh lệch EM $a - b$; khoảng bootstrap cụm đoạn văn; $b_{01}$/$b_{10}$ là
+số câu chỉ $b$ đúng / chỉ $a$ đúng):
+
+\begin{itemize}
+  \item mBERT v1 $-$ XLM-R: \mbertVoneXlmrDiffEM{} điểm
+        [\mbertVoneXlmrDiffEMclo; \mbertVoneXlmrDiffEMchi]; McNemar
+        ($b_{01} = \mbertVoneXlmrBzo$, $b_{10} = \mbertVoneXlmrBoz$): p-value \mbertVoneXlmrP.
+  \item mBERT v1 $-$ ViSoBERT v1: \mbertVoneVisoVoneDiffEM{} điểm
+        [\mbertVoneVisoVoneDiffEMclo; \mbertVoneVisoVoneDiffEMchi]; McNemar
+        ($b_{01} = \mbertVoneVisoVoneBzo$, $b_{10} = \mbertVoneVisoVoneBoz$): p-value
+        \mbertVoneVisoVoneP.
+  \item XLM-R $-$ TF-IDF: \xlmrBaselineDiffEM{} điểm
+        [\xlmrBaselineDiffEMclo; \xlmrBaselineDiffEMchi]; McNemar
+        ($b_{01} = \xlmrBaselineBzo$, $b_{10} = \xlmrBaselineBoz$): p-value \xlmrBaselineP.
+\ifhasDev
+  \item mBERT v2 $-$ XLM-R: \mbertXlmrDiffEM{} điểm [\mbertXlmrDiffEMclo; \mbertXlmrDiffEMchi];
+        McNemar ($b_{01} = \mbertXlmrBzo$, $b_{10} = \mbertXlmrBoz$): p-value \mbertXlmrP.
+  \item mBERT v2 $-$ mBERT v1: \mbertMbertVoneDiffEM{} điểm
+        [\mbertMbertVoneDiffEMclo; \mbertMbertVoneDiffEMchi]; McNemar
+        ($b_{01} = \mbertMbertVoneBzo$, $b_{10} = \mbertMbertVoneBoz$): p-value \mbertMbertVoneP.
+\fi
+\end{itemize}
+\fi\fi
 
 \paragraph{Độ bất định: câu hỏi không độc lập.} Khoảng Wilson và McNemar đều coi các câu hỏi là
 độc lập. Thực tế chúng theo cụm: 3.814 câu validation đến từ 557 đoạn văn thuộc 19 bài viết (mẫu
