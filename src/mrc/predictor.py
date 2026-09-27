@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from typing import Protocol, runtime_checkable
 
-__all__ = ["Predictor", "TimedPredictorMixin"]
+__all__ = ["Predictor", "TimedPredictorMixin", "EmptyPredictor"]
 
 
 @runtime_checkable
@@ -35,3 +35,16 @@ class TimedPredictorMixin:
         t0 = time.perf_counter()
         out = self.predict(context, question)  # type: ignore[attr-defined]
         return out, (time.perf_counter() - t0) * 1000.0
+
+
+class EmptyPredictor(TimedPredictorMixin):
+    """Luôn trả ``""`` — mốc sàn của một model "suy sụp về luôn từ chối".
+
+    EM của nó đúng bằng tỉ lệ câu impossible của split. Model nào điểm không vượt
+    mốc này thì chưa trả lời được câu nào, dù con số EM trông "không tệ".
+    """
+
+    name = "Luôn trả rỗng (empty)"
+
+    def predict(self, context: str, question: str) -> str:
+        return ""

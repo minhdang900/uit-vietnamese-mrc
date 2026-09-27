@@ -200,3 +200,29 @@ def test_evidence_survives_a_refusal(qa):
 def test_empty_context_reports_no_evidence(qa):
     detail = qa.predict_detailed("", "Câu hỏi?")
     assert detail["null_delta"] is None and detail["top_k"] == []
+
+
+# ── τ offline (mrc.threshold) trên model THẬT ────────────────────────
+@pytest.mark.parametrize("tau", [-2.0, 0.0, 2.0])
+def test_offline_replay_equals_online_predict_on_real_model(qa, tau):
+    """Bản ghi cửa sổ lấy ở τ=0 phải tái hiện đúng quyết định online ở τ khác.
+
+    Context dài ⇒ nhiều cửa sổ, nên thứ tự cửa sổ và quy tắc hoà đều được thử.
+    """
+    import json
+
+    from mrc.threshold import replay
+
+    long_ctx = ("Câu nhồi không liên quan. " * 150) + CTX + (" Câu đệm cuối." * 80)
+    questions = ["Thủ đô của Việt Nam là gì?", "Thành phố có bao nhiêu dân?",
+                 "Ai phát minh ra máy bay?"]
+    original = qa.null_threshold
+    try:
+        for q in questions:
+            qa.null_threshold = 0.0
+            windows = json.loads(json.dumps(qa.predict_detailed(long_ctx, q)["windows"]))
+            assert len(windows) > 1
+            qa.null_threshold = tau
+            assert replay(windows, tau) == qa.predict_detailed(long_ctx, q)["span"]
+    finally:
+        qa.null_threshold = original
