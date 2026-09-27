@@ -6,12 +6,12 @@ không JSON) — vi phạm "mọi số ⟶ một file JSON" (bất biến #3, xe
 ``<results-dir>/history/n500/`` một khi n=500 được dời sang đó ở P2; trong lúc đó
 đọc thẳng ``<results-dir>/eval_*_validation.json``).
 
-Thân bài toán học GIỮ NGUYÊN cách tính CI xấp xỉ chuẩn (Wald) của bản gốc, và
-THÊM Wilson — chính xác hơn khi ``p`` gần 0/1 hoặc ``n`` nhỏ (N5, Phụ lục
-``ban_ky_thuat_truoc_khi_viet_lai.md``: Wald ±0,78 cho EM 0,80 trên n=500 là xấp xỉ
-kém gần 0; Wilson 95% cho khoảng ``[0,31%; 2,04%]`` mà kết luận không đổi). Khi
-bước 2.3 chuyển pipeline sang ``mrc.stats``, module này trở thành một vỏ mỏng gọi
-qua đó; cho tới lúc đó công thức nằm thẳng ở đây.
+Thân bài toán học GIỮ NGUYÊN cách tính CI xấp xỉ chuẩn (Wald) của bản gốc — không
+có tương đương cụm-bootstrap trong ``mrc.stats`` cho n=500 (lịch sử, không có
+preds JSONL để cụm hoá), nên Wald + z hai tỉ lệ vẫn tính thẳng ở đây. Wilson thì
+(P2.2, N5) giờ gọi qua ``mrc.stats.wilson_ci`` — bản này đã có test khớp cùng giá
+trị tham chiếu (``[0,31%; 2,04%]`` cho 4/500) nên đây thực sự là vỏ mỏng, không
+phải một cách tính Wilson thứ hai.
 
     python scripts/ci.py --results-dir results
 """
@@ -30,6 +30,7 @@ import math
 from datetime import datetime, timezone
 
 from mrc.evaluate import _git_commit
+from mrc.stats import wilson_ci
 
 Z_95 = 1.96
 
@@ -47,21 +48,17 @@ def wald_half_width(pct: float, n: int) -> float:
 
 
 def wilson_interval(pct: float, n: int, z: float = Z_95) -> tuple[float, float]:
-    """Khoảng tin cậy Wilson 95% — ổn định hơn Wald khi ``p`` gần biên hoặc ``n`` nhỏ.
+    """Khoảng tin cậy Wilson 95% cho tỉ lệ phần trăm ``pct`` trên ``n`` mẫu.
 
-    Công thức chuẩn (Wilson, 1927): trung tâm và biên độ đều co theo
-    ``1 / (1 + z^2/n)``, nên khoảng không bao giờ vượt ra ngoài ``[0, 100]`` như
-    Wald có thể làm khi ``p`` gần 0 hoặc 100.
+    Vỏ mỏng (P2.2) qua :func:`mrc.stats.wilson_ci`, vốn nhận số đếm ``k`` chứ
+    không phải phần trăm — suy ``k`` ngược từ ``pct`` (eval JSON làm tròn EM tới
+    4 chữ số thập phân, sai số quy đổi nằm dưới ngưỡng làm tròn 2 chữ số ở đây).
+    Giữ tên/chữ ký cũ để lời gọi trong ``compute_ci`` không phải đổi.
     """
     if n <= 0:
         return (0.0, 0.0)
-    p = pct / 100
-    denom = 1 + z * z / n
-    center = p + z * z / (2 * n)
-    adjust = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
-    lo = max(0.0, (center - adjust) / denom)
-    hi = min(1.0, (center + adjust) / denom)
-    return (round(100 * lo, 2), round(100 * hi, 2))
+    k = round(pct / 100 * n)
+    return wilson_ci(k, n, z=z)
 
 
 def diff_test(pa: float, pb: float, na: int, nb: int | None = None) -> dict:
