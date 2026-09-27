@@ -54,6 +54,11 @@ const TOK = read("tokenizer_stats.json");
 const NULL_LABELS = read("null_labels_train.json");
 const nullFrac = (k) => fmt(NULL_LABELS.find((r) => r.model === k).null_frac);
 const STATS = readOpt("stats_validation.json");   // P2.2 — chưa có thì các slide phụ lục bỏ qua
+// data_stats.json / ci_n500.json (P1.2): thống kê mô tả + so sánh n=500 lịch sử
+// — đọc thẳng để khối DATA bên dưới không gõ tay số nào trùng với kết quả.
+const DATA_STATS = read("data_stats.json");
+const CI_N500 = read("ci_n500.json");
+const MX_N500 = CI_N500.comparisons.mbert_vs_xlmr;
 
 // định dạng số kiểu Việt Nam: dấu phẩy thập phân, dấu chấm hàng nghìn
 const fmt = (x, dp = 2) => {
@@ -85,7 +90,8 @@ const DATA = {
     articles:   ["138",      "19",      "48"],
     impossible: ["9.216",    "1.161",   "0"],
     gradeable:  ["28.454",   "3.814",   "0"],
-    impPct:     ["32,39%",   "30,44%",  "—"],
+    impPct:     [fmt(DATA_STATS.train.impossible_pct) + "%",
+                 fmt(DATA_STATS.validation.impossible_pct) + "%",  "—"],
     ctxWords:   ["179,0 / 160 / 1.537", "167,6 / 152 / 618", "175,8 / 159 / 823"],
     ansWords:   ["9,95 / 6 / 31",       "9,81 / 6 / 30",     "—"],
   },
@@ -102,7 +108,9 @@ const DATA = {
   topicSciN: "169", topicSciPct: "4,4%",  // Kiến + Gia cầm + Nước biển
   // bẫy lấy mẫu: 300 câu đầu tệp validation
   firstNArticles: 1, firstN: "300",
-  biasEM: { head: "42,00", random: "52,00" },  // mBERT epoch 2, 300 câu
+  // mBERT epoch 2, 300 câu (bẫy lấy mẫu N8) — cả hai ĐỌC từ training_curve_mbert.json.
+  biasEM: { head: fmt(CURVE.mbert.curve[1].val_em_biased_first300),
+            random: fmt(CURVE.mbert.curve[1].val_em) },
   subsetTop5Pct: "57,0%", subsetArticles: "19/19",
   wh: [["gì", "30,3%"], ["nào", "27,6%"], ["ai", "9,1%"], ["như thế nào", "8,3%"],
        ["bao nhiêu", "7,9%"], ["vì sao + tại sao", "5,1%"]],
@@ -124,7 +132,9 @@ const DATA = {
              fmt(NULL_LABELS.find((r) => r.model === "visobert").features, 0)],   // số cửa sổ huấn luyện
   // L_max suy luận của mBERT: mặc định của run_eval.py, không ghi trong training_curve_mbert.json
   lmaxMbert: "30",
-  ci: { em: "±4,4", impGap: "+13,67 điểm ± 11,03", ansF1Gap: "1,60" },
+  ci: { em: "±4,4",
+        impGap: "+" + fmt(MX_N500.impossible_EM.diff) + " điểm ± " + fmt(MX_N500.impossible_EM.wald_half_width),
+        ansF1Gap: fmt(Math.abs(CI_N500.per_model.mbert.ans_F1 - CI_N500.per_model.xlmr.ans_F1)) },
   tests: { fast: "423", full: "474", files: "20", model: "51" },
   docker: { size: "2,49 GB", zipped: "501 MB", from: "10,2 GB" },
 };
@@ -663,7 +673,7 @@ const chartBase = {
          5.88, 0.92);
 
   footer(s, "3 · Xây dựng dữ liệu · Phân bố nhãn & độ dài", 8);
-  s.addNotes("[5:20–6:10] Ba phân bố, bắt đầu bằng nhãn và độ dài. Về nhãn: khoảng 30 đến 32 phần trăm câu là không có đáp án, và mẫu đánh giá 500 câu của bọn em có 139 câu, tức 27,8 phần trăm — con số này sẽ quay lại ở mục 5 theo một cách rất đáng nói. Về độ dài: đoạn văn tập trung quanh 160 đến 180 âm tiết, đáp án có trung vị 6 âm tiết nhưng phân vị 95 là 31 — đuôi dài. Hai hệ quả. Một: mẫu 500 câu chỉ có 9 câu thuộc nhóm đoạn văn dài trên 300 từ, nên câu hỏi “độ dài context ảnh hưởng thế nào” bọn em KHÔNG kết luận, mà ghi vào phần hạn chế. Hai: vì đáp án có đuôi dài, ngưỡng độ dài đáp án tối đa phải đặt theo tokenizer của từng mô hình.");
+  s.addNotes("[5:20–6:10] Ba phân bố, bắt đầu bằng nhãn và độ dài. Về nhãn: khoảng 30 đến 32 phần trăm câu là không có đáp án, và mẫu đánh giá 500 câu của bọn em có " + DATA_STATS.subset.impossible + " câu, tức " + fmt(DATA_STATS.subset.impossible_pct) + " phần trăm — con số này sẽ quay lại ở mục 5 theo một cách rất đáng nói. Về độ dài: đoạn văn tập trung quanh 160 đến 180 âm tiết, đáp án có trung vị 6 âm tiết nhưng phân vị 95 là 31 — đuôi dài. Hai hệ quả. Một: mẫu 500 câu chỉ có 9 câu thuộc nhóm đoạn văn dài trên 300 từ, nên câu hỏi “độ dài context ảnh hưởng thế nào” bọn em KHÔNG kết luận, mà ghi vào phần hạn chế. Hai: vì đáp án có đuôi dài, ngưỡng độ dài đáp án tối đa phải đặt theo tokenizer của từng mô hình.");
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -677,13 +687,9 @@ const chartBase = {
   card(s, M, 1.78, 6.1, 3.05);
   label(s, "Validation: " + DATA.split.articles[1] + " bài viết · " + DATA.split.questions[1] + " câu hỏi",
         M + 0.32, 1.96, 5.4, C.accent);
-  table(s, ["Bài viết (top 5)", "Số câu", "%"], [
-    [DATA.topics[0][0], "503", "13,2"],
-    [DATA.topics[1][0], "462", "12,1"],
-    [DATA.topics[2][0], "379", "9,9"],
-    [DATA.topics[3][0], "356", "9,3"],
-    [DATA.topics[4][0], "324", "8,5"],
-  ], M + 0.32, 2.26, 5.4, [3.2, 1.2, 1.0], { size: 11, rowH: 0.28 });
+  table(s, ["Bài viết (top 5)", "Số câu", "%"],
+    DATA.topics.map(([name, n]) => [name, String(n), fmt(100 * n / nOf("mbert"), 1)]),
+    M + 0.32, 2.26, 5.4, [3.2, 1.2, 1.0], { size: 11, rowH: 0.28 });
   body(s, "5 bài lớn nhất chiếm " + DATA.topicTop5Pct + " · đuôi rất mỏng: Montréal 42 · Kiến 57 · Gia cầm 59 câu. Chỉ 3 trong " +
           DATA.split.articles[1] + " bài viết thuộc khoa học tự nhiên (" + DATA.topicSciN + " câu, " +
           DATA.topicSciPct + ") — còn lại là lịch sử, chính trị, địa lý.",
