@@ -1,0 +1,46 @@
+split=validation  n=3814  contexts=557  impossible=1161 (30.44%)
+
+=== empty ===
+  overall     EM  30.44  F1  30.44  (n=3814)
+  answerable  EM   0.00  F1   0.00  (n=2653)
+  impossible  EM 100.00                    (n=1161)
+  latency     0.0 ms/câu   device=mps
+  -> results/eval_empty_validation.json
+
+=== baseline ===
+  overall     EM   1.05  F1  22.11  (n=3814)
+  answerable  EM   1.51  F1  31.79  (n=2653)
+  impossible  EM   0.00                    (n=1161)
+  latency     0.512 ms/câu   device=mps
+  -> results/eval_baseline_validation.json
+
+=== xlmr ===
+[transformers] The tokenizer you are loading from 'deepset/xlm-roberta-base-squad2' with an incorrect regex pattern: https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503/discussions/84#69121093e8b480e709447d5e. This will lead to incorrect tokenization. You should set the `fix_mistral_regex=True` flag when loading this tokenizer to fix this issue.
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 23494.53it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (542 > 512). Running this sequence through the model will result in indexing errors
+  max_length=384 doc_stride=128 max_answer_len=30 tau=0.0 (nguồn: {'max_length': 'legacy', 'doc_stride': 'legacy', 'max_answer_len': 'legacy', 'tau': 'legacy'})
+  overall     EM  39.22  F1  54.24  (n=3814)
+  answerable  EM  43.20  F1  64.78  (n=2653)
+  impossible  EM  30.15                    (n=1161)
+  latency     13.546 ms/câu   device=mps
+  -> results/eval_xlmr_validation.json
+
+=== mbert ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 24063.50it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (525 > 512). Running this sequence through the model will result in indexing errors
+  max_length=384 doc_stride=128 max_answer_len=30 tau=0.0 (nguồn: {'max_length': 'legacy', 'doc_stride': 'legacy', 'max_answer_len': 'legacy', 'tau': 'legacy'})
+  overall     EM  48.95  F1  57.98  (n=3814)
+  answerable  EM  50.70  F1  63.67  (n=2653)
+  impossible  EM  44.96                    (n=1161)
+  latency     13.424 ms/câu   device=mps
+  -> results/eval_mbert_validation.json
+
+=== visobert ===
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 20391.54it/s]
+  max_length=384 doc_stride=128 max_answer_len=64 tau=0.0 (nguồn: {'max_length': 'legacy', 'doc_stride': 'legacy', 'max_answer_len': 'legacy', 'tau': 'legacy'})
+  overall     EM  31.99  F1  34.66  (n=3814)
+  answerable  EM   8.29  F1  12.14  (n=2653)
+  impossible  EM  86.13                    (n=1161)
+  latency     27.184 ms/câu   device=mps
+  -> results/eval_visobert_validation.json
+exit=0

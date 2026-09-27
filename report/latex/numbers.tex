@@ -3,12 +3,26 @@
 
 % Cờ: true khi tệp kết quả tương ứng tồn tại.
 \newif\ifhasDev \hasDevfalse
-\newif\ifhasFullEval \hasFullEvalfalse
+\newif\ifhasFullEval \hasFullEvaltrue
 \newif\ifhasPho \hasPhofalse
 \newif\ifhasSeeds \hasSeedsfalse
 \newif\ifhasStats \hasStatsfalse
 \newif\ifhasVisoLong \hasVisoLongfalse
 
+\newcommand*{\alwaysEmptyEM}{30{,}44}
+\newcommand*{\alwaysEmptyEmptyRate}{100{,}00}
+\newcommand*{\alwaysEmptyFone}{30{,}44}
+\newcommand*{\alwaysEmptyHasAnsEM}{0{,}00}
+\newcommand*{\alwaysEmptyHasAnsFone}{0{,}00}
+\newcommand*{\alwaysEmptyLatency}{0{,}0}
+\newcommand*{\alwaysEmptyNoAnsEM}{100{,}00}
+\newcommand*{\baselineEM}{1{,}05}
+\newcommand*{\baselineEmptyRate}{0{,}00}
+\newcommand*{\baselineFone}{22{,}11}
+\newcommand*{\baselineHasAnsEM}{1{,}51}
+\newcommand*{\baselineHasAnsFone}{31{,}79}
+\newcommand*{\baselineLatency}{0{,}5}
+\newcommand*{\baselineNoAnsEM}{0{,}00}
 \newcommand*{\curveMbertFirstEMI}{36{,}67}
 \newcommand*{\curveMbertFirstEMII}{42{,}00}
 \newcommand*{\curveMbertFirstFoneI}{45{,}79}
@@ -102,6 +116,13 @@
 \newcommand*{\histXlmrLatency}{14{,}3}
 \newcommand*{\histXlmrNoAnsEM}{27{,}34}
 \newcommand*{\histXlmrNoAnsEMwald}{7{,}41}
+\newcommand*{\mbertVoneEM}{48{,}95}
+\newcommand*{\mbertVoneEmptyRate}{29{,}37}
+\newcommand*{\mbertVoneFone}{57{,}98}
+\newcommand*{\mbertVoneHasAnsEM}{50{,}70}
+\newcommand*{\mbertVoneHasAnsFone}{63{,}67}
+\newcommand*{\mbertVoneLatency}{13{,}4}
+\newcommand*{\mbertVoneNoAnsEM}{44{,}96}
 \newcommand*{\nullFeaturesMbert}{30.540}
 \newcommand*{\nullFeaturesViso}{40.984}
 \newcommand*{\nullMultiWindowMbert}{1.884}
@@ -138,3 +159,20 @@
 \newcommand*{\tokSampleTokensViso}{23}
 \newcommand*{\tokVocabMbert}{119.547}
 \newcommand*{\tokVocabViso}{15.002}
+\newcommand*{\valHasAnsN}{2.653}
+\newcommand*{\valN}{3.814}
+\newcommand*{\valNoAnsN}{1.161}
+\newcommand*{\visoVoneEM}{31{,}99}
+\newcommand*{\visoVoneEmptyRate}{82{,}88}
+\newcommand*{\visoVoneFone}{34{,}66}
+\newcommand*{\visoVoneHasAnsEM}{8{,}29}
+\newcommand*{\visoVoneHasAnsFone}{12{,}14}
+\newcommand*{\visoVoneLatency}{27{,}2}
+\newcommand*{\visoVoneNoAnsEM}{86{,}13}
+\newcommand*{\xlmrEM}{39{,}22}
+\newcommand*{\xlmrEmptyRate}{16{,}83}
+\newcommand*{\xlmrFone}{54{,}24}
+\newcommand*{\xlmrHasAnsEM}{43{,}20}
+\newcommand*{\xlmrHasAnsFone}{64{,}78}
+\newcommand*{\xlmrLatency}{13{,}5}
+\newcommand*{\xlmrNoAnsEM}{30{,}15}
