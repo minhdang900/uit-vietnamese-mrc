@@ -29,7 +29,9 @@ Hợp đồng ``results/stats_validation.json`` (``scripts/compute_stats.py``, P
      "pairs": [{"a", "b", "b01", "b10", "p_mcnemar",   # → <pair>P
                 "dEM",                                  # a − b → <pair>DiffEM
                 "dEM_cluster_ci": [lo, hi],             # → <pair>DiffEMclo / chi
-                "dF1_cluster_ci": [lo, hi]}],
+                "dF1_cluster_ci": [lo, hi],
+                "p_mcnemar_has_ans_greater"}],        # CHỈ cặp (visobert-len512, visobert-dev):
+                                                      # McNemar một phía trên HasAns (cổng P4)
      "seed_summary": {"mean", "std", "n_seeds", "per_seed"}}   # chỉ sau P5
 
 Run/cặp CHƯA có trong tệp (phase chưa chạy) → macro vắng, không lỗi; mục đã có
@@ -39,17 +41,36 @@ mà thiếu khoá → ``KeyError`` (lệch hợp đồng phải ồn).
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
-__all__ = ["Spec", "MACRO_SPEC", "FLAGS", "HISTORY_N", "fmt_vn", "get_path",
+__all__ = ["Spec", "MACRO_SPEC", "FLAGS", "HISTORY_N", "fmt_vn", "get_path", "wilson",
            "collect_values", "collect_all", "render_numbers_tex", "known_non_results"]
 
 #: Cỡ mẫu của bảng v1. Một ``eval_*.json`` cấp trên cùng với n này là LỊCH SỬ,
 #: không bao giờ được đọc như kết quả đầy đủ 3.814 câu.
 HISTORY_N = 500
+
+#: Giá trị trả về của một ``Spec.path`` callable khi phase tương ứng chưa có số
+#: (vd. P4 chưa được chấm) → macro vắng, không phải lỗi.
+ABSENT = object()
+
+
+def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """CI Wilson 95 % theo phần trăm, 2 chữ số lẻ — cùng công thức với
+    ``mrc.stats.wilson_ci`` và ``scripts/ci.py``; dùng cho bảng lịch sử n=500,
+    nơi ``ci_n500.json`` chỉ có CI của EM tổng."""
+    if n <= 0:
+        return (0.0, 0.0)
+    p = k / n
+    denom = 1 + z * z / n
+    center = p + z * z / (2 * n)
+    adjust = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))
+    return (round(100 * max(0.0, (center - adjust) / denom), 2),
+            round(100 * min(1.0, (center + adjust) / denom), 2))
 
 
 @dataclass(frozen=True)
@@ -57,7 +78,7 @@ class Spec:
     name: str
     source: str   # "hist:<run>" | "eval:<run>" | "file:<tên>.json" | "stats:<run>" | "pair:<a>:<b>" | "seeds:"
     path: str | Callable[[Any], Any]
-    fmt: str = "f2"                 # f2 | f1 | f4 | int | p
+    fmt: str = "f2"                 # f2 | f1 | f4 | int | p | text
     scale: float = 1.0
     required: bool = False
     flag: str | None = None         # cờ bọc chỗ dùng macro trong chương
@@ -98,6 +119,31 @@ def _curve(prefix: str, run: str, epochs: int, biased: bool) -> list[Spec]:
 
 
 _HIST = {"Baseline": "baseline", "Xlmr": "xlmr", "Mbert": "mbert", "Viso": "visobert"}
+_BUCKETS = {"LenUnderHundred": "<100", "LenOneTwo": "100-200", "LenTwoThree": "200-300",
+            "LenOverThree": "300+"}
+_QTYPES = {"Single": "single-sentence", "Multi": "multi-sentence"}
+
+
+def _subset_wilson(key: str, side: int) -> Callable[[dict], float]:
+    def get(result: dict) -> float:
+        block = result[key]
+        return wilson(round(block["EM"] * block["count"] / 100), block["count"])[side]
+    return get
+
+
+def _hist_extra(name: str, run: str) -> list[Spec]:
+    """Wilson cho answerable/impossible và bảng tách nhóm của n=500 (phụ lục)."""
+    src = f"hist:{run}"
+    out = [Spec(f"hist{name}{sub}EM{end}", src, _subset_wilson(key, side), required=True)
+           for sub, key in (("HasAns", "answerable_only"), ("NoAns", "impossible_only"))
+           for end, side in (("lo", 0), ("hi", 1))]
+    for group, table in (("by_context_length", _BUCKETS), ("by_question_type", _QTYPES)):
+        for suffix, label in table.items():
+            base = f"{group}.{label}"
+            out += [Spec(f"hist{name}{suffix}EM", src, f"{base}.EM", required=True),
+                    Spec(f"hist{name}{suffix}Fone", src, f"{base}.F1", required=True),
+                    Spec(f"hist{name}{suffix}N", src, f"{base}.count", "int", required=True)]
+    return out
 
 #: (tiền tố macro, run_id, cờ). v1 đầy đủ mang hậu tố ``Vone``; bản chọn trên dev
 #: (tiêu đề, D2) giữ tên ngắn ``mbert…``/``viso…``.
@@ -136,6 +182,7 @@ def _evidence() -> list[Spec]:
                 Spec(f"tokPerWord{name}", tok, f"{run}.val_ctx_tokens_per_word", "f2"),
                 Spec(f"tokCtxOver{name}", tok, f"{run}.val_ctx_over_357", "int"),
                 Spec(f"tokGtTwoWin{name}", tok, f"{run}.questions_gt2_windows", "int"),
+                Spec(f"tokCtxGtTwoWin{name}", tok, f"{run}.val_ctx_gt2_windows", "int"),
                 Spec(f"tokAnsOverThirty{name}", tok, f"{run}.train_answers_over_30_pct", "f1")]
     out.append(Spec("tokCtxTotal", tok, "mbert.val_ctx_total", "int"))
     # Wilson/Wald trên n=500 (lịch sử).
@@ -150,7 +197,11 @@ def _evidence() -> list[Spec]:
                         ("NoAns", "impossible_EM")):
         out += [Spec(f"histMbertXlmr{suffix}DiffEM", ci, f"{mx}.{key}.diff"),
                 Spec(f"histMbertXlmr{suffix}ZEM", ci, f"{mx}.{key}.z")]
-    out += [Spec("histMbertXlmrContribHasAnsFone", ci, f"{mx}.F1_contrib_answerable"),
+    out += [Spec("histMbertXlmrDiffFone", ci,
+                 lambda d: d["per_model"]["mbert"]["F1"] - d["per_model"]["xlmr"]["F1"]),
+            Spec("histMbertXlmrHasAnsDiffFone", ci,
+                 lambda d: d["per_model"]["mbert"]["ans_F1"] - d["per_model"]["xlmr"]["ans_F1"]),
+            Spec("histMbertXlmrContribHasAnsFone", ci, f"{mx}.F1_contrib_answerable"),
             Spec("histMbertXlmrContribNoAnsFone", ci, f"{mx}.F1_contrib_impossible"),
             Spec("histMbertXlmrContribHasAnsEM", ci, f"{mx}.EM_contrib_answerable"),
             Spec("histMbertXlmrContribNoAnsEM", ci, f"{mx}.EM_contrib_impossible"),
@@ -184,7 +235,18 @@ _PAIRS = (("mbertVoneXlmr", "mbert", "xlmr", "hasStats"),
           ("xlmrBaseline", "xlmr", "baseline", "hasStats"),
           ("mbertXlmr", "mbert-dev", "xlmr", "hasDev"),
           ("mbertViso", "mbert-dev", "visobert-dev", "hasDev"),
-          ("mbertMbertVone", "mbert-dev", "mbert", "hasDev"))
+          ("mbertMbertVone", "mbert-dev", "mbert", "hasDev"),
+          ("visoLongViso", "visobert-len512", "visobert-dev", "hasVisoLong"))
+
+
+def _p4_verdict(report: dict) -> Any:
+    """Kết luận cổng P4: CONFIRMED khi MỌI dự đoán P4 được xác nhận; còn PENDING
+    (hoặc chưa đăng ký) → vắng."""
+    verdicts = [p.get("verdict") for p in report.get("predictions", [])
+                if p.get("phase") == "P4"]
+    if not verdicts or "PENDING" in verdicts:
+        return ABSENT
+    return "CONFIRMED" if all(v == "CONFIRMED" for v in verdicts) else "REFUTED"
 
 
 def _stats() -> list[Spec]:
@@ -209,7 +271,11 @@ def _stats() -> list[Spec]:
                 Spec(prefix + "DiffFonechi", src, "dF1_cluster_ci[1]", flag=flag),
                 Spec(prefix + "Bzo", src, "b01", "int", flag=flag),
                 Spec(prefix + "Boz", src, "b10", "int", flag=flag)]
-    out += [Spec("mbertSeedMean", "seeds:", "mean", flag="hasSeeds"),
+    out += [Spec("visoLongMcnemarP", "pair:visobert-len512:visobert-dev",
+                 "p_mcnemar_has_ans_greater", "p", flag="hasVisoLong"),
+            Spec("visoLongVerdict", "file:hypotheses_report.json", _p4_verdict, "text",
+                 flag="hasVisoLong", result=False),
+            Spec("mbertSeedMean", "seeds:", "mean", flag="hasSeeds"),
             Spec("mbertSeedStd", "seeds:", "std", flag="hasSeeds")]
     return out
 
@@ -218,6 +284,7 @@ MACRO_SPEC: tuple[Spec, ...] = (
     # Bảng v1, n=500 (phụ lục lịch sử). Bắt buộc: đây là kết quả đã nộp.
     *(s for name, run in _HIST.items()
       for s in _eval_metrics("hist" + name, f"hist:{run}", required=True)),
+    *(s for name, run in _HIST.items() for s in _hist_extra(name, run)),
     Spec("histN", "hist:mbert", "overall.count", "int", required=True),
     Spec("histHasAnsN", "hist:mbert", "answerable_only.count", "int", required=True),
     Spec("histNoAnsN", "hist:mbert", "impossible_only.count", "int", required=True),
@@ -240,7 +307,7 @@ MACRO_SPEC: tuple[Spec, ...] = (
 #: Cờ → điều kiện (tên tệp phải tồn tại, tính tương đối ``results/``). Cờ bật khi
 #: MỌI tệp có mặt; ``eval:`` áp luật n > HISTORY_N.
 FLAGS: dict[str, tuple[str, ...]] = {
-    "hasFullEval": ("eval:mbert",),
+    "hasFullEval": ("eval:empty", "eval:baseline", "eval:xlmr", "eval:mbert", "eval:visobert"),
     "hasDev": ("eval:mbert-dev", "eval:visobert-dev"),
     "hasStats": ("file:stats_validation.json",),
     "hasVisoLong": ("eval:visobert-len512",),
@@ -253,6 +320,8 @@ FLAGS: dict[str, tuple[str, ...]] = {
 
 def fmt_vn(value: float, fmt: str) -> str:
     """Số kiểu Việt Nam cho LaTeX: thập phân ``{,}``, nghìn ``.``."""
+    if fmt == "text":
+        return str(value)
     if fmt == "p":
         if value < 0.001:
             return r"\ensuremath{<}0{,}001"
@@ -375,6 +444,8 @@ def collect_values(results_dir: str | Path, history_dir: str | Path | None = Non
         except (KeyError, IndexError, TypeError) as err:
             raise KeyError(f"\\{spec.name}: {path} không có {spec.path!r} ({err}) — "
                            "schema lệch MACRO_SPEC") from err
+        if raw is ABSENT:
+            continue
         if raw is None:
             raise KeyError(f"\\{spec.name}: {path}:{spec.path} là null")
         values[spec.name] = (raw * spec.scale if spec.scale != 1.0 else raw, spec, path)

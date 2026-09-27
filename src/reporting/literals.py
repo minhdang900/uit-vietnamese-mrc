@@ -91,6 +91,12 @@ def normalise(text: str) -> str:
     return text.replace("{,}", ",").replace("\\,", "").replace("~", " ")
 
 
+#: Độ dài/hệ số dàn trang của LaTeX (``1.15cm``, ``\\arraystretch}{1.15}``) không
+#: phải kết quả — nếu không loại, chúng va với các kết quả nhỏ như 1,15.
+_TEX_LAYOUT_AFTER = re.compile(r"\s*(?:cm|mm|pt|em|ex|in|bp|sp|\\[a-z]*(?:width|height))\b")
+_TEX_LAYOUT_BEFORE = re.compile(r"stretch\}?\{\s*$")
+
+
 def _pattern(variant: str) -> str:
     return rf"(?<![\d.,]){re.escape(variant)}(?![\d]|[.,]\d)"
 
@@ -111,6 +117,9 @@ def find_literals(text: str, literals: Mapping[float, str]) -> list[Hit]:
     alternation = "|".join(_pattern(v) for v in sorted(table, key=len, reverse=True))
     hits = []
     for m in re.finditer(alternation, text):
+        if _TEX_LAYOUT_AFTER.match(text, m.end()) or _TEX_LAYOUT_BEFORE.search(
+                text, 0, m.start()):
+            continue
         value, source = table[m.group()]
         hits.append(Hit(m.group(), value, source, text.count("\n", 0, m.start()) + 1))
     return hits

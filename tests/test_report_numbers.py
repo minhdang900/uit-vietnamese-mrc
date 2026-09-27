@@ -39,6 +39,7 @@ from reporting.numbers import (
     get_path,
     known_non_results,
     render_numbers_tex,
+    wilson,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -218,7 +219,14 @@ def make_eval(model, em=50.8, n=500, latency=12.264, **extra):
         "overall": {"EM": em, "F1": 59.4886, "count": n},
         "answerable_only": {"EM": 54.5706, "F1": 66.6047, "count": 361},
         "impossible_only": {"EM": 41.0072, "count": 139},
-        "avg_latency_ms": latency, **extra,
+        "avg_latency_ms": latency,
+        "by_context_length": {b: {"EM": em, "F1": 60.12, "count": c, "unreliable": c < 30}
+                              for b, c in (("<100", 1), ("100-200", 405), ("200-300", 85),
+                                           ("300+", 9))},
+        "by_question_type": {"single-sentence": {"EM": 60.8392, "F1": 73.5126, "count": 143},
+                             "multi-sentence": {"EM": 50.4587, "F1": 62.0734, "count": 218},
+                             "_note": "361 câu answerable"},
+        **extra,
     }
 
 
@@ -273,7 +281,7 @@ def test_collect_prefers_the_history_directory(tmp_path):
 
     assert macros["histMbertEM"] == "50{,}80"
     assert macros["mbertVoneEM"] == "55{,}55"
-    assert flags["hasFullEval"] is True
+    assert flags["hasFullEval"] is False, "mới 1/5 run v1 ở n đầy đủ"
 
 
 def test_an_n500_top_level_file_is_never_read_as_the_full_evaluation(tmp_path):
@@ -482,7 +490,8 @@ def test_evidence_files_map_to_their_macros(tmp_path):
            "embedding_params": 11_523_072, "encoder_body_params": 85_054_464,
            "sample_sentence_tokens": 23, "val_ctx_mean_tokens": 250.1,
            "val_ctx_tokens_per_word": 1.61, "val_ctx_over_357": 154, "val_ctx_total": 557,
-           "questions_gt2_windows": 2, "train_answers_over_30_pct": 1.2}
+           "questions_gt2_windows": 2, "val_ctx_gt2_windows": 2,
+           "train_answers_over_30_pct": 1.2}
     (results / "tokenizer_stats.json").write_text(
         json.dumps({"mbert": tok, "visobert": tok}), encoding="utf-8")
     (results / "sample_overlap.json").write_text(json.dumps({
@@ -498,6 +507,7 @@ def test_evidence_files_map_to_their_macros(tmp_path):
     assert macros["tokEmbParamsViso"] == "11{,}5"
     assert macros["tokBodyParamsMbert"] == "85{,}1"
     assert macros["overlapSelEval"] == "284" and macros["overlapTauEval"] == "195"
+    assert macros["tokCtxGtTwoWinMbert"] == "2", "G5: đoạn văn (không phải câu) cần >2 cửa sổ"
     assert 49.3 in result_literals(results), "tỉ lệ nhãn null là kết quả"
 
 
@@ -552,3 +562,96 @@ def test_stats_entry_missing_a_key_fails_loudly(tmp_path):
 
     with pytest.raises(KeyError, match="mbertVoneEMclo"):
         collect_all(results)
+
+
+# ── bổ sung cho làn A (57b756a) ─────────────────────────────────────────────
+
+FULL_RUNS = ("empty", "baseline", "xlmr", "mbert", "visobert")
+
+
+def _full(results, run, em=44.44):
+    (results / f"eval_{run}_validation.json").write_text(
+        json.dumps(make_eval(run, em=em, n=3814, empty_prediction_rate=12.5,
+                             null_threshold=0.25)), encoding="utf-8")
+
+
+def test_full_eval_flag_needs_every_v1_run_at_full_n(tmp_path):
+    """Giữa P2 chỉ mới có vài run 3.814 câu → cờ vẫn tắt, không macro nào bị thiếu
+    trong nhánh ``\\ifhasFullEval``."""
+    results = write_tree(tmp_path, history_moved=True)
+    for run in FULL_RUNS[:-1]:
+        _full(results, run)
+
+    assert collect_all(results)[1]["hasFullEval"] is False
+
+    _full(results, "visobert")
+    macros, flags = collect_all(results)
+    assert flags["hasFullEval"] is True
+    assert macros["visoVoneEM"] == "44{,}44" and macros["alwaysEmptyEmptyRate"] == "12{,}50"
+
+
+def test_wilson_matches_the_reference_values():
+    assert wilson(50, 100) == pytest.approx((40.38, 59.62), abs=0.01)
+    assert wilson(0, 10)[1] == pytest.approx(27.75, abs=0.01)
+
+
+def test_history_wilson_bounds_for_answerable_and_impossible(tmp_path):
+    macros, _ = collect_all(write_tree(tmp_path))
+
+    lo, hi = wilson(round(54.5706 * 361 / 100), 361)
+    assert macros["histMbertHasAnsEMlo"] == fmt_vn(lo, "f2")
+    assert macros["histMbertHasAnsEMhi"] == fmt_vn(hi, "f2")
+    lo, hi = wilson(round(41.0072 * 139 / 100), 139)
+    assert macros["histViso" + "NoAnsEMlo"] == fmt_vn(lo, "f2")
+    assert macros["histBaselineNoAnsEMhi"] == fmt_vn(hi, "f2")
+
+
+def test_history_f1_difference_and_breakdowns(tmp_path):
+    macros, _ = collect_all(write_tree(tmp_path))
+    ci = json.loads((RESULTS / "ci_n500.json").read_text(encoding="utf-8"))["per_model"]
+
+    assert macros["histMbertXlmrDiffFone"] == fmt_vn(
+        ci["mbert"]["F1"] - ci["xlmr"]["F1"], "f2")
+    assert macros["histMbertSingleEM"] == "60{,}84"
+    assert macros["histMbertMultiFone"] == "62{,}07"
+    assert macros["histMbertSingleN"] == "143"
+    assert macros["histMbertLenOneTwoN"] == "405"
+    assert macros["histXlmrLenOverThreeFone"] == "60{,}12"
+    assert macros["histViso" + "LenUnderHundredN"] == "1"
+
+
+def test_p4_verdict_and_one_sided_has_ans_mcnemar(tmp_path):
+    results = write_tree(tmp_path)
+    _full(results, "visobert-len512")
+    report = {"predictions": [{"phase": "P3", "id": "x", "verdict": "REFUTED"}]}
+    (results / "hypotheses_report.json").write_text(json.dumps(report), encoding="utf-8")
+
+    assert "visoLongVerdict" not in collect_all(results)[0], "chưa chấm P4 → vắng"
+
+    report["predictions"] += [{"phase": "P4", "id": "a", "verdict": "CONFIRMED"},
+                              {"phase": "P4", "id": "b", "verdict": "CONFIRMED"}]
+    (results / "hypotheses_report.json").write_text(json.dumps(report), encoding="utf-8")
+    stats = make_stats(runs=("visobert-len512",), pairs=())
+    stats["pairs"] = [{"a": "visobert-len512", "b": "visobert-dev", "b01": 20, "b10": 90,
+                       "p_mcnemar": 0.0001, "p_mcnemar_has_ans_greater": 0.00731,
+                       "dEM": 5.5, "dEM_cluster_ci": [3.1, 7.9], "dF1_cluster_ci": [2.2, 8.8]}]
+    (results / "stats_validation.json").write_text(json.dumps(stats), encoding="utf-8")
+
+    macros, _ = collect_all(results)
+    assert macros["visoLongVerdict"] == "CONFIRMED"
+    assert macros["visoLongMcnemarP"] == "0{,}007"
+
+    report["predictions"][-1]["verdict"] = "REFUTED"
+    (results / "hypotheses_report.json").write_text(json.dumps(report), encoding="utf-8")
+    assert collect_all(results)[0]["visoLongVerdict"] == "REFUTED"
+
+
+@pytest.mark.parametrize("text", [r"\renewcommand{\arraystretch}{1.15}",
+                                  "minimum width=1.15cm", "xshift=1.15em", r"1.15\linewidth",
+                                  r"\setstretch{1.15}"])
+def test_tex_layout_lengths_are_not_results(text):
+    assert not find_literals(text, {1.1523: "x"}), text
+
+
+def test_a_value_next_to_a_word_is_still_caught():
+    assert find_literals("chênh 1.15 điểm", {1.1523: "x"})
