@@ -7,6 +7,9 @@ EM — F1 không phải tỉ lệ nhị phân), cluster-bootstrap CI của EM v�
 ``paragraph_id``, đã có sẵn trong preds JSONL), tách HasAns/NoAns, tỉ lệ dự đoán
 rỗng. Với mỗi cặp model trong ``_PAIR_CANDIDATES`` mà CẢ HAI run đều có mặt:
 McNemar chính xác hai phía, hiệu EM, và CI bootstrap-cặp-theo-cụm của hiệu EM/F1.
+Cặp trong ``_HAS_ANS_ONE_SIDED_PAIRS`` (P4: ``visobert-len512`` × ``visobert-dev``)
+có thêm ``p_mcnemar_has_ans_greater`` — McNemar MỘT PHÍA, chỉ trên tập HasAns,
+H1 ``b10 > b01`` (``a`` đúng, ``b`` sai) — gate quyết định của P4 (C2/C3).
 
 Hợp đồng đầu ra là ``src/reporting/numbers.py`` (module docstring, viết bởi
 agent ``exec-numbers``) — file này PHẢI khớp chính xác từng khoá. Đổi khoá ở
@@ -47,7 +50,15 @@ _PAIR_CANDIDATES: tuple[tuple[str, str], ...] = (
     ("mbert-dev", "xlmr"),
     ("mbert-dev", "visobert-dev"),
     ("mbert-dev", "mbert"),
+    ("visobert-len512", "visobert-dev"),
 )
+
+#: Cặp cần thêm ``p_mcnemar_has_ans_greater`` (P4 gate C2/C3: McNemar một phía,
+#: chỉ tập HasAns, H1 b10 > b01 — ``a`` [len512] đúng, ``b`` [control] sai).
+#: Khớp yêu cầu của agent ``exec-numbers`` (macro ``\visoLongMcnemarP``).
+_HAS_ANS_ONE_SIDED_PAIRS: frozenset[tuple[str, str]] = frozenset({
+    ("visobert-len512", "visobert-dev"),
+})
 
 #: Cụm dùng cho mọi bootstrap — đoạn văn (đã băm sẵn trong preds JSONL bởi
 #: ``mrc.evaluate.paragraph_id``), không phải câu hỏi.
@@ -108,13 +119,19 @@ def compute_run_stats(records: list[dict], n_boot: int = 2000, seed: int = 0) ->
 
 
 def compute_pair_stats(records_a: list[dict], records_b: list[dict],
-                       n_boot: int = 2000, seed: int = 0) -> dict:
+                       n_boot: int = 2000, seed: int = 0,
+                       has_ans_one_sided: bool = False) -> dict:
     """So sánh cặp (a, b): McNemar hai phía + CI bootstrap-cặp-theo-cụm của hiệu EM/F1.
 
     ``a``/``b`` phải chấm CÙNG một tập câu hỏi (kiểm bằng tập qid); được ghép
     lại theo thứ tự qid của ``records_a`` trước khi gọi
     :func:`mrc.stats.paired_cluster_bootstrap_diff`, nên hai run có thể đến từ
     hai file JSONL với thứ tự dòng khác nhau mà vẫn ghép đúng cặp câu hỏi.
+
+    ``has_ans_one_sided``: thêm khoá ``p_mcnemar_has_ans_greater`` — McNemar
+    MỘT PHÍA (H1: ``b10 > b01``), tính LẠI ``b01``/``b10`` chỉ trên tập câu
+    answerable (``is_impossible`` False). Dùng cho gate P4 (C2/C3): chỉ cặp
+    trong ``_HAS_ANS_ONE_SIDED_PAIRS`` cần khoá này.
     """
     by_a = {r["qid"]: r for r in records_a}
     by_b = {r["qid"]: r for r in records_b}
@@ -135,7 +152,7 @@ def compute_pair_stats(records_a: list[dict], records_b: list[dict],
     b01 = sum(1 for q in order if by_a[q]["em"] == 0.0 and by_b[q]["em"] == 1.0)
     b10 = sum(1 for q in order if by_a[q]["em"] == 1.0 and by_b[q]["em"] == 0.0)
 
-    return {
+    out = {
         "b01": b01,
         "b10": b10,
         "p_mcnemar": mcnemar_exact(b01, b10, alternative="two-sided"),
@@ -143,6 +160,12 @@ def compute_pair_stats(records_a: list[dict], records_b: list[dict],
         "dEM_cluster_ci": list(paired_cluster_bootstrap_diff(em_a, em_b, clusters, n_boot, seed)),
         "dF1_cluster_ci": list(paired_cluster_bootstrap_diff(f1_a, f1_b, clusters, n_boot, seed)),
     }
+    if has_ans_one_sided:
+        has_ans_qids = [q for q in order if not by_a[q]["is_impossible"]]
+        b01_h = sum(1 for q in has_ans_qids if by_a[q]["em"] == 0.0 and by_b[q]["em"] == 1.0)
+        b10_h = sum(1 for q in has_ans_qids if by_a[q]["em"] == 1.0 and by_b[q]["em"] == 0.0)
+        out["p_mcnemar_has_ans_greater"] = mcnemar_exact(b01_h, b10_h, alternative="greater")
+    return out
 
 
 def build_stats(results_dir: _Path, split: str = "validation", n_boot: int = 2000,
@@ -162,8 +185,10 @@ def build_stats(results_dir: _Path, split: str = "validation", n_boot: int = 200
     pairs = []
     for a, b in _PAIR_CANDIDATES:
         if a in records_by_run and b in records_by_run:
+            one_sided = (a, b) in _HAS_ANS_ONE_SIDED_PAIRS
             pairs.append({"a": a, "b": b,
-                         **compute_pair_stats(records_by_run[a], records_by_run[b], n_boot, seed)})
+                         **compute_pair_stats(records_by_run[a], records_by_run[b], n_boot, seed,
+                                              has_ans_one_sided=one_sided)})
 
     first = next(iter(records_by_run.values()))
     n_clusters = len({r[CLUSTER_KEY] for r in first})

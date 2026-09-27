@@ -13,6 +13,7 @@ import json
 import pytest
 
 from mrc.evaluate import write_jsonl
+from mrc.stats import mcnemar_exact
 from scripts.compute_stats import build_stats, compute_pair_stats, compute_run_stats, discover_pred_files
 
 
@@ -123,6 +124,53 @@ def test_compute_pair_stats_rejects_mismatched_question_sets():
     records_b = [r for r in _fixture_records({"q0"}, n=10) if r["qid"] != "q9"]
     with pytest.raises(ValueError, match="qid"):
         compute_pair_stats(records_a, records_b)
+
+
+def test_compute_pair_stats_has_ans_one_sided_key_only_when_requested():
+    a_correct = {f"q{i}" for i in range(0, 10)}
+    b_correct = {f"q{i}" for i in range(5, 15)}
+    records_a = _fixture_records(a_correct)
+    records_b = _fixture_records(b_correct)
+
+    default_pair = compute_pair_stats(records_a, records_b, n_boot=100, seed=0)
+    assert "p_mcnemar_has_ans_greater" not in default_pair
+
+    one_sided_pair = compute_pair_stats(records_a, records_b, n_boot=100, seed=0,
+                                        has_ans_one_sided=True)
+    assert "p_mcnemar_has_ans_greater" in one_sided_pair
+    assert 0.0 <= one_sided_pair["p_mcnemar_has_ans_greater"] <= 1.0
+
+
+def test_compute_pair_stats_has_ans_one_sided_excludes_impossible_questions():
+    """20 câu, 2 câu cuối impossible (xem _fixture_records). a đúng mọi câu
+    answerable trừ chính các câu impossible mà b cũng đúng ⇒ dựng để b10 (HasAns)
+    khác b10 (overall) khi có bất đồng ở phần impossible."""
+    n, n_paragraphs = 20, 5
+    a_correct = {f"q{i}" for i in range(n - 2)}  # a đúng mọi câu answerable
+    b_correct = {f"q{i}" for i in range(n - 4)}  # b sai 2 câu answerable cuối + đúng câu impossible? xem dưới
+    records_a = _fixture_records(a_correct, n=n, n_paragraphs=n_paragraphs)
+    records_b = _fixture_records(b_correct, n=n, n_paragraphs=n_paragraphs)
+
+    pair = compute_pair_stats(records_a, records_b, n_boot=100, seed=0, has_ans_one_sided=True)
+
+    # b10 (HasAns) đếm CHỈ answerable: a đúng {0..17}, b đúng {0..15} ⇒ b thua ở
+    # {16,17} (2 câu, đều answerable) ⇒ b10_has_ans == 2, b01_has_ans == 0.
+    assert pair["p_mcnemar_has_ans_greater"] == pytest.approx(mcnemar_exact(0, 2, alternative="greater"))
+
+
+def test_build_stats_adds_has_ans_key_for_p4_pair(tmp_path):
+    """Khi cả visobert-len512 và visobert-dev đều có mặt, cặp đó phải có
+    p_mcnemar_has_ans_greater; các cặp khác thì không."""
+    correct = {f"q{i}" for i in range(10)}
+    _write_run(tmp_path, "visobert-dev", "validation", _fixture_records(correct))
+    _write_run(tmp_path, "visobert-len512", "validation", _fixture_records(correct))
+    _write_run(tmp_path, "mbert-dev", "validation", _fixture_records(correct))
+
+    payload = build_stats(tmp_path, split="validation", n_boot=100, seed=0)
+
+    by_ab = {(p["a"], p["b"]): p for p in payload["pairs"]}
+    assert "p_mcnemar_has_ans_greater" in by_ab[("visobert-len512", "visobert-dev")]
+    assert "p_mcnemar_has_ans_greater" not in by_ab[("mbert-dev", "visobert-dev")]
 
 
 def test_compute_pair_stats_tolerates_different_file_order():
