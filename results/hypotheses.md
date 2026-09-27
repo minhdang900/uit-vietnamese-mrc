@@ -136,3 +136,89 @@ này là **đối chứng** cho P4 (chỉ đổi `max_length` 384 → 512).
 | Tỉ lệ rỗng > 95 % ở bất kỳ run nào | Suy sụp | `empty_rate_above` |
 | `assert_no_leakage` thất bại | Leakage — run dừng trước khi tốn GPU | trong `finetune.py` |
 | Thứ tự commit đăng ký / bắt đầu / chấm sai | Đăng ký trước không hợp lệ | `prereg_order_violated` |
+
+---
+
+## Đăng ký v2 — P4 (ViSoBERT: một biến duy nhất `max_length` 384 → 512)
+
+**Ghi TRƯỚC khi có kết quả `visobert-dev` trên validation**, commit riêng
+(`prereg(P4): …`). Run: `visobert-len512`.
+
+### Biến thay đổi — và chỉ biến đó
+
+`max_length` 384 → **512**. Mọi thứ khác giữ nguyên như đối chứng `visobert-dev`
+(P3): lr 3e-5, 3 epoch, batch 12 × grad-accum 2, warmup 0,1, weight decay 0,01,
+`doc_stride` 128, `max_answer_len` 64, seed 42, cùng tập dev (title, 10 %, seed
+42), cùng quy tắc chọn (epoch, τ) trên dev F1, lưới τ [−5; 5] bước 0,25.
+Nếu 512 hết bộ nhớ MPS: dùng batch 6 × grad-accum 4 (cùng batch hiệu dụng 24) và
+ghi sai khác đó vào file này bằng một commit MỚI **trước** khi chạy thật.
+
+### Cơ chế dự đoán — số đo đầu vào (không phải kết quả)
+
+Đo bằng `scripts/null_labels.py` (chỉ tokenizer, trên toàn bộ 28.454 câu train,
+commit 896bc5e), trước khi huấn luyện:
+
+| ViSoBERT, doc_stride 128 | feature | nhãn null | trong đó "đáp án ngoài cửa sổ" | câu nhiều cửa sổ |
+|---|---|---|---|---|
+| `max_length` 384 | 40.984 | **49,30 %** | 6.895 | 10.386 |
+| `max_length` 512 | 32.292 | **39,33 %** | 2.241 | 3.573 |
+| (tham chiếu) mBERT, 384 | 30.540 | 36,16 % | 1.135 | 1.884 |
+
+Giả thuyết cửa sổ: vocab 15k khiến ViSoBERT cắt context thành nhiều cửa sổ hơn,
+một nửa số feature huấn luyện mang nhãn null, và QA head học "luôn trả rỗng".
+512 đưa tỉ lệ null về gần mức của mBERT (model không suy sụp).
+
+### Mốc tham chiếu
+
+ViSoBERT v1 trên validation ĐẦY ĐỦ (n = 3.814): HasAns EM **8,29**, tỉ lệ rỗng
+82,88 %. Con số 6,93 trong đặc tả là trên mẫu n = 500; ngưỡng tuyệt đối 16,93
+(= 6,93 + 10, "rõ ràng cao hơn") được GIỮ như đặc tả viết, nhưng cổng quyết định
+chính là so với đối chứng `visobert-dev`, không phải với v1.
+
+### Cổng — rẽ nhánh CƠ HỌC theo kết quả P3 (đều trên validation đầy đủ)
+
+Nhánh được chọn tự động bởi `check_hypotheses.py` từ eval của `visobert-dev`,
+theo đúng định nghĩa suy sụp của P3 (tỉ lệ rỗng ≥ 90 % hoặc HasAns EM < 15):
+
+**A. Đối chứng vẫn suy sụp ⇒ P4 là phép thử quyết định.** CONFIRMED khi và chỉ
+khi CẢ BỐN điều sau đúng; ngược lại REFUTED và chẩn đoán cửa sổ/nhãn null được
+báo cáo là bị bác bỏ:
+1. ΔHasAns EM (len512 − đối chứng) **≥ +10,0**;
+2. tỉ lệ rỗng giảm **≥ 30 điểm** so với đối chứng **và** tỉ lệ rỗng tuyệt đối **< 65 %**;
+3. HasAns EM tuyệt đối **> 16,93**;
+4. McNemar chính xác trên tập **HasAns**, **một phía** H1: b10 > b01
+   (b10 = len512 đúng & đối chứng sai), **p < 0,01**.
+
+**B. Đối chứng KHÔNG còn suy sụp (lr 3e-5 đã đủ) ⇒ phát hiện chính là nhiễu lr:**
+suy sụp của v1 được quy cho lr 5e-5 (cộng tỉ lệ nhãn null), và báo cáo nói đúng
+như vậy. P4 vẫn chạy như đăng ký, cổng trở thành: ΔHasAns EM **≥ +3** **và**
+cùng McNemar HasAns một phía p < 0,01 — một hiệu ứng phụ của ngân sách cửa sổ.
+
+Dù nhánh nào, không chọn lại epoch/τ/checkpoint sau khi thấy validation.
+
+### Tín hiệu BÁO ĐỘNG
+
+| Quan sát | Nghi vấn | Kiểm tự động |
+|---|---|---|
+| EM(len512) > EM(`mbert-dev`) + 10 | Đáng ngờ — nghi leakage/bug | `gate` |
+| batch/grad-accum khác 12/2 | Đã dùng phương án OOM — phải có commit ghi sai khác | `config_differs` |
+| dev EM − val EM > 10; τ ở mép lưới; tỉ lệ rỗng > 95 % | như P3 | như P3 |
+
+---
+
+## Đăng ký v2 — P5 (mBERT nhiều seed)
+
+**Ghi TRƯỚC khi chạy**, commit riêng (`prereg(P5): …`). Run: `mbert-dev-s43`,
+`mbert-dev-s44`.
+
+- Cấu hình giống HỆT `mbert-dev` (P3); chỉ `--seed` đổi (43, 44). Tập dev cố
+  định ở `--dev-seed 42` cho cả ba run.
+- **Headline vẫn là `mbert-dev` (seed 42) bất kể kết quả seed** (D2): hai seed mới
+  chỉ dùng để ước lượng độ dao động, KHÔNG BAO GIỜ để chọn "seed tốt nhất".
+- MPS không tất định: ngay cả cùng seed cũng có thể khác — đó là một phần của thứ
+  được đo, không phải lỗi.
+- **Dự đoán:** độ lệch chuẩn mẫu (ddof = 1) của EM validation đầy đủ qua
+  {`mbert-dev`, `mbert-dev-s43`, `mbert-dev-s44`} **≤ 1,5**.
+- **Báo động:** bất kỳ seed nào lệch EM so với `mbert-dev` **> 5** ⇒ nghi bug hoặc
+  huấn luyện bất ổn — điều tra, không bỏ run. Cộng các báo động của P3.
+- Khoảng cách giữa các model trong báo cáo được so với độ lệch chuẩn seed này.
