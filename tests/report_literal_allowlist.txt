@@ -1,0 +1,3 @@
+# Ngoại lệ cho test "không gõ tay số kết quả" (tests/test_report_numbers.py).
+# Mỗi dòng: <file tương đối gốc repo>:<literal như trong văn bản>  # lý do
+# Tối đa 10 mục; mục không còn khớp (stale) làm test đỏ. Ưu tiên macro hơn allowlist.

@@ -19,7 +19,8 @@ import shutil
 from pathlib import Path
 
 __all__ = ["markdown_table", "csv_table", "provenance_rows", "impossible_share",
-           "build_report_assets", "render_report", "metric_literals"]
+           "build_report_assets", "render_report", "metric_literals",
+           "result_literals"]
 
 #: Chỗ đánh dấu nhúng bảng trong template báo cáo.
 INCLUDE = re.compile(
@@ -166,6 +167,46 @@ def metric_literals(results: list[dict]) -> list[str]:
     for result in results:
         overall = result.get("overall") or {}
         out.extend(_vn(overall[key]) for key in ("EM", "F1") if key in overall)
+    return out
+
+
+#: Trường của một ``eval_*.json`` là KẾT QUẢ (không bao giờ gõ tay), ngoài các
+#: macro kết quả trong ``numbers.MACRO_SPEC``.
+EVAL_RESULT_PATHS = ("overall.EM", "overall.F1", "answerable_only.EM",
+                     "answerable_only.F1", "impossible_only.EM", "avg_latency_ms",
+                     "empty_prediction_rate", "null_threshold")
+
+
+def result_literals(results_dir: str | Path) -> dict[float, str]:
+    """Mọi kết quả KHÔNG được gõ tay vào văn bản: giá trị → nguồn.
+
+    Thay ``metric_literals`` (chỉ EM/F1 tổng): gồm EM/F1 tách answerable/
+    impossible, latency, tỉ lệ rỗng, τ của MỌI ``eval_*.json`` (cả
+    ``history/n500/``), cộng mọi macro kết quả của ``numbers.tex`` — CI, p-value,
+    tỉ lệ nhãn null, độ lệch chuẩn seed… Số nguyên bị loại ở bước so khớp
+    (``literals.variants``).
+    """
+    import json
+
+    from .numbers import collect_values, get_path
+
+    results_dir = Path(results_dir)
+    out: dict[float, str] = {}
+    files = sorted(results_dir.glob("eval_*.json"))
+    files += sorted((results_dir / "history").glob("**/eval_*.json"))
+    for f in files:
+        data = json.loads(f.read_text(encoding="utf-8"))
+        for path in EVAL_RESULT_PATHS:
+            try:
+                value = get_path(data, path)
+            except KeyError:
+                continue
+            if isinstance(value, float):
+                out.setdefault(value, f"{f.relative_to(results_dir)}:{path}")
+    values, _ = collect_values(results_dir)
+    for name, (value, spec, _src) in values.items():
+        if spec.result and isinstance(value, float):
+            out.setdefault(value, f"\\{name}")
     return out
 
 
