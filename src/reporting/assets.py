@@ -20,7 +20,7 @@ from pathlib import Path
 
 __all__ = ["markdown_table", "csv_table", "provenance_rows", "impossible_share",
            "build_report_assets", "render_report", "metric_literals",
-           "result_literals"]
+           "result_literals", "render_readme_table"]
 
 #: Chỗ đánh dấu nhúng bảng trong template báo cáo.
 INCLUDE = re.compile(
@@ -208,6 +208,64 @@ def result_literals(results_dir: str | Path) -> dict[float, str]:
         if spec.result and isinstance(value, float):
             out.setdefault(value, f"\\{name}")
     return out
+
+
+#: Nhãn đẹp cho README — khớp với ``model`` thô ghi trong mỗi ``eval_*.json``.
+#: Model chưa có trong bảng này (chạy mới, vd. ``mbert-dev``) thì dùng luôn
+#: chuỗi thô: README vẫn đúng, chỉ chưa được đánh bóng tên.
+README_MODEL_NAMES: dict[str, str] = {
+    "TF-IDF Baseline": "TF-IDF Baseline",
+    "Luôn trả rỗng (empty)": "*Luôn trả rỗng*",
+    "mbert (fine-tuned)": "mBERT + QA (fine-tuned)",
+    "visobert (fine-tuned)": "ViSoBERT + QA (fine-tuned)",
+    "XLM-R (squad2, zero-shot)": "XLM-R squad2 (zero-shot)",
+}
+
+#: Cột nào được in đậm ở GIÁ TRỊ LỚN NHẤT trong cột (không phải "câu chuyện" —
+#: đó là chú thích viết tay mà bảng SINH này thay thế, bất biến #3).
+README_BOLD_COLUMNS = ("F1", "answerable_EM", "answerable_F1", "impossible_EM")
+
+
+def render_readme_table(results_dir: str | Path) -> str:
+    """Bảng kết quả cho README, giữa ``<!-- BEGIN:results -->``/``<!-- END:results -->``.
+
+    Cùng nguồn với ``report/assets/table_results.md``
+    (``figures.collect_results`` + ``format_results_table``): mọi
+    ``results/eval_*.json`` ở cấp cao nhất, kể cả dòng "luôn trả rỗng" (N7) một
+    khi ``results/eval_empty_validation.json`` tồn tại — không cần đặc cách,
+    glob đã bắt được nó.
+
+    Định dạng README dùng dấu CHẤM thập phân (quy ước đã có từ trước của
+    README, khác dấu phẩy của LaTeX/slide) — xem quy ước hiện tại trong phần
+    "Kết quả" phía trên vùng sinh này.
+    """
+    from .figures import collect_results, format_results_table
+
+    results = collect_results(results_dir)
+    rows = format_results_table(results)
+
+    best_em_model = max(rows, key=lambda r: r["EM"])["model"]
+    col_best = {col: max(r[col] for r in rows) for col in README_BOLD_COLUMNS}
+
+    def cell(row: dict, col: str) -> str:
+        text = f"{row[col]:.2f}"
+        return f"**{text}**" if row[col] == col_best[col] else text
+
+    lines = [
+        "| Model | EM | F1 | answerable EM / F1 | impossible EM | Latency |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for row in rows:
+        name = README_MODEL_NAMES.get(row["model"], row["model"])
+        em_text = f"{row['EM']:.2f}"
+        if row["model"] == best_em_model:
+            name, em_text = f"**{name}**", f"**{em_text}**"
+        lines.append(
+            f"| {name} | {em_text} | {cell(row, 'F1')} | "
+            f"{cell(row, 'answerable_EM')} / {cell(row, 'answerable_F1')} | "
+            f"{cell(row, 'impossible_EM')} | {row['latency_ms']:.1f} ms |"
+        )
+    return "\n".join(lines) + "\n"
 
 
 def _write(path: Path, text: str) -> Path:
