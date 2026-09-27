@@ -164,8 +164,9 @@ khi bắt đầu mọi lần fine-tune.
 \code{reproducible\_subset(examples, n, seed=42)} lấy mẫu \emph{ngẫu nhiên có seed} thay vì
 lấy $n$ câu đầu tệp. Lựa chọn này được đưa ra sau khi phát hiện một lỗi thực tế: câu hỏi
 trong tệp được sắp theo bài viết, nên $n$ câu đầu chỉ thuộc vài chủ đề. Cùng một checkpoint
-mBERT (epoch 2) cho \textbf{EM 42,00} trên 300 câu đầu tệp nhưng \textbf{EM 52,00} trên 300
-câu ngẫu nhiên --- chênh 10 điểm chỉ do cách lấy mẫu. Hàm này được dùng chung cho cả
+mBERT (epoch 2) cho \textbf{EM \curveMbertFirstEMII{}} trên 300 câu đầu tệp nhưng
+\textbf{EM \curveMbertValEMII{}} trên 300 câu ngẫu nhiên --- chênh \curveMbertFirstGap{}
+điểm chỉ do cách lấy mẫu. Hàm này được dùng chung cho cả
 đường cong huấn luyện lẫn bảng kết quả cuối, nên hai nguồn số liệu so sánh được với nhau.
 
 \subsection{Chuẩn hoá và metric cho tiếng Việt}
@@ -285,7 +286,7 @@ tập validation là nhỏ (2 trên 557 đoạn văn cần nhiều hơn 2 cửa 
   \node[win,draw=warnorange,fill=orange!10,minimum width=5.6cm,anchor=west] (w3) at (7.2,-2.25) {cửa sổ 3};
   \node[win,draw=badred,fill=red!8,minimum width=3.2cm,anchor=west] (w4) at (10.8,-3.0) {cửa sổ 4 (phần đuôi)};
   \draw[decorate,decoration={brace,amplitude=4pt,mirror}] (3.6,-1.85) -- (5.6,-1.85) node[midway,below=4pt,font=\footnotesize] {chồng lấp $=$ \code{doc\_stride}};
-  \node[align=left,font=\footnotesize,text=badred,anchor=west] at (0,-3.05)
+  \node[align=left,font=\footnotesize,text=badred,anchor=west] at (0,-3.1)
      {\textbf{\code{return\_overflowing\_tokens}} (transformers 5.17.0):\\ dừng sau cửa sổ 2 $\Rightarrow$ cửa sổ 3, 4 bị bỏ \emph{âm thầm}};
 \end{tikzpicture}}
 \caption{Cửa sổ trượt tự cài đặt. Offset của mỗi cửa sổ được dịch về hệ toạ độ của đoạn văn gốc để cắt đáp án trực tiếp từ chuỗi gốc}
@@ -465,23 +466,24 @@ biệt là TF-IDF --- cũng hưởng lợi từ độ trùng từ vựng, chênh
 
 Hàm \code{run\_evaluation()} thực hiện theo thứ tự: kiểm tra \code{assert\_gradeable}; chạy bộ
 dự đoán trên từng câu và đo độ trễ thực bằng \code{time.perf\_counter}; tính metric; gán nhãn
-và tách nhóm; ghi kết quả. Mỗi tệp kết quả có cấu trúc như sau (trích từ
-\code{results/eval\_mbert\_validation.json}, lược bớt):
+và tách nhóm; ghi kết quả. Mỗi tệp kết quả có cấu trúc như sau (minh hoạ giản lược của
+\code{results/eval\_<mô hình>\_validation.json}; giá trị số là \emph{ví dụ}, số thật nằm
+trong tệp JSON và trong các bảng ở Mục~\ref{sec:experiments}):
 
 \begin{lstlisting}
 {
-  "model": "mbert (fine-tuned)", "dataset": "UIT-ViQuAD 2.0",
-  "split": "validation", "n": 500,
-  "timestamp": "2026-09-12T14:03:03+00:00", "commit": "590e775", "device": "mps",
+  "model": "<tên mô hình>", "dataset": "UIT-ViQuAD 2.0",
+  "split": "validation", "n": <n>,
+  "timestamp": "<ISO 8601>", "commit": "<sha>", "device": "mps",
   "env": {"torch": "2.14.0", "platform": "macOS-26.4.1-arm64-arm-64bit"},
-  "overall":         {"EM": 50.8,    "F1": 59.4886, "count": 500},
-  "answerable_only": {"EM": 54.5706, "F1": 66.6047, "count": 361},
-  "impossible_only": {"EM": 41.0072, "count": 139},
-  "avg_latency_ms": 12.264,
-  "by_context_length": {"300+": {"EM": 44.4444, "F1": 44.4444, "count": 9,
+  "overall":         {"EM": <EM>, "F1": <F1>, "count": <n>},
+  "answerable_only": {"EM": <EM>, "F1": <F1>, "count": <n_hasans>},
+  "impossible_only": {"EM": <EM>, "count": <n_noans>},
+  "avg_latency_ms": <ms>,
+  "by_context_length": {"300+": {"EM": <EM>, "F1": <F1>, "count": <n>,
                                  "unreliable": true}, ...},
-  "by_question_type":  {..., "_note": "Tổng của bảng này là 361 chứ không phải n=500 ..."},
-  "sample_predictions": [ ... 10 mẫu ... ]
+  "by_question_type":  {..., "_note": "Tổng của bảng này khác n vì câu không có đáp án bị loại khỏi phân tích loại câu hỏi"},
+  "sample_predictions": [ ... ]
 }
 \end{lstlisting}
 

@@ -135,8 +135,8 @@ thể fine-tune cho tác vụ đích bằng cách thêm một lớp đầu ra nh
 (mBERT) dùng cùng kiến trúc cỡ \emph{base} (12 lớp, 768 chiều ẩn, 12 đầu attention),
 huấn luyện trên Wikipedia của hơn một trăm ngôn ngữ với bộ từ vựng WordPiece
 \cite{wu2016gnmt} dùng chung. Checkpoint \code{bert-base-multilingual-cased} dùng trong
-đồ án có từ vựng \textbf{119.547} token và \textbf{177,3 triệu} tham số (đếm trực tiếp
-từ tệp trọng số sau khi thêm lớp QA).
+đồ án có từ vựng \textbf{\tokVocabMbert{}} token và \textbf{\tokParamsMbert{} triệu} tham số
+(đếm trực tiếp từ tệp trọng số sau khi thêm lớp QA).
 
 \subsubsection{XLM-RoBERTa}
 
@@ -161,9 +161,13 @@ cấp \emph{offset mapping} --- ràng buộc có ý nghĩa quyết định cho b
 ViSoBERT \cite{nguyen2023visobert} là mô hình tiền huấn luyện đơn ngữ tiếng Việt do
 NLP@UIT công bố, kiến trúc XLM-R, huấn luyện trên văn bản \emph{mạng xã hội} tiếng Việt.
 Checkpoint \code{uitnlp/visobert} có tokenizer dạng fast với từ vựng SentencePiece
-\textbf{15.002} token và \textbf{97,0 triệu} tham số (sau khi thêm lớp QA). Sự khác biệt
-giữa miền pretraining (mạng xã hội) và miền đánh giá (Wikipedia) là một biến quan trọng
-khi diễn giải kết quả.
+\textbf{\tokVocabViso{}} token và \textbf{\tokParamsViso{} triệu} tham số (sau khi thêm lớp
+QA). Phần thân encoder (12 lớp multi-head attention + FFN) có kích thước giống hệt mBERT,
+khoảng \textbf{\tokBodyParamsViso{} triệu} tham số ở cả hai mô hình; khác biệt giữa hai
+checkpoint nằm gần như toàn bộ ở \textbf{bảng embedding} (\tokEmbParamsMbert{} triệu so với
+\tokEmbParamsViso{} triệu, do từ vựng nhỏ hơn nhiều lần) chứ không phải ở năng lực tính toán
+của thân mạng. Sự khác biệt giữa miền pretraining (mạng xã hội) và miền đánh giá (Wikipedia)
+là một biến quan trọng khi diễn giải kết quả.
 
 \subsubsection{Tokenizer dạng subword và offset mapping}
 \label{sec:offsets}
@@ -268,7 +272,13 @@ chuỗi rỗng nếu
 \end{equation}
 với $\tau$ là \emph{ngưỡng không trả lời}. Tăng $\tau$ làm mô hình dè dặt hơn (ít trả lời
 sai trên câu không có đáp án, nhưng bỏ sót câu có đáp án); giảm $\tau$ có tác dụng ngược
-lại. Trong mọi thực nghiệm chính, $\tau = 0$.
+lại. Giá trị mặc định của $\tau$ là 0. \ifhasDev Trong đồ án, $\tau$ được \emph{chọn} bằng
+cách quét trên tập \textbf{dev} tách riêng từ train (Mục~\ref{sec:prereg}), không phải trên
+validation --- nếu quét trực tiếp trên tập dùng để báo cáo, mọi cải thiện đo được đều bị
+lẫn với việc "học thuộc" chính tập đó. \else Việc chọn $\tau$ theo cách này (quét trên một
+tập dev tách từ train, chưa từng thấy khi báo cáo) là một hướng phát triển đã đăng ký
+(Mục~\ref{sec:future}); các kết quả ở Mục~\ref{sec:experiments} hiện dùng $\tau = 0$ mặc
+định. \fi
 
 \subsection{Cửa sổ trượt cho văn bản dài}
 \label{sec:docstride}

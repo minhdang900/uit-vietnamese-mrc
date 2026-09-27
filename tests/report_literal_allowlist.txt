@@ -1,3 +1,4 @@
 # Ngoại lệ cho test "không gõ tay số kết quả" (tests/test_report_numbers.py).
 # Mỗi dòng: <file tương đối gốc repo>:<literal như trong văn bản>  # lý do
 # Tối đa 10 mục; mục không còn khớp (stale) làm test đỏ. Ưu tiên macro hơn allowlist.
+report/latex/chapters/08_phu_luc_kien_truc.tex:10,2  # Dung lượng đĩa ảnh Docker đo tại ADR-007 (GB) — trùng ngẫu nhiên với chênh lệch EM mBERT-XLM-R, không liên quan

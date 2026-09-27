@@ -89,20 +89,30 @@ không cảnh báo --- chỉ là câu trả lời nằm ở cuối đoạn văn 
 
 \begin{table}[H]
 \centering
-\caption{Số cửa sổ sinh ra bởi \code{return\_overflowing\_tokens}, đo tại \code{max\_length=384}}
+\caption{Số cửa sổ sinh ra bởi \code{return\_overflowing\_tokens} (lỗi của thư viện, đo tại
+\code{max\_length=384}) so với số cửa sổ đúng do \code{make\_windows()} tự cài sinh ra, đo ở
+hai cấu hình khác nhau (\code{results/window\_counts.json})}
 \label{tab:windowbug}
 \renewcommand{\arraystretch}{1.15}
 \small
-\begin{tabular}{@{}rrr@{}}
+\begin{tabular}{@{}rrrr@{}}
 \toprule
-\textbf{Độ dài đoạn văn} & \textbf{Số cửa sổ thực tế} & \textbf{Số cửa sổ đúng} \\
+\textbf{Độ dài đoạn văn} & \textbf{Thư viện (384/128)} &
+\textbf{Đúng (128/32)} & \textbf{Đúng (384/128)} \\
 \midrule
-210 token  & 2 & 2 \\
-420 token  & \textbf{2} & 5 \\
-700 token  & \textbf{2} & 8 \\
-1400 token & \textbf{2} & 16 \\
+210 token  & 2 & 2 & 1 \\
+420 token  & \textbf{2} & 5 & 2 \\
+700 token  & \textbf{2} & 8 & 3 \\
+1400 token & \textbf{2} & 16 & 6 \\
 \bottomrule
 \end{tabular}
+\par\vspace{2pt}
+{\footnotesize Cột ``Đúng (128/32)'' là cấu hình \code{max\_length=128}, \code{doc\_stride=32}
+dùng trong \code{tests/test\_windowing.py} --- \textbf{không} phải \code{max\_length=384} như
+chú thích trước đây của bảng này ghi; ở \code{max\_length=384}, \code{doc\_stride=128} (cấu
+hình thật sự dùng để huấn luyện và đánh giá), số cửa sổ đúng là cột bên phải. Kết luận của
+ADR-003 --- thư viện luôn dừng ở 2 cửa sổ bất kể đoạn văn dài bao nhiêu --- không đổi ở cấu
+hình nào.}
 \end{table}
 
 Ảnh hưởng với mBERT là nhỏ (16/557 đoạn văn tập kiểm định vượt ngưỡng 357 token), nhưng với
@@ -213,7 +223,9 @@ Lấy mẫu thiên lệch làm lệch 8,8 điểm EM & \code{reproducible\_subse
 \end{table}
 
 Dòng cuối đáng nhắc riêng: lấy \code{examples[:n]} thay vì mẫu ngẫu nhiên có hạt giống cố
-định cho \textbf{EM 42,00 so với 50,80} trên cùng một mô hình --- chênh 8,8 điểm chỉ do cách
-lấy mẫu. Vì đường cong huấn luyện và bảng kết quả cuối dùng chung một hàm, hai nơi đó so
-sánh được với nhau; nếu không, một mâu thuẫn như vậy sẽ bị diễn giải thành ``mô hình kém
-đi''.
+định cho \textbf{EM \curveMbertFirstEMII{} so với \histMbertEM{}} trên cùng một mô hình ---
+chênh 8,8 điểm chỉ do cách lấy mẫu (300 câu đầu tệp, epoch~2, so với mẫu 500 câu ngẫu nhiên
+dùng cho bảng kết quả cuối --- hai cỡ mẫu khác nhau nên chênh lệch này không phải là con số
+10 điểm ở Mục~\ref{sec:subset}, vốn so hai mẫu 300 câu cùng epoch). Vì đường cong huấn luyện
+và bảng kết quả cuối dùng chung một hàm, hai nơi đó so sánh được với nhau; nếu không, một
+mâu thuẫn như vậy sẽ bị diễn giải thành ``mô hình kém đi''.

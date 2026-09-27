@@ -39,20 +39,45 @@ Anh, dùng \emph{zero-shot}; (3) \textbf{mBERT} và (4) \textbf{ViSoBERT} đư�
 --- chuẩn hoá, metric, cửa sổ trượt, gán nhãn huấn luyện, đánh giá --- được tự cài
 đặt theo phương pháp phát triển hướng kiểm thử (TDD) với 474 test.
 
+\ifhasFullEval
+Trên toàn bộ \valN{} câu của tập validation (checkpoint chọn trên dev khi có, xem
+Mục~\ref{sec:experiments}), \textbf{mBERT fine-tune đạt EM \mbertVoneEM{} và F1
+\mbertVoneFone{}}, vượt XLM-R zero-shot (EM \xlmrEM{} / F1 \xlmrFone{}), ViSoBERT (EM
+\visoVoneEM{} / F1 \visoVoneFone{}) và TF-IDF (EM \baselineEM{} / F1 \baselineFone{}).
+Phân tích tách nhóm cho thấy ba điều mà con số tổng che khuất: (i) khoảng cách EM--F1 của
+baseline chứng minh hai metric đo hai kỹ năng khác nhau; (ii) mBERT hơn XLM-R ở hai kỹ năng
+tách biệt: \emph{biết từ chối} (EM trên câu không có đáp án \mbertVoneNoAnsEM{} so với
+\xlmrNoAnsEM{}) và \emph{xác định đúng biên đáp án} (EM trên câu có đáp án
+\mbertVoneHasAnsEM{} so với \xlmrHasAnsEM{}), trong khi F1 trên câu có đáp án của hai mô
+hình tương đương (\mbertVoneHasAnsFone{} so với \xlmrHasAnsFone{}) --- XLM-R zero-shot tìm
+đúng vùng đáp án nhưng chưa học quy ước ranh giới đáp án của bộ dữ liệu; (iii) ViSoBERT ---
+được pretrain trên văn bản mạng xã hội --- suy sụp về hành vi ``gần như luôn trả lời rỗng'',
+điểm EM tổng bằng đúng tỉ lệ câu không có đáp án. Nhóm loại trừ lần lượt các nguyên nhân
+cấu hình trước khi kết luận đây là giới hạn của mô hình trong thiết lập này, và gắn nó với
+việc từ vựng \tokVocabViso{} token phân mảnh văn bản Wikipedia tiếng Việt nhiều hơn khoảng
+1,6 lần so với mBERT. Việc tách EM/F1 theo câu có đáp án và câu không có đáp án theo đúng
+quy ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0; đóng góp của nhóm là áp dụng
+quy ước đó một cách nhất quán ở mọi bảng, không phải một phép đo mới.
+\else
 Trên mẫu ngẫu nhiên 500 câu của tập validation (seed 42), \textbf{mBERT fine-tune đạt
-EM 50,80 và F1 59,49}, vượt XLM-R zero-shot (EM 40,60 / F1 56,84), ViSoBERT (EM 27,80 /
-F1 31,31) và TF-IDF (EM 0,80 / F1 23,09). Phân tích tách nhóm cho thấy ba điều mà con số
+EM \histMbertEM{} và F1 \histMbertFone{}}, vượt XLM-R zero-shot (EM \histXlmrEM{} / F1
+\histXlmrFone{}), ViSoBERT (EM \histVisoEM{} / F1 \histVisoFone{}) và TF-IDF (EM
+\histBaselineEM{} / F1 \histBaselineFone{}). Phân tích tách nhóm cho thấy ba điều mà con số
 tổng che khuất: (i) khoảng cách EM--F1 của baseline chứng minh hai metric đo hai kỹ
 năng khác nhau; (ii) mBERT hơn XLM-R ở hai kỹ năng tách biệt: \emph{biết từ chối} (EM trên
-câu không có đáp án 41,01 so với 27,34) và \emph{xác định đúng biên đáp án} (EM trên câu có
-đáp án 54,57 so với 45,71), trong khi F1 trên câu có đáp án của hai mô hình tương đương
-(66,60 so với 68,20) --- XLM-R zero-shot tìm đúng vùng đáp án nhưng chưa học quy ước ranh
+câu không có đáp án \histMbertNoAnsEM{} so với \histXlmrNoAnsEM{}) và \emph{xác định đúng
+biên đáp án} (EM trên câu có đáp án \histMbertHasAnsEM{} so với \histXlmrHasAnsEM{}), trong
+khi F1 trên câu có đáp án của hai mô hình tương đương (\histMbertHasAnsFone{} so với
+\histXlmrHasAnsFone{}) --- XLM-R zero-shot tìm đúng vùng đáp án nhưng chưa học quy ước ranh
 giới đáp án của bộ dữ liệu; (iii) ViSoBERT --- được pretrain trên văn
 bản mạng xã hội --- suy sụp về hành vi ``gần như luôn trả lời rỗng'', điểm EM tổng bằng
 đúng tỉ lệ câu không có đáp án của mẫu. Nhóm loại trừ lần lượt các nguyên nhân cấu hình
 trước khi kết luận đây là giới hạn của mô hình trong thiết lập này, và gắn nó với việc
-từ vựng 15.002 token phân mảnh văn bản Wikipedia tiếng Việt nhiều hơn khoảng 1,6 lần so
-với mBERT.
+từ vựng \tokVocabViso{} token phân mảnh văn bản Wikipedia tiếng Việt nhiều hơn khoảng 1,6
+lần so với mBERT. Việc tách EM/F1 theo câu có đáp án và câu không có đáp án theo đúng quy
+ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0; đóng góp của nhóm là áp dụng quy
+ước đó một cách nhất quán ở mọi bảng, không phải một phép đo mới.
+\fi
 
 Mọi con số trong báo cáo được sinh từ một lần chạy thật và truy vết được về một tệp
 \code{results/*.json} kèm commit, thời điểm và thiết bị. Các giả thuyết định lượng được

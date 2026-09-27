@@ -132,9 +132,11 @@ trong phạm vi tập validation của UIT-ViQuAD~2.0 và cấu hình được m
   \item So sánh có kiểm soát bốn mô hình, thiết kế để mỗi bước cô lập một biến: so
         khớp từ khoá, chuyển giao đa ngữ zero-shot, fine-tune trong miền, và pretraining
         chuyên tiếng Việt.
-  \item Tách kết quả theo \emph{câu có đáp án} và \emph{câu không có đáp án}, cho thấy
-        điểm tổng che khuất hai kỹ năng tách biệt --- tìm đúng biên đáp án và biết từ chối ---
-        mà các mô hình mạnh, yếu rất khác nhau.
+  \item Áp dụng nhất quán, ở mọi bảng kết quả, cách tách \emph{câu có đáp án} và \emph{câu
+        không có đáp án} --- quy ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0,
+        chứ không phải một phép đo do nhóm phát minh --- để cho thấy điểm tổng che khuất hai
+        kỹ năng tách biệt (tìm đúng biên đáp án và biết từ chối) mà các mô hình mạnh, yếu rất
+        khác nhau. Đóng góp là ở thói quen báo cáo, không phải ở bản thân phép tách.
   \item Phân tích nguyên nhân thất bại của ViSoBERT theo quy trình loại trừ, gắn với
         bằng chứng đo được về mức độ phân mảnh token.
   \item Phát hiện và xử lý bốn lỗi ``sai âm thầm'' có thể làm sai kết quả mà không báo

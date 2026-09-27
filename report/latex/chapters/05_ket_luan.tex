@@ -16,25 +16,33 @@ trình bày ở Mục~\ref{sec:phobert}. Hệ thống được đóng gói thàn
 Trên mẫu 500 câu của tập validation, các kết quả chính là:
 
 \begin{enumerate}
-  \item \textbf{mBERT fine-tune đạt kết quả tốt nhất: EM 50,80 ($\pm$4,38) và F1 59,49}, vượt
-        XLM-R zero-shot (EM 40,60 / F1 56,84) với chênh lệch EM có ý nghĩa thống kê. Baseline
-        TF-IDF chỉ đạt EM 0,80 / F1 23,09: so khớp từ khoá tìm được câu chứa đáp án nhưng không
-        xác định được đáp án.
+  \item \textbf{mBERT fine-tune đạt kết quả tốt nhất: EM \histMbertEM{} ($\pm$\histMbertEMwald{})
+        và F1 \histMbertFone{}}, vượt XLM-R zero-shot (EM \histXlmrEM{} / F1 \histXlmrFone{}) với
+        chênh lệch EM có ý nghĩa thống kê. Baseline TF-IDF chỉ đạt EM \histBaselineEM{} / F1
+        \histBaselineFone{}: so khớp từ khoá tìm được câu chứa đáp án nhưng không xác định được
+        đáp án.
   \item \textbf{Điểm tổng che khuất hai kỹ năng tách biệt.} So với XLM-R, mBERT tốt hơn ở cả việc
-        xác định chính xác biên đáp án (EM trên câu có đáp án 54,57 so với 45,71) lẫn việc từ
-        chối câu không có đáp án (41,01 so với 27,34); trong khi khả năng tìm đúng vùng đáp án, đo
-        bằng F1 trên câu có đáp án, tương đương nhau. Fine-tune trong miền chủ yếu dạy mô hình
-        \emph{quy ước ranh giới đáp án} và \emph{khi nào nên từ chối}.
+        xác định chính xác biên đáp án (EM trên câu có đáp án \histMbertHasAnsEM{} so với
+        \histXlmrHasAnsEM{}) lẫn việc từ chối câu không có đáp án (\histMbertNoAnsEM{} so với
+        \histXlmrNoAnsEM{}); trong khi khả năng tìm đúng vùng đáp án, đo bằng F1 trên câu có đáp
+        án, tương đương nhau. Fine-tune trong miền chủ yếu dạy mô hình \emph{quy ước ranh giới
+        đáp án} và \emph{khi nào nên từ chối}.
   \item \textbf{Lần huấn luyện ViSoBERT đã suy sụp, và đó là một ca lỗi được chẩn đoán chứ không
         phải một phép đo năng lực.} ViSoBERT --- tiền huấn luyện trên văn bản mạng xã hội tiếng
-        Việt --- rơi vào hành vi gần như luôn trả rỗng (EM tổng 27,80 bằng đúng tỉ lệ câu không có
-        đáp án). Bốn yếu tố đủ để giải thích hiện tượng này mà không cần viện tới chất lượng của
-        ViSoBERT như một encoder (Mục~\ref{sec:visobert-factors}): ngân sách \code{max\_length}
-        chưa được điều chỉnh cho tokenizer 15.002 token --- \textbf{một nguyên nhân cấu hình chưa
-        được bù trừ}, khiến 27,6\% đoạn văn bị cắt thành nhiều cửa sổ so với 2,9\% của mBERT ---
-        cùng với hàm mất mát chưa hội tụ, sức chứa nhỏ hơn 45\%, và một cực tiểu địa phương do
-        32,39\% câu không có đáp án trong tập huấn luyện tạo ra. Vì vậy \textbf{báo cáo này không
-        kết luận rằng tiền huấn luyện tiếng Việt không mang lại lợi ích}; câu hỏi đó vẫn để ngỏ.
+        Việt --- rơi vào hành vi gần như luôn trả rỗng (EM tổng \histVisoEM{} bằng đúng tỉ lệ câu
+        không có đáp án). Bốn yếu tố đủ để giải thích hiện tượng này mà không cần viện tới chất
+        lượng của ViSoBERT như một encoder (Mục~\ref{sec:visobert-factors}): ngân sách
+        \code{max\_length} chưa được điều chỉnh cho tokenizer \tokVocabViso{} token --- \textbf{một
+        nguyên nhân cấu hình chưa được bù trừ}, khiến \nullRateViso{}\% đặc trưng huấn luyện của
+        ViSoBERT mang nhãn ``không có đáp án'' so với \nullRateMbert{}\% của mBERT (nhiều cửa sổ
+        hơn $\Rightarrow$ nhiều cửa sổ không chứa đáp án hơn khi gán nhãn, Mục~\ref{sec:experiments}) ---
+        cùng với hàm mất mát chưa hội tụ, một bảng embedding nhỏ hơn nhiều
+        lần (\tokEmbParamsViso{} triệu so với \tokEmbParamsMbert{} triệu tham số; \textbf{không}
+        phải toàn bộ mô hình ``nhỏ hơn 45\%'' như một bản nháp trước đó viết --- thân encoder hai
+        bên giống hệt nhau, khoảng \tokBodyParamsMbert{} triệu tham số), và một cực tiểu địa phương
+        do 32,39\% câu không có đáp án trong tập huấn luyện tạo ra. Vì vậy \textbf{báo cáo này
+        không kết luận rằng tiền huấn luyện tiếng Việt không mang lại lợi ích}; câu hỏi đó vẫn để
+        ngỏ.
   \item \textbf{Câu hỏi ít trùng từ vựng với một câu đơn lẻ khó hơn} với cả bốn mô hình (F1 thấp
         hơn 4,51--11,44 điểm), dù bằng chứng thống kê chỉ ở mức biên. \textbf{Ảnh hưởng của độ dài
         đoạn văn chưa được xác định}: mẫu đánh giá chứa quá ít đoạn văn dài.
@@ -67,7 +75,7 @@ Theo yêu cầu của môn học, các giới hạn sau cần được cân nh�
         coi hai mô hình như hai mẫu độc lập. Kết quả hiện có chỉ lưu 10 dự đoán mẫu cho mỗi mô hình,
         nên chưa thực hiện được kiểm định cặp (McNemar, paired bootstrap), cũng như khoảng tin cậy
         cho F1.
-  \item \textbf{27,8\% câu trong mẫu không có đáp án.} Điểm tổng trộn hai kỹ năng; báo cáo đã tách
+  \item \textbf{\dataHistImpPct{}\% câu trong mẫu không có đáp án.} Điểm tổng trộn hai kỹ năng; báo cáo đã tách
         riêng, nhưng mọi so sánh chỉ dựa trên điểm tổng đều cần đọc kèm Bảng~\ref{tab:ans-imp}.
   \item \textbf{Nhãn loại câu hỏi là heuristic tự gán}, không phải nhãn vàng của ViQuAD, và bị
         nhiễu bởi độ trùng từ vựng (Mục~\ref{sec:tagging}). Chỉ 361 câu có đáp án được phân loại.
@@ -115,25 +123,84 @@ Theo yêu cầu của môn học, các giới hạn sau cần được cân nh�
 Các hướng phát triển được sắp theo mức độ trực tiếp giải quyết các giới hạn ở trên:
 
 \begin{enumerate}
-  \item \textbf{Đánh giá toàn bộ validation và lưu dự đoán từng câu.} Chạy \code{run\_eval.py --full}
-        và lưu mọi dự đoán để thực hiện kiểm định cặp và tính khoảng tin cậy bootstrap cho cả EM
-        lẫn F1. Đây là bước rẻ nhất và nâng độ tin cậy của mọi kết luận.
-  \item \textbf{Tách tập dev khỏi train.} Dùng \code{split\_by\_context()} tách một phần train làm tập
-        dev để chọn epoch và tinh chỉnh ngưỡng $\tau$, giữ validation hoàn toàn cho đánh giá cuối.
+  \item \textbf{Đánh giá toàn bộ validation và lưu dự đoán từng câu.}
+        \ifhasFullEval
+        \textbf{Đã hoàn thành:} \code{run\_eval.py --full} chấm toàn bộ \valN{} câu và lưu dự đoán
+        từng câu (\code{results/preds\_*.jsonl}); kiểm định cặp (McNemar), khoảng tin cậy Wilson
+        (EM) và bootstrap theo cụm đoạn văn (EM, F1) được trình bày ở Mục~\ref{sec:experiments}.
+        \else
+        Chạy \code{run\_eval.py --full} và lưu mọi dự đoán để thực hiện kiểm định cặp và tính
+        khoảng tin cậy bootstrap cho cả EM lẫn F1. Đây là bước rẻ nhất và nâng độ tin cậy của mọi
+        kết luận.
+        \fi
+  \item \textbf{Tách tập dev khỏi train; chọn epoch và ngưỡng $\tau$ trên dev, không trên
+        validation.}
+        \ifhasDev
+        \textbf{Đã hoàn thành} (đăng ký tại commit \code{c3fd57f}, Mục~\ref{sec:prereg}): dùng
+        \code{split\_by\_context(..., group="title")} tách 10\,\% bài viết của train làm dev; epoch
+        và $\tau$ được chọn bằng dev F1, validation chỉ được chấm đúng một lần sau khi chọn xong.
+        Kết quả ở Mục~\ref{sec:experiments} dùng checkpoint và $\tau$ chọn theo cách này.
+        \else
+        Đã đăng ký tại commit \code{c3fd57f} (Mục~\ref{sec:prereg}), chưa chạy: dùng
+        \code{split\_by\_context(train, val\_frac=0{,}1, seed=42, group="title")} --- 10\,\% bài
+        viết của train (13 bài viết, 515 đoạn văn, 3.420 câu) làm dev; ba phép kiểm
+        \code{assert\_no\_leakage} (train/dev, train/val, dev/val) chạy trước khi tải mô hình; mỗi
+        epoch quét $\tau \in [-5, 5]$ bước $0{,}25$ trên dev để chọn cặp (epoch, $\tau$) có dev~F1
+        cao nhất; validation chỉ được chấm đúng một lần sau khi chọn xong. Dự đoán đã đăng ký: EM
+        mBERT-dev trong khoảng \curveMbertValEMII{}~$\pm$~3 điểm so với mBERT v1 trên validation
+        đầy đủ; ViSoBERT-dev (lr $3\cdot10^{-5}$, cùng cấu hình khác) được dự đoán \textbf{vẫn suy
+        sụp} (tỉ lệ rỗng $\ge 90\,\%$ hoặc HasAns EM $< 15$). Lệnh:
+        \code{scripts/finetune.py --model bert-base-multilingual-cased --out models/mbert-dev
+        --epochs 3 --lr 3e-5 --dev-frac 0.1 --dev-group title} (rồi tương tự cho
+        \code{uitnlp/visobert}); ước tính 1 giờ 45 phút (mBERT) và 2 giờ (ViSoBERT) trên MPS.
+        \fi
   \item \textbf{Fine-tune XLM-R trên UIT-ViQuAD.} XLM-R zero-shot đã tìm vùng đáp án tốt ngang mBERT
         fine-tune; kết hợp tiền huấn luyện quy mô lớn của XLM-R với dữ liệu trong miền là bước tiếp
         theo tự nhiên và là ứng viên mạnh cho kết quả tốt nhất.
-  \item \textbf{Hoàn thiện cấu hình mBERT:} huấn luyện 3--4 epoch (đường cong cho thấy chưa hội tụ),
-        nhiều seed, và ablation $L_{\max} \in \{30, 40, 64\}$.
-  \item \textbf{Huấn luyện lại ViSoBERT} với \code{max\_length} nâng lên (768) và tốc độ học hạ
-        xuống ($3\cdot10^{-5}$), giữ nguyên mọi thứ khác. Đây là phép kiểm trực tiếp và rẻ nhất cho
-        lời giải thích ở Mục~\ref{sec:visobert-factors}: nếu ngân sách cửa sổ đúng là yếu tố mạnh
-        nhất thì tỉ lệ trả rỗng phải giảm rõ rệt.
-  \item \textbf{Hiệu chỉnh ngưỡng $\tau$ trên validation} thay vì để mặc định $0{,}0$. Vì toàn bộ
-        lợi thế F1 của mBERT so với XLM-R nằm ở trục từ chối (Bảng~\ref{tab:decomp}), đây là tham
-        số rẻ nhất còn lại chưa được tối ưu.
+  \item \textbf{Hoàn thiện cấu hình mBERT:} huấn luyện 3--4 epoch (đường cong cho thấy chưa hội tụ)
+        và ablation $L_{\max} \in \{30, 40, 64\}$.
+  \item \textbf{ViSoBERT với \code{max\_length} 512 (một biến duy nhất so với đối chứng
+        ViSoBERT-dev ở lr $3\cdot10^{-5}$).}
+        \ifhasVisoLong
+        \textbf{Đã hoàn thành:} kết quả và phán quyết theo cổng đăng ký trước ở
+        Mục~\ref{sec:experiments}.
+        \else
+        Chưa chạy; sẽ đăng ký trước khi chạy (Mục~\ref{sec:prereg}). Đây là phép kiểm trực tiếp và
+        rẻ nhất cho lời giải thích ở Mục~\ref{sec:visobert-factors}: nếu ngân sách cửa sổ đúng là
+        yếu tố mạnh nhất thì tỉ lệ trả rỗng phải giảm rõ rệt. Cổng dự kiến (nếu đối chứng vẫn suy
+        sụp): $\Delta$HasAns EM $\ge {+}10$ \emph{và} tỉ lệ rỗng giảm $\ge 30$ điểm \emph{và}
+        tỉ lệ rỗng tuyệt đối $< 65\,\%$ \emph{và} HasAns EM tuyệt đối $> 16{,}93$ \emph{và} McNemar
+        một phía trên tập HasAns, $p < 0{,}01$; nếu đối chứng hết suy sụp, cổng hạ xuống
+        $\Delta$HasAns EM $\ge {+}3$ với cùng kiểm định McNemar. Lệnh:
+        \code{scripts/finetune.py --model uitnlp/visobert --out models/visobert-len512
+        --max-length 512 --doc-stride 128 --lr 3e-5}; ước tính 2--2,5 giờ trên MPS. Việc tăng
+        \code{max\_length} lên \textbf{768} như một bản nháp trước đó ghi là \textbf{không thực
+        hiện được}: các checkpoint dùng trong đồ án có tối đa 512 vị trí (position embedding
+        514~=~512+2); phương án còn lại là bớt cửa sổ mang nhãn ``không có đáp án'' khi huấn luyện
+        (giảm tỉ lệ null-label bằng lấy mẫu dưới thay vì mở rộng cửa sổ).
+        \fi
+  \item \textbf{Đa hạt giống cho mBERT (seed 43, 44), dev-seed cố định 42.}
+        \ifhasSeeds
+        \textbf{Đã hoàn thành:} độ lệch chuẩn của EM giữa các seed ở Mục~\ref{sec:experiments}.
+        \else
+        Chưa chạy; đăng ký (Mục~\ref{sec:prereg}): headline vẫn là \code{mbert-dev} (seed 42) bất
+        kể kết quả seed khác; dự đoán std(EM) $\le 1{,}5$ điểm trên validation đầy đủ --- nếu chưa
+        có, các chênh lệch nhỏ hơn khoảng $2\times$ độ lệch này giữa mô hình không được khẳng định
+        là có ý nghĩa. Lệnh: \code{scripts/finetune.py --model bert-base-multilingual-cased --out
+        models/mbert-dev-s43 --seed 43} (rồi \code{--seed 44} vào \code{models/mbert-dev-s44});
+        ước tính 1 giờ 45 phút mỗi lần trên MPS.
+        \fi
   \item \textbf{Tích hợp PhoBERT} bằng cách tự xây bảng ánh xạ ký tự giữa văn bản đã tách từ và văn bản
         gốc, để trả lời câu hỏi về tiền huấn luyện tiếng Việt khi kiểm soát được miền dữ liệu.
+        \ifhasPho
+        \textbf{Đã hoàn thành:} kết quả ở Mục~\ref{sec:experiments}.
+        \else
+        Điều kiện cần trước khi huấn luyện: cổng khớp lại ký tự (\code{results/phobert\_roundtrip.json})
+        phải đạt \textbf{100\,\%} trên mọi câu có đáp án của train; nếu không đạt, PhoBERT được báo
+        cáo là \textbf{bị chặn} kèm số lượng và ví dụ thất bại, chứ không chạy tiếp. Dự đoán đăng ký
+        từ đầu đồ án (trước khi biết PhoBERT thiếu fast tokenizer): EM 60--70, F1 78--85 --- dải này
+        vẫn được giữ nguyên trên hồ sơ kể cả khi PhoBERT không chạy được.
+        \fi
   \item \textbf{Ablation độ dài đoạn văn} với \code{max\_length} $\in \{256, 384, 512\}$ trên một tập
         con được chọn có chủ đích gồm các đoạn văn dài, thay vì dựa vào mẫu ngẫu nhiên.
   \item \textbf{Kiểm chứng heuristic loại câu hỏi} bằng gán nhãn thủ công một mẫu khoảng 200 câu và
