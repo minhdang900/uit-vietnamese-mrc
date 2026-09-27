@@ -65,5 +65,150 @@
       "tolerance": 1.0,
       "meaning": "EM xap xi ti le impossible cua tap ⇒ model khong tra loi duoc cau nao, chi an diem tu viec doan rong. Quan sat duoc o ViSoBERT: EM 25.67 tren tap co 25.67% impossible."
     }
+  },
+  "registrations": {
+    "P3": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P3 (dev split). Commit riêng TRƯỚC khi chạy. Không sửa sau khi thấy kết quả.",
+      "run_ids": [
+        "mbert-dev",
+        "visobert-dev"
+      ],
+      "dev_split": {
+        "function": "split_by_context",
+        "group": "title",
+        "dev_frac": 0.1,
+        "dev_seed": 42,
+        "expected_from_code": {
+          "articles": 13,
+          "contexts": 515,
+          "questions": 3420,
+          "impossible": 1109
+        },
+        "reseed_forbidden": true,
+        "deviation": "D3: đặc tả AC-4 ghi split_by_context() (mặc định theo context); dùng group='title' vì validation không chung article nào với train."
+      },
+      "training": {
+        "mbert-dev": {
+          "model": "bert-base-multilingual-cased",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 384,
+          "doc_stride": 128,
+          "max_answer_len": 30,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        },
+        "visobert-dev": {
+          "model": "uitnlp/visobert",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 384,
+          "doc_stride": 128,
+          "max_answer_len": 64,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        }
+      },
+      "selection": {
+        "on": "dev",
+        "joint": "epoch x tau",
+        "criterion": "F1",
+        "tau_grid": {
+          "lo": -5.0,
+          "hi": 5.0,
+          "step": 0.25
+        },
+        "tie_rule": "earlier epoch, then smallest |tau|, then smaller tau",
+        "headline": "evaluated once on full validation (3814)"
+      },
+      "collapse_definition": "empty_prediction_rate >= 90 OR HasAns EM < 15 (full validation, selected tau)",
+      "bands": {
+        "mbert-dev": {
+          "EM": [
+            47,
+            58
+          ],
+          "F1": [
+            56,
+            68
+          ]
+        },
+        "visobert-dev": {
+          "EM": [
+            25,
+            38
+          ],
+          "F1": [
+            27,
+            42
+          ],
+          "HasAns_EM": [
+            0,
+            15
+          ],
+          "empty_rate": [
+            50,
+            100
+          ]
+        }
+      },
+      "predictions": [
+        {
+          "id": "mbert-dev-near-v1",
+          "run_id": "mbert-dev",
+          "claim": "EM của mbert-dev nằm trong ±3 điểm EM của checkpoint v1 mbert trên validation đầy đủ",
+          "expected": true,
+          "gate": {
+            "metric": "EM",
+            "op": "abs_le",
+            "ref_run": "mbert",
+            "value": 3
+          }
+        },
+        {
+          "id": "visobert-dev-still-collapses",
+          "run_id": "visobert-dev",
+          "claim": "visobert-dev (lr 3e-5) VẪN suy sụp: tỉ lệ rỗng >= 90% hoặc HasAns EM < 15",
+          "expected": true,
+          "gate": {
+            "any": [
+              {
+                "metric": "empty_rate",
+                "op": ">=",
+                "value": 90
+              },
+              {
+                "metric": "HasAns_EM",
+                "op": "<",
+                "value": 15
+              }
+            ]
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "leakage": {
+          "kind": "enforced_in_finetune",
+          "meaning": "assert_no_leakage (train/dev, train/val, dev/val) thất bại ⇒ run dừng trước khi huấn luyện"
+        }
+      }
+    }
   }
 }
