@@ -239,7 +239,6 @@ def test_the_real_report_template_contains_no_hand_written_metrics():
     )
 
 
-@pytest.mark.xfail(strict=True, reason="P1.4/1.5 wording lanes pending")
 def test_the_slide_deck_contains_no_hand_written_metrics():
     """Bất biến #1, áp cho cả slide — CẢ deck HTML lẫn mã dựng deck .pptx.
 
