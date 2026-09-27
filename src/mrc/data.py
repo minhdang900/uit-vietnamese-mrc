@@ -157,30 +157,42 @@ def remove_contexts_present_in(
 
 
 def split_by_context(
-    examples: Sequence[Example], val_frac: float = 0.2, seed: int = 42
+    examples: Sequence[Example], val_frac: float = 0.2, seed: int = 42,
+    group: str = "context",
 ) -> tuple[list[Example], list[Example]]:
-    """Chia train/val theo CONTEXT — mọi câu hỏi của một context đi cùng nhau.
+    """Chia train/val theo NHÓM — mọi câu hỏi của một nhóm đi cùng nhau.
 
-    Đây là ``GroupShuffleSplit`` với group = context. Chia theo câu hỏi thay vì
-    theo context sẽ khiến model được "đọc" đoạn văn lúc train rồi bị hỏi về chính
-    đoạn đó lúc test — group leakage, và kết quả cao giả tạo.
+    Đây là ``GroupShuffleSplit``. Chia theo câu hỏi thay vì theo nhóm sẽ khiến
+    model được "đọc" đoạn văn lúc train rồi bị hỏi về chính đoạn đó lúc test —
+    group leakage, và kết quả cao giả tạo.
+
+    Args:
+        group: ``"context"`` (mặc định, hành vi cũ) hoặc ``"title"``. Validation
+            của ViQuAD không chung article nào với train, nên một tập dev muốn là
+            proxy trung thực của validation cũng phải tách theo ARTICLE. Chia theo
+            title mạnh hơn chia theo context: không chung title thì cũng không
+            chung context (trừ khi cùng một đoạn văn nằm dưới hai title — điều
+            ``assert_no_leakage`` sẽ bắt). ``val_frac`` tính theo SỐ NHÓM, nên
+            với title (rất lệch cỡ) số câu hỏi của val phụ thuộc seed.
     """
     if not 0.0 <= val_frac <= 1.0:
         raise ValueError(f"val_frac phải trong [0,1], nhận {val_frac}")
+    if group not in ("context", "title"):
+        raise ValueError(f"group phải là 'context' hoặc 'title', nhận {group!r}")
 
     # OrderedDict giữ thứ tự xuất hiện -> shuffle có seed là tái lập được.
     groups: OrderedDict[str, list[Example]] = OrderedDict()
     for ex in examples:
-        groups.setdefault(ex.context, []).append(ex)
+        groups.setdefault(getattr(ex, group), []).append(ex)
 
-    contexts = list(groups)
-    random.Random(seed).shuffle(contexts)
+    keys = list(groups)
+    random.Random(seed).shuffle(keys)
 
-    n_val = int(len(contexts) * val_frac)
-    val_contexts = set(contexts[:n_val])
+    n_val = int(len(keys) * val_frac)
+    val_keys = set(keys[:n_val])
 
-    train = [ex for ctx in contexts if ctx not in val_contexts for ex in groups[ctx]]
-    val = [ex for ctx in contexts if ctx in val_contexts for ex in groups[ctx]]
+    train = [ex for k in keys if k not in val_keys for ex in groups[k]]
+    val = [ex for k in keys if k in val_keys for ex in groups[k]]
     return train, val
 
 
@@ -253,8 +265,8 @@ def reproducible_subset(
     """Lấy mẫu con NGẪU NHIÊN và TÁI LẬP ĐƯỢC.
 
     Không lấy ``examples[:n]``: các câu đầu file thuộc vài article đầu tiên, nên
-    mẫu đó thiên lệch theo chủ đề. Đo được trên mBERT: EM 42,00 trên 300 câu đầu
-    so với EM 50,80 trên 300 câu ngẫu nhiên — chênh 8,8 điểm chỉ do cách lấy mẫu.
+    mẫu đó thiên lệch theo chủ đề. Đo được trên mBERT: EM 42,00 (300 câu đầu tệp)
+    vs 52,00 (300 câu ngẫu nhiên), chênh 10 điểm chỉ do cách lấy mẫu.
 
     Hàm này được dùng ở CẢ đường cong huấn luyện lẫn bảng kết quả cuối, nên hai
     nơi đó so sánh được với nhau.

@@ -219,6 +219,7 @@ def evaluate_checkpoint(
     predictor,
     limit: int | None = 300,
     seed: int = 42,
+    preds_path=None,
 ) -> dict:
     """Chấm một checkpoint bằng CHÍNH pipeline inference dùng cho kết quả cuối.
 
@@ -231,17 +232,28 @@ def evaluate_checkpoint(
 
     Bản trước lấy ``examples[:limit]`` tức n câu ĐẦU file. Các câu đầu thuộc vài
     article đầu tiên nên mẫu thiên lệch theo chủ đề: cùng một checkpoint mBERT cho
-    EM 42,00 trên mẫu đó nhưng 50,80 trên mẫu ngẫu nhiên cùng cỡ.
+    EM 42,00 (300 câu đầu tệp) vs 52,00 (300 câu ngẫu nhiên), chênh 10.
+
+    Returns:
+        ``{"em", "f1", "n", "qids", "empty_rate", "records"}`` — ``records`` là
+        bản ghi từng câu (kèm ``windows`` nếu predictor có), nguyên liệu để chọn
+        τ offline; ghi ra JSONL nếu có ``preds_path``.
     """
     from mrc.data import references_from, reproducible_subset
+    from mrc.evaluate import build_records, empty_rate, predict_all, write_jsonl
     from mrc.metrics import evaluate as evaluate_metrics
 
     subset = reproducible_subset(examples, limit, seed=seed)
-    predictions = {ex.qid: predictor.predict(ex.context, ex.question) for ex in subset}
+    predictions, _, details = predict_all(predictor, subset)
     scores = evaluate_metrics(predictions, references_from(subset))
+    records = build_records(subset, predictions, scores["per_item"], details)
+    if preds_path is not None:
+        write_jsonl(preds_path, records)
     return {
         "em": scores["EM"],
         "f1": scores["F1"],
         "n": scores["count"],
         "qids": [ex.qid for ex in subset],
+        "empty_rate": empty_rate(predictions),
+        "records": records,
     }

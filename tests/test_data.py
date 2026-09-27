@@ -146,6 +146,51 @@ def test_split_is_deterministic_with_same_seed(mini_squad):
     assert [e.qid for e in b1] == [e.qid for e in b2]
 
 
+# ── split theo article (title) — tập dev của P3 ─────────────────────
+def _titled(n_titles=12, ctx_per_title=3, q_per_ctx=2):
+    return [Example(qid=f"t{t}c{c}q{q}", question="?", context=f"ctx {t}-{c}",
+                    title=f"title {t}", answers=["a"], answer_start=0)
+            for t in range(n_titles) for c in range(ctx_per_title) for q in range(q_per_ctx)]
+
+
+def test_title_split_shares_no_title_and_no_context():
+    tr, va = split_by_context(_titled(), val_frac=0.25, seed=42, group="title")
+    assert va and tr
+    assert not {e.title for e in tr} & {e.title for e in va}
+    assert not {e.context for e in tr} & {e.context for e in va}
+    assert_no_leakage(tr, va)
+
+
+def test_title_split_val_frac_counts_titles():
+    _, va = split_by_context(_titled(n_titles=20), val_frac=0.1, seed=1, group="title")
+    assert len({e.title for e in va}) == 2
+
+
+def test_title_split_is_seed_reproducible_and_seed_sensitive():
+    ex = _titled()
+    a = split_by_context(ex, val_frac=0.25, seed=42, group="title")[1]
+    b = split_by_context(ex, val_frac=0.25, seed=42, group="title")[1]
+    c = split_by_context(ex, val_frac=0.25, seed=7, group="title")[1]
+    assert [e.qid for e in a] == [e.qid for e in b]
+    assert {e.title for e in a} != {e.title for e in c}
+
+
+def test_title_split_loses_no_questions():
+    ex = _titled()
+    tr, va = split_by_context(ex, val_frac=0.3, seed=0, group="title")
+    assert sorted(e.qid for e in tr + va) == sorted(e.qid for e in ex)
+
+
+def test_default_group_is_context_and_unchanged(mini_squad):
+    ex = parse_squad(mini_squad)
+    assert split_by_context(ex, 0.5, 0) == split_by_context(ex, 0.5, 0, group="context")
+
+
+def test_split_rejects_unknown_group(mini_squad):
+    with pytest.raises(ValueError, match="group"):
+        split_by_context(parse_squad(mini_squad), group="question")
+
+
 def test_assert_no_leakage_passes_on_disjoint_splits(mini_squad):
     tr, va = split_by_context(parse_squad(mini_squad), val_frac=0.5, seed=0)
     assert_no_leakage(tr, va)              # không được raise
