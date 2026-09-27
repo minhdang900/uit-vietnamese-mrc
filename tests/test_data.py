@@ -127,9 +127,10 @@ def test_split_never_puts_one_context_on_both_sides(mini_squad):
 
 def test_split_keeps_every_question_of_a_context_together(duplicated_context_squad):
     ex = parse_squad(duplicated_context_squad)          # 2 câu hỏi, 1 context
-    tr, va = split_by_context(ex, val_frac=0.5, seed=0)
+    # val_frac=1.0: với một nhóm duy nhất, 0.5 sẽ cho phía val rỗng (nay là lỗi).
+    tr, va = split_by_context(ex, val_frac=1.0, seed=0)
     # cùng context -> phải nằm CÙNG một phía, không bị xé đôi
-    assert (len(tr), len(va)) in {(2, 0), (0, 2)}
+    assert (len(tr), len(va)) == (0, 2)
 
 
 def test_split_loses_no_questions(mini_squad):
@@ -184,6 +185,14 @@ def test_title_split_loses_no_questions():
 def test_default_group_is_context_and_unchanged(mini_squad):
     ex = parse_squad(mini_squad)
     assert split_by_context(ex, 0.5, 0) == split_by_context(ex, 0.5, 0, group="context")
+
+
+def test_split_raises_when_val_side_would_be_empty():
+    one_article = _titled(n_titles=1)
+    with pytest.raises(ValueError, match="rỗng"):
+        split_by_context(one_article, val_frac=0.1, seed=42, group="title")
+    with pytest.raises(ValueError, match="rỗng"):
+        split_by_context(_titled(), val_frac=0.0, group="title")
 
 
 def test_split_rejects_unknown_group(mini_squad):

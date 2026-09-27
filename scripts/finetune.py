@@ -20,7 +20,7 @@ Ví dụ:
         --epochs 3 --lr 3e-5 --max-answer-len 64
     python scripts/finetune.py --model bert-base-multilingual-cased \
         --out $TMPDIR/smoke_model --results-dir $TMPDIR/smoke_results \
-        --train-size 300 --epochs 1
+        --train-size 300 --dev-size 300 --epochs 1
 """
 
 from __future__ import annotations
@@ -43,7 +43,13 @@ for _p in (_ROOT, _ROOT / "src"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
-from mrc.data import assert_no_leakage, compute_stats, load_squad_file, split_by_context
+from mrc.data import (
+    assert_no_leakage,
+    compute_stats,
+    load_squad_file,
+    reproducible_subset,
+    split_by_context,
+)
 from mrc.evaluate import _git_commit
 from mrc.threshold import DEFAULT_TAU_GRID, select_epoch_and_tau, sweep
 from mrc.training import (
@@ -72,6 +78,9 @@ def parse_args(argv=None) -> argparse.Namespace:
     ap.add_argument("--dev-frac", type=float, default=0.1)
     ap.add_argument("--dev-group", choices=("title", "context"), default="title")
     ap.add_argument("--dev-seed", type=int, default=42)
+    ap.add_argument("--dev-size", type=int, default=None,
+                    help="CHỈ cho chạy thử: lấy mẫu con dev (seed = --dev-seed). Chạy "
+                         "thật để trống ⇒ dev là toàn bộ phần held-out")
     ap.add_argument("--eval-limit", type=int, default=None,
                     help="số câu dev chấm mỗi epoch; None = toàn bộ dev")
     ap.add_argument("--epochs", type=int, default=2)
@@ -136,8 +145,12 @@ def load_and_split(args, results_dir: Path) -> tuple[list, list]:
           f"{len({e.context for e in dev_ex})} context, {len(dev_ex)} câu")
     del val_ex
 
+    # Cắt SAU khi chia, và chỉ phía train: cắt trước thì N câu đầu có thể chỉ là
+    # một article và dev rỗng.
     if args.train_size:
         train_ex = train_ex[: args.train_size]
+    if args.dev_size:
+        dev_ex = reproducible_subset(dev_ex, args.dev_size, seed=args.dev_seed)
 
     split_info = {
         "run_id": args.run_id,
@@ -147,6 +160,7 @@ def load_and_split(args, results_dir: Path) -> tuple[list, list]:
         "train_file": str(train_file),
         "train_file_sha256": hashlib.sha256(train_file.read_bytes()).hexdigest(),
         "train_size_after_split": args.train_size,
+        "dev_size_cap": args.dev_size,
         "train_stats": compute_stats(train_ex),
         "dev_stats": compute_stats(dev_ex),
         "dev_titles": sorted({e.title for e in dev_ex}),
@@ -180,6 +194,7 @@ def finalize_selection(args, curve: list[EpochRecord], dev_records: dict[int, li
         "model_name": args.model,
         "seed": args.seed,
         "dev_n": dev_n,
+        "dev_size_cap": args.dev_size,
         "dev_seed": args.dev_seed,
         "dev_frac": args.dev_frac,
         "group": args.dev_group,

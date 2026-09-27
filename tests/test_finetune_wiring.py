@@ -154,3 +154,21 @@ def test_real_results_dir_requires_registration(ft, tmp_path, data_dir, monkeypa
     args = _args(ft, tmp_path, data_dir, "--run-id", "chua-dang-ky-bao-gio")
     with pytest.raises(SystemExit, match="TỪ CHỐI"):
         ft.preregistration(args)
+
+
+def test_dev_size_caps_dev_only_and_is_recorded(ft, tmp_path, data_dir):
+    _, full_dev = ft.load_and_split(_args(ft, tmp_path, data_dir), tmp_path / "r1")
+    args = _args(ft, tmp_path, data_dir, "--dev-size", "3", "--train-size", "4")
+    train, dev = ft.load_and_split(args, tmp_path / "r2")
+    assert len(dev) == 3 and len(train) == 4
+    assert {e.qid for e in dev} <= {e.qid for e in full_dev}
+    info = json.loads((tmp_path / "r2" / "split_dev_mbert-dev.json").read_text())
+    assert info["dev_size_cap"] == 3 and len(info["dev_qids"]) == 3
+    from mrc.training import EpochRecord
+    sel = ft.finalize_selection(args, [EpochRecord(1, 1.0, 1.0, 1.0)], {1: _records(2)},
+                                tmp_path / "m", tmp_path / "r2", dev_n=len(dev))
+    assert sel["dev_size_cap"] == 3
+
+
+def test_real_runs_leave_dev_uncapped(ft, tmp_path, data_dir):
+    assert _args(ft, tmp_path, data_dir).dev_size is None

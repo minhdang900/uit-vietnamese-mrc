@@ -189,6 +189,14 @@ def split_by_context(
     random.Random(seed).shuffle(keys)
 
     n_val = int(len(keys) * val_frac)
+    if n_val == 0:
+        # Một tập held-out rỗng không báo lỗi gì ở phía sau: chọn epoch/τ trên 0
+        # câu sẽ âm thầm ra "epoch 1, τ bất kỳ". Hay gặp khi cắt train TRƯỚC khi
+        # chia (N câu đầu = 1 article ⇒ int(1 × 0,1) = 0).
+        raise ValueError(
+            f"Phía val rỗng: {len(keys)} nhóm '{group}' × val_frac={val_frac} "
+            f"= {len(keys) * val_frac:.2f} < 1 nhóm."
+        )
     val_keys = set(keys[:n_val])
 
     train = [ex for k in keys if k not in val_keys for ex in groups[k]]
