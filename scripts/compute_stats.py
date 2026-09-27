@@ -4,8 +4,10 @@
 chạy lại model — dữ liệu thô là bản ghi từng câu hỏi do ``mrc.evaluate.run_evaluation``
 ghi ra, xem ``build_records``). Với mỗi run: EM/F1 tổng, Wilson CI của EM (chỉ
 EM — F1 không phải tỉ lệ nhị phân), cluster-bootstrap CI của EM và F1 (cụm =
-``paragraph_id``, đã có sẵn trong preds JSONL), tách HasAns/NoAns, tỉ lệ dự đoán
-rỗng. Với mỗi cặp model trong ``_PAIR_CANDIDATES`` mà CẢ HAI run đều có mặt:
+``paragraph_id``, đã có sẵn trong preds JSONL), ``icc_paragraph`` (ICC(1) một
+chiều của EM theo đoạn văn — chẩn đoán mức tương quan trong cụm, xem
+``mrc.stats.icc_oneway``), tách HasAns/NoAns, tỉ lệ dự đoán rỗng. Với mỗi cặp
+model trong ``_PAIR_CANDIDATES`` mà CẢ HAI run đều có mặt:
 McNemar chính xác hai phía, hiệu EM, và CI bootstrap-cặp-theo-cụm của hiệu EM/F1.
 Cặp trong ``_HAS_ANS_ONE_SIDED_PAIRS`` (P4: ``visobert-len512`` × ``visobert-dev``)
 có thêm ``p_mcnemar_has_ans_greater`` — McNemar MỘT PHÍA, chỉ trên tập HasAns,
@@ -36,7 +38,14 @@ for _p in (_ROOT, _ROOT / "src"):
 import numpy as np
 
 from mrc.evaluate import _git_commit, read_jsonl
-from mrc.stats import cluster_bootstrap_ci, empty_rate, mcnemar_exact, paired_cluster_bootstrap_diff, wilson_ci
+from mrc.stats import (
+    cluster_bootstrap_ci,
+    empty_rate,
+    icc_oneway,
+    mcnemar_exact,
+    paired_cluster_bootstrap_diff,
+    wilson_ci,
+)
 
 __all__ = ["compute_run_stats", "compute_pair_stats", "build_stats", "discover_pred_files"]
 
@@ -106,6 +115,11 @@ def compute_run_stats(records: list[dict], n_boot: int = 2000, seed: int = 0) ->
         "EM_wilson": list(wilson_ci(k_em, n)),
         "EM_cluster_ci": list(cluster_bootstrap_ci(em, clusters, n_boot, seed)),
         "F1_cluster_ci": list(cluster_bootstrap_ci(f1, clusters, n_boot, seed)),
+        # Chẩn đoán (không phải CI): bao nhiêu phương sai EM là do khác biệt
+        # GIỮA đoạn văn — xem mrc.stats.icc_oneway. Gần 0 giải thích vì sao
+        # EM_cluster_ci gần EM_wilson trên dữ liệu này (không phải bootstrap
+        # cụm sai hay thừa, chỉ là hiệu chỉnh nhỏ).
+        "icc_paragraph": round(icc_oneway(em, clusters), 4),
     }
     has_ans = _subset(records, lambda r: not r["is_impossible"])
     if has_ans is not None:

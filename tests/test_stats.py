@@ -15,6 +15,7 @@ from scipy.stats import binomtest
 from mrc.stats import (
     cluster_bootstrap_ci,
     empty_rate,
+    icc_oneway,
     mcnemar_exact,
     paired_cluster_bootstrap_diff,
     wilson_ci,
@@ -141,6 +142,64 @@ def test_cluster_bootstrap_singleton_clusters_approx_item_level():
 
     mean = float(np.mean(values))
     assert cluster_ci[0] < mean < cluster_ci[1]
+
+
+# ── icc_oneway ───────────────────────────────────────────────────────────
+
+
+def test_icc_oneway_perfectly_clustered_is_one():
+    """Mỗi cụm hằng số (0 hoặc 100), khác cụm khác giá trị ⇒ toàn bộ phương sai
+    là GIỮA cụm, không có bên TRONG cụm ⇒ ICC đúng bằng 1.0 (MSW=0 chính xác)."""
+    n_clusters, per_cluster = 8, 10
+    values, clusters = [], []
+    for c in range(n_clusters):
+        v = 100.0 if c % 2 == 0 else 0.0
+        values += [v] * per_cluster
+        clusters += [c] * per_cluster
+
+    assert icc_oneway(values, clusters) == pytest.approx(1.0)
+
+
+def test_icc_oneway_no_clustering_is_near_zero():
+    """Gán nhãn cụm NGẪU NHIÊN, không liên quan gì tới giá trị ⇒ ICC nhỏ."""
+    rng = np.random.default_rng(0)
+    values = rng.normal(50, 10, size=2000)
+    clusters = rng.integers(0, 100, size=2000)  # cụm không mang thông tin gì
+
+    icc = icc_oneway(values, clusters)
+
+    assert abs(icc) < 0.05
+
+
+def test_icc_oneway_scale_invariant():
+    rng = np.random.default_rng(1)
+    n_clusters, per_cluster = 20, 8
+    clusters = np.repeat(np.arange(n_clusters), per_cluster)
+    cluster_means = rng.normal(0, 5, size=n_clusters)
+    values = np.repeat(cluster_means, per_cluster) + rng.normal(0, 3, size=n_clusters * per_cluster)
+
+    icc = icc_oneway(values, clusters)
+    icc_scaled = icc_oneway(values * 100.0 + 7.0, clusters)
+
+    assert icc == pytest.approx(icc_scaled, abs=1e-9)
+
+
+def test_icc_oneway_singleton_clusters_is_zero():
+    values = list(np.linspace(0, 100, 50))
+    clusters = list(range(50))  # mỗi câu hỏi một cụm riêng — không ước lượng được MSW
+    assert icc_oneway(values, clusters) == 0.0
+
+
+def test_icc_oneway_single_cluster_is_zero():
+    values = [1.0, 0.0, 1.0, 1.0, 0.0]
+    clusters = ["p1"] * 5
+    assert icc_oneway(values, clusters) == 0.0
+
+
+def test_icc_oneway_constant_values_is_zero():
+    values = [1.0] * 20
+    clusters = [i % 4 for i in range(20)]
+    assert icc_oneway(values, clusters) == 0.0
 
 
 # ── paired_cluster_bootstrap_diff ────────────────────────────────────────

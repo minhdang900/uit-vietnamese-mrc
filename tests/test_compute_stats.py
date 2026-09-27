@@ -85,6 +85,28 @@ def test_compute_run_stats_schema_and_values():
     assert "F1" not in stats["no_ans"]  # hợp đồng: F1 không có ý nghĩa riêng cho no_ans
 
 
+def test_compute_run_stats_includes_icc_paragraph():
+    correct = {f"q{i}" for i in range(0, 20, 2)}
+    records = _fixture_records(correct)
+
+    stats = compute_run_stats(records, n_boot=100, seed=0)
+
+    assert "icc_paragraph" in stats
+    assert isinstance(stats["icc_paragraph"], float)
+
+
+def test_compute_run_stats_icc_paragraph_high_when_correctness_follows_paragraph():
+    """Đúng/sai đồng nhất theo TỪNG đoạn văn (paragraph chẵn luôn đúng, lẻ luôn
+    sai) ⇒ ICC phải cao (gần 1), phản ánh cụm giải thích gần hết phương sai."""
+    n, n_paragraphs = 40, 8
+    correct = {f"q{i}" for i in range(n) if (i % n_paragraphs) % 2 == 0}
+    records = _fixture_records(correct, n=n, n_paragraphs=n_paragraphs)
+
+    stats = compute_run_stats(records, n_boot=100, seed=0)
+
+    assert stats["icc_paragraph"] > 0.8
+
+
 def test_compute_run_stats_no_impossible_questions_omits_no_ans():
     records = [_record(f"q{i}", f"p{i % 3}", 1.0, 1.0) for i in range(6)]
     stats = compute_run_stats(records, n_boot=100, seed=0)
@@ -205,7 +227,8 @@ def test_build_stats_matches_reporting_contract_shape(tmp_path):
     assert payload["B"] == 150
     assert set(payload["runs"]) == {"mbert", "xlmr"}
     for run in payload["runs"].values():
-        for key in ("n", "EM", "F1", "empty_rate", "EM_wilson", "EM_cluster_ci", "F1_cluster_ci"):
+        for key in ("n", "EM", "F1", "empty_rate", "EM_wilson", "EM_cluster_ci", "F1_cluster_ci",
+                    "icc_paragraph"):
             assert key in run
     assert payload["pairs"], "cặp mbert/xlmr phải xuất hiện — cả hai run đều có mặt"
     pair = payload["pairs"][0]

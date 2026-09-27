@@ -20,8 +20,16 @@ Ba công cụ, ba phạm vi áp dụng khác nhau — dùng sai chỗ là kết 
   hiệu số (``paired_cluster_bootstrap_diff``), không thay thế; McNemar cho p
   giá trị nhị phân "khác nhau hay không", cluster bootstrap cho khoảng của độ
   lớn khác biệt đã tính đến tương quan cụm.
+* :func:`icc_oneway` — ICC(1) một-chiều: BAO NHIÊU PHẦN TRĂM phương sai của
+  ``values`` là do khác biệt GIỮA các cụm (chứ không phải nhiễu bên trong một
+  cụm). Đây là con số CHẨN ĐOÁN cho ba công cụ trên: ICC gần 0 nghĩa là câu
+  hỏi cùng đoạn văn không tương quan hơn câu hỏi khác đoạn văn trên dữ liệu
+  này, nên cluster bootstrap và Wilson/iid-bootstrap sẽ cho CI gần giống nhau
+  (không phải bootstrap cụm "không cần thiết" — vẫn đúng phương pháp, chỉ là
+  hiệu chỉnh nhỏ trên tập dữ liệu này); ICC gần 1 nghĩa là gần như cả cụm cùng
+  đúng hoặc cùng sai, và bỏ qua cụm sẽ đánh giá THẤP đáng kể độ bất định.
 
-Không có dependency mới: chỉ numpy (bootstrap) và ``scipy.stats.binomtest``
+Không có dependency mới: chỉ numpy (bootstrap, ICC) và ``scipy.stats.binomtest``
 (nhị thức chính xác, đã có trong requirements từ trước).
 """
 
@@ -40,6 +48,7 @@ __all__ = [
     "mcnemar_exact",
     "cluster_bootstrap_ci",
     "paired_cluster_bootstrap_diff",
+    "icc_oneway",
     "empty_rate",
 ]
 
@@ -102,6 +111,45 @@ def _cluster_groups(clusters: Sequence[Hashable]) -> list[np.ndarray]:
     for i, c in enumerate(clusters):
         groups.setdefault(c, []).append(i)
     return [np.array(idx, dtype=np.intp) for idx in groups.values()]
+
+
+def icc_oneway(values: Sequence[float], clusters: Sequence[Hashable]) -> float:
+    """ICC(1) một-chiều (ANOVA ngẫu nhiên một yếu tố, Fisher / Shrout–Fleiss ICC(1,1)).
+
+    ``(MSB - MSW) / (MSB + (n0 - 1) * MSW)`` — ``MSB``/``MSW`` là bình phương
+    trung bình GIỮA/TRONG cụm từ ANOVA một chiều, ``n0`` là cỡ cụm trung bình
+    đã hiệu chỉnh cho cụm không đều cỡ (Fisher 1958):
+    ``n0 = (N - Σ n_g² / N) / (k - 1)``.
+
+    Không nhân 100 — đây là một hệ số tương quan (thường trong ``[0, 1]``, có
+    thể âm nhẹ nếu trung bình trong cụm phân tán hơn ngẫu nhiên). Không phụ
+    thuộc thang đo của ``values`` (bất biến qua phép nhân/cộng hằng số) — gọi
+    được trực tiếp trên EM 0/1 hay đã nhân 100, kết quả như nhau.
+
+    Suy biến (không có thông tin để ước lượng phương sai trong/giữa cụm) trả
+    về ``0.0``: chỉ một cụm (``k <= 1``), mọi cụm cỡ 1 (``k == N``, không có
+    phương sai trong cụm để ước lượng ``MSW``), hoặc ``values`` hằng số.
+    """
+    values = np.asarray(values, dtype=float)
+    groups = _cluster_groups(clusters)
+    k, n = len(groups), len(values)
+    if k <= 1 or k == n:
+        return 0.0
+
+    grand_mean = values.mean()
+    ssb = sum(len(idx) * (values[idx].mean() - grand_mean) ** 2 for idx in groups)
+    ssw = sum(float(np.sum((values[idx] - values[idx].mean()) ** 2)) for idx in groups)
+    msb = ssb / (k - 1)
+    msw = ssw / (n - k)
+    if msb == 0.0 and msw == 0.0:
+        return 0.0  # values hằng số trên toàn bộ mẫu
+
+    sum_sq_group_sizes = sum(len(idx) ** 2 for idx in groups)
+    n0 = (n - sum_sq_group_sizes / n) / (k - 1)
+    denom = msb + (n0 - 1) * msw
+    if denom == 0.0:
+        return 0.0
+    return float((msb - msw) / denom)
 
 
 def _bootstrap_indices(groups: Sequence[np.ndarray], n_boot: int,
