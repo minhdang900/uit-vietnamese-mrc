@@ -1,0 +1,610 @@
+{
+  "split": "train",
+  "commit": "f0a5c90",
+  "timestamp": "2026-09-27T16:11:42+00:00",
+  "tokenizers": {
+    "mbert": {
+      "name": "bert-base-multilingual-cased",
+      "tokenizer_class": "BertTokenizer",
+      "max_length": 384,
+      "doc_stride": 128,
+      "answerable": 19238,
+      "exact": 19116,
+      "normalized": 19136,
+      "exact_rate": 99.366,
+      "normalized_rate": 99.47,
+      "failure_categories": {
+        "gold_cuts_inside_word": 106,
+        "other": 16
+      },
+      "failure_examples": {
+        "gold_cuts_inside_word": [
+          {
+            "qid": "0002-0017-0002",
+            "gold": "ạo ra một phần lá mầm đơn độc của thân phôi, phần trục và rễ của",
+            "got": "tạo ra một phần lá mầm đơn độc của thân phôi, phần trục và rễ của"
+          },
+          {
+            "qid": "0002-0017-0003",
+            "gold": "ố thự",
+            "got": "số thực"
+          },
+          {
+            "qid": "0006-0016-0001",
+            "gold": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chấ",
+            "got": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chất"
+          },
+          {
+            "qid": "0006-0048-0002",
+            "gold": "ừ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài",
+            "got": "Từ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài"
+          },
+          {
+            "qid": "0006-0049-0003",
+            "gold": "5",
+            "got": "05"
+          },
+          {
+            "qid": "0006-0050-0003",
+            "gold": "2",
+            "got": "2002"
+          },
+          {
+            "qid": "0007-0007-0003",
+            "gold": "iễn tả dịch chuyển thời gian hoặc thời gian trôi qua",
+            "got": "diễn tả dịch chuyển thời gian hoặc thời gian trôi qua"
+          },
+          {
+            "qid": "0008-0019-0001",
+            "gold": "húc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân",
+            "got": "thúc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân"
+          },
+          {
+            "qid": "0008-0023-0001",
+            "gold": "ự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không",
+            "got": "sự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không"
+          },
+          {
+            "qid": "0008-0029-0003",
+            "gold": "ỉ số nghỉ thống kê (statistical relaxation rates) để dẫn ra định luật khuếch tán động học",
+            "got": "tỉ số nghỉ thống kê (statistical relaxation rates) để dẫn ra định luật khuếch tán động học"
+          }
+        ],
+        "other": [
+          {
+            "qid": "0011-0032-0001",
+            "gold": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai\"",
+            "got": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai"
+          },
+          {
+            "qid": "0027-0004-0002",
+            "gold": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn\"",
+            "got": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn"
+          },
+          {
+            "qid": "0034-0006-0005",
+            "gold": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào?",
+            "got": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào"
+          },
+          {
+            "qid": "0034-0011-0003",
+            "gold": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy\"",
+            "got": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy"
+          },
+          {
+            "qid": "0034-0037-0005",
+            "gold": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum)",
+            "got": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum"
+          },
+          {
+            "qid": "0034-0043-0003",
+            "gold": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng\"",
+            "got": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng"
+          },
+          {
+            "qid": "0057-0032-0001",
+            "gold": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km)",
+            "got": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km"
+          },
+          {
+            "qid": "0058-0003-0003",
+            "gold": "tương bần, xì dầu (làm từ đậu nành)",
+            "got": "tương bần, xì dầu (làm từ đậu nành"
+          },
+          {
+            "qid": "0058-0005-0004",
+            "gold": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui.",
+            "got": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui"
+          },
+          {
+            "qid": "0058-0007-0004",
+            "gold": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa)",
+            "got": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa"
+          }
+        ]
+      },
+      "seconds": 44.4
+    },
+    "visobert": {
+      "name": "uitnlp/visobert",
+      "tokenizer_class": "XLMRobertaTokenizer",
+      "max_length": 384,
+      "doc_stride": 128,
+      "answerable": 19238,
+      "exact": 17879,
+      "normalized": 19156,
+      "exact_rate": 92.936,
+      "normalized_rate": 99.574,
+      "failure_categories": {
+        "trailing_punct_attached": 1234,
+        "gold_cuts_inside_word": 84,
+        "leading_punct_attached": 22,
+        "other": 16,
+        "no_containing_window": 3
+      },
+      "failure_examples": {
+        "gold_cuts_inside_word": [
+          {
+            "qid": "0002-0017-0003",
+            "gold": "ố thự",
+            "got": "số thực"
+          },
+          {
+            "qid": "0006-0016-0001",
+            "gold": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chấ",
+            "got": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chất"
+          },
+          {
+            "qid": "0006-0048-0002",
+            "gold": "ừ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài",
+            "got": "Từ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài"
+          },
+          {
+            "qid": "0006-0049-0003",
+            "gold": "5",
+            "got": "5,"
+          },
+          {
+            "qid": "0007-0007-0003",
+            "gold": "iễn tả dịch chuyển thời gian hoặc thời gian trôi qua",
+            "got": "diễn tả dịch chuyển thời gian hoặc thời gian trôi qua"
+          },
+          {
+            "qid": "0008-0019-0001",
+            "gold": "húc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân",
+            "got": "thúc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân"
+          },
+          {
+            "qid": "0008-0023-0001",
+            "gold": "ự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không",
+            "got": "sự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không"
+          },
+          {
+            "qid": "0008-0029-0003",
+            "gold": "ỉ số nghỉ thống kê (statistical relaxation rates) để dẫn ra định luật khuếch tán động học",
+            "got": "tỉ số nghỉ thống kê (statistical relaxation rates) để dẫn ra định luật khuếch tán động học"
+          },
+          {
+            "qid": "0008-0057-0002",
+            "gold": "ăm 1954",
+            "got": "ăm 1954,"
+          },
+          {
+            "qid": "0011-0012-0005",
+            "gold": "Công xã Paris năm 1871",
+            "got": "Công xã Paris năm 187"
+          }
+        ],
+        "trailing_punct_attached": [
+          {
+            "qid": "0003-0001-0003",
+            "gold": "năm 1943",
+            "got": "năm 1943."
+          },
+          {
+            "qid": "0003-0001-0010",
+            "gold": "PLATO (1960) được phát triển ở đại học Illinois và TICCIT (1969)",
+            "got": "PLATO (1960) được phát triển ở đại học Illinois và TICCIT (1969)."
+          },
+          {
+            "qid": "0003-0008-0004",
+            "gold": "trên máy tính đơn (hoặc các thiết bị cầm tay)",
+            "got": "trên máy tính đơn (hoặc các thiết bị cầm tay)."
+          },
+          {
+            "qid": "0003-0008-0005",
+            "gold": "trong SCORM 2004 2nd edition Overview (phần 1.3)",
+            "got": "trong SCORM 2004 2nd edition Overview (phần 1.3),"
+          },
+          {
+            "qid": "0004-0004-0006",
+            "gold": "các chỉ thị thực (như cộng hay so sánh)",
+            "got": "các chỉ thị thực (như cộng hay so sánh),"
+          },
+          {
+            "qid": "0005-0001-0001",
+            "gold": "còn được gọi lav Edward Longshanks và Kẻ đánh bại người Scots (Latin: Malleus Scotorum)",
+            "got": "còn được gọi lav Edward Longshanks và Kẻ đánh bại người Scots (Latin: Malleus Scotorum),"
+          },
+          {
+            "qid": "0005-0001-0002",
+            "gold": "là Vua của Anh từ 1272 đến 1307",
+            "got": "là Vua của Anh từ 1272 đến 1307."
+          },
+          {
+            "qid": "0005-0005-0001",
+            "gold": "ông ngã bệnh năm 1246, 1247 và 1251",
+            "got": "ông ngã bệnh năm 1246, 1247 và 1251."
+          },
+          {
+            "qid": "0005-0005-0002",
+            "gold": "có nghĩa là \"chân dài\" hay \"cẳng chân dài\"",
+            "got": "có nghĩa là \"chân dài\" hay \"cẳng chân dài\"."
+          },
+          {
+            "qid": "0005-0012-0003",
+            "gold": "là Trận Evesham, ngày 4 tháng 8 1265",
+            "got": "là Trận Evesham, ngày 4 tháng 8 1265."
+          }
+        ],
+        "other": [
+          {
+            "qid": "0011-0032-0001",
+            "gold": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai\"",
+            "got": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai"
+          },
+          {
+            "qid": "0027-0004-0002",
+            "gold": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn\"",
+            "got": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn"
+          },
+          {
+            "qid": "0034-0006-0005",
+            "gold": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào?",
+            "got": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào"
+          },
+          {
+            "qid": "0034-0011-0003",
+            "gold": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy\"",
+            "got": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy"
+          },
+          {
+            "qid": "0034-0037-0005",
+            "gold": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum)",
+            "got": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum"
+          },
+          {
+            "qid": "0034-0043-0003",
+            "gold": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng\"",
+            "got": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng"
+          },
+          {
+            "qid": "0057-0032-0001",
+            "gold": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km)",
+            "got": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km"
+          },
+          {
+            "qid": "0058-0003-0003",
+            "gold": "tương bần, xì dầu (làm từ đậu nành)",
+            "got": "tương bần, xì dầu (làm từ đậu nành"
+          },
+          {
+            "qid": "0058-0005-0004",
+            "gold": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui.",
+            "got": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui"
+          },
+          {
+            "qid": "0058-0007-0004",
+            "gold": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa)",
+            "got": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa"
+          }
+        ],
+        "leading_punct_attached": [
+          {
+            "qid": "0015-0005-0004",
+            "gold": "27",
+            "got": "-27"
+          },
+          {
+            "qid": "0021-0031-0002",
+            "gold": "907",
+            "got": "-907"
+          },
+          {
+            "qid": "0033-0025-0005",
+            "gold": "136 -138",
+            "got": "(136 -138"
+          },
+          {
+            "qid": "0055-0048-0005",
+            "gold": "1761",
+            "got": "(1761"
+          },
+          {
+            "qid": "0056-0004-0003",
+            "gold": "1113",
+            "got": "(1113"
+          },
+          {
+            "qid": "0057-0072-0002",
+            "gold": "9 năm",
+            "got": "(9 năm"
+          },
+          {
+            "qid": "0064-0019-0003",
+            "gold": "835 m",
+            "got": "(835 m"
+          },
+          {
+            "qid": "0064-0021-0004",
+            "gold": "110.476 ha",
+            "got": "(110.476 ha"
+          },
+          {
+            "qid": "0070-0024-0002",
+            "gold": "2,3% da trắng và Caribe da đen, 0,3% da trắng và châu Phi da đen, 1,0% da trắng và châu Á, 0,8% hỗn chủng khác",
+            "got": "(2,3% da trắng và Caribe da đen, 0,3% da trắng và châu Phi da đen, 1,0% da trắng và châu Á, 0,8% hỗn chủng khác"
+          },
+          {
+            "qid": "0070-0024-0005",
+            "gold": "2,8% người châu Phi, 4,4% người Caribe, 1,7% người da đen khác",
+            "got": "(2,8% người châu Phi, 4,4% người Caribe, 1,7% người da đen khác"
+          }
+        ],
+        "no_containing_window": [
+          {
+            "qid": "0017-0012-0003",
+            "gold": "Cấm hôn nhân ngoại giáo, không ăn thịt động vật chết hay thú vật cắn, không ăn thực phẩm liên quan cúng tế ngoại giáo, cấm thờ ảnh tượng,không ăn huyết động vật và những thức ăn chế biến từ huyết động vật, cấm dùng đồ uống có men như rượu, bia và thuốc lá, đưa tang ma vào lúc 9 giờ buổi sáng theo quan niệm phải mặt trời (ánh bình minh) chiếu xuống huyệt góc 60 độ về hướng Tây(?)..",
+            "got": null
+          },
+          {
+            "qid": "0126-0100-0002",
+            "gold": "Hector Berlioz (Symphonie fantastique), Georges Bizet (Carmen trở thành một trong các opera phổ biến và trình diễn thường xuyên nhất), Gabriel Fauré (Pavane, Requiem và các khúc cảnh đêm), Charles Gounod (Ave Maria và opera Faust), Jacques Offenbach (có 100 operetta trong thập niên 1850–1870 và opera chưa hoàn thành Những câu chuyện của Hoffmann), Édouard Lalo (Symphonie espagnole cho đàn violin và dàn nhạc cùng Cello Concerto trong cung Rê thứ), Jules Massenet (có hơn 30 opera, được trình diễn thường xuyên nhất là Manon (1884) và Werther (1892)) và Camille Saint-Saëns (Lễ hội muông thú, Vũ điệu thần chết, Samson và Delilah (Opera), Introduction and Rondo Capriccioso và Giao hưởng số 3)",
+            "got": null
+          },
+          {
+            "qid": "0138-0129-0004",
+            "gold": "1. Đoàn kết hợp tác giữa tất cả các đoàn thể chân chính yêu nước, nhưng không đoàn kết vô nguyên tắc với bọn phản quốc. 2. Sự đoàn kết thành thực giữa các đảng phái cách mạng chỉ có thể đặt lên trên nền tảng hành động chung. 3. Cấm chỉ mọi hành động có hại cho nước, có lợi cho địch, nhất là việc gièm pha cuộc kháng chiến và mạt sát Chính phủ kháng chiến.\"",
+            "got": null
+          }
+        ]
+      },
+      "seconds": 75.2
+    },
+    "phobert": {
+      "name": "vinai/phobert-base-v2",
+      "tokenizer_class": "TokenizersBackend",
+      "max_length": 256,
+      "doc_stride": 64,
+      "answerable": 19238,
+      "exact": 14467,
+      "normalized": 19104,
+      "exact_rate": 75.2,
+      "normalized_rate": 99.303,
+      "failure_categories": {
+        "trailing_punct_attached": 4611,
+        "gold_cuts_inside_word": 136,
+        "other": 13,
+        "no_containing_window": 11
+      },
+      "failure_examples": {
+        "trailing_punct_attached": [
+          {
+            "qid": "0001-0002-0001",
+            "gold": "bản Hiệp định đình chỉ chiến sự ở Việt Nam, Campuchia và Lào đã được ký kết thừa nhận tôn trọng độc lập, chủ quyền, của nước Việt Nam, Lào và Campuchia",
+            "got": "bản Hiệp định đình chỉ chiến sự ở Việt Nam, Campuchia và Lào đã được ký kết thừa nhận tôn trọng độc lập, chủ quyền, của nước Việt Nam, Lào và Campuchia."
+          },
+          {
+            "qid": "0001-0004-0002",
+            "gold": "nội dung liên lạc giữa đoàn đàm phán và Trung ương, Trung Quốc đều biết trước và tìm cách ngăn chặn",
+            "got": "nội dung liên lạc giữa đoàn đàm phán và Trung ương, Trung Quốc đều biết trước và tìm cách ngăn chặn."
+          },
+          {
+            "qid": "0001-0004-0003",
+            "gold": "đoàn Việt Nam khi đó quá tin đoàn Trung Quốc",
+            "got": "đoàn Việt Nam khi đó quá tin đoàn Trung Quốc."
+          },
+          {
+            "qid": "0001-0004-0004",
+            "gold": "sử dụng chúng để ép Việt Nam ký hiệp định theo lợi ích của Trung Quốc",
+            "got": "sử dụng chúng để ép Việt Nam ký hiệp định theo lợi ích của Trung Quốc."
+          },
+          {
+            "qid": "0001-0006-0001",
+            "gold": "thương lượng hoà bình",
+            "got": "thương lượng hoà bình."
+          },
+          {
+            "qid": "0001-0006-0002",
+            "gold": "Việt Nam khẳng định lại chủ quyền đối với 2 quần đảo này, nhắc lại lập trường của Việt Nam về việc giải quyết sự tranh chấp về 2 quần đảo giữa hai nước bằng thương lượng hoà bình",
+            "got": "Việt Nam khẳng định lại chủ quyền đối với 2 quần đảo này, nhắc lại lập trường của Việt Nam về việc giải quyết sự tranh chấp về 2 quần đảo giữa hai nước bằng thương lượng hoà bình."
+          },
+          {
+            "qid": "0002-0001-0004",
+            "gold": "thực vật hạt trần",
+            "got": "thực vật hạt trần."
+          },
+          {
+            "qid": "0002-0004-0004",
+            "gold": "tới 130 triệu năm",
+            "got": "tới 130 triệu năm."
+          },
+          {
+            "qid": "0002-0009-0001",
+            "gold": "phần lõi xốp trung tâm với phần vỏ ngoài",
+            "got": "phần lõi xốp trung tâm với phần vỏ ngoài."
+          },
+          {
+            "qid": "0002-0009-0003",
+            "gold": "vòng gỗ hàng năm",
+            "got": "vòng gỗ hàng năm."
+          }
+        ],
+        "gold_cuts_inside_word": [
+          {
+            "qid": "0002-0017-0002",
+            "gold": "ạo ra một phần lá mầm đơn độc của thân phôi, phần trục và rễ của",
+            "got": "tạo ra một phần lá mầm đơn độc của thân phôi, phần trục và rễ của"
+          },
+          {
+            "qid": "0002-0017-0003",
+            "gold": "ố thự",
+            "got": "số thực"
+          },
+          {
+            "qid": "0004-0002-0003",
+            "gold": "các công cụ phụ trợ như trình biên dịch, trình hợp dịch hay trình liên kết",
+            "got": "các công cụ phụ trợ như trình biên dịch, trình hợp dịch hay trình liên kế"
+          },
+          {
+            "qid": "0006-0016-0001",
+            "gold": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chấ",
+            "got": "Vị trí nằm trên vành đai núi lửa Thái Bình Dương, nằm ở điểm nối của ba vùng kiến tạo địa chất"
+          },
+          {
+            "qid": "0006-0048-0002",
+            "gold": "ừ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài",
+            "got": "Từ những năm 2000 Nhật Bãn đã thực hiện Happy Monday System, đưa một số ngày lễ rơi vào cuối tuần lên thứ hai để có một ngày nghỉ dài."
+          },
+          {
+            "qid": "0006-0049-0003",
+            "gold": "5",
+            "got": "05"
+          },
+          {
+            "qid": "0006-0050-0003",
+            "gold": "2",
+            "got": "2002"
+          },
+          {
+            "qid": "0007-0007-0003",
+            "gold": "iễn tả dịch chuyển thời gian hoặc thời gian trôi qua",
+            "got": "diễn tả dịch chuyển thời gian hoặc thời gian trôi qua."
+          },
+          {
+            "qid": "0008-0019-0001",
+            "gold": "húc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân",
+            "got": "thúc đẩy chính phủ Hoa Kỳ chấp nhận cho phép nghiên cứu vũ khí hạt nhân"
+          },
+          {
+            "qid": "0008-0023-0001",
+            "gold": "ự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không",
+            "got": "sự cố gắng chứng minh rằng nguyên tử tồn tại và có kích thước hữu hạn khác không."
+          }
+        ],
+        "other": [
+          {
+            "qid": "0011-0032-0001",
+            "gold": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai\"",
+            "got": "Engels và những người khác đã thành lập \"Quốc tế cộng sản hai"
+          },
+          {
+            "qid": "0027-0004-0002",
+            "gold": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn\"",
+            "got": "Miền Nam được chia thành 5 trấn, gọi là \"Gia Định ngũ trấn"
+          },
+          {
+            "qid": "0034-0006-0005",
+            "gold": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào?",
+            "got": "Olympias đã tử tế từ biệt con mình, sau khi bà đã nói riêng với ông rằng ông thực chất là con của ai? Bà đã cúng tế vị thần ấy như thế nào"
+          },
+          {
+            "qid": "0034-0011-0003",
+            "gold": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy\"",
+            "got": "\" Hoàng nhi cứ chê bai những người lớn tuổi hơn con cứ như là con biết nhiều hơn và làm tốt hơn họ vậy"
+          },
+          {
+            "qid": "0034-0037-0005",
+            "gold": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum)",
+            "got": "trải dài từ sông Ấn đến tận Hydaspes (sông Jhelum"
+          },
+          {
+            "qid": "0034-0043-0003",
+            "gold": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng\"",
+            "got": "Những câu hỏi lạ lùng thì sẽ có những câu trả lời lạ lùng"
+          },
+          {
+            "qid": "0057-0032-0001",
+            "gold": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km)",
+            "got": "943 km bờ biển tại đại lục Bồ Đào Nha, thì các quần đảo Açores (667 km) và Madeira (250 km"
+          },
+          {
+            "qid": "0058-0003-0003",
+            "gold": "tương bần, xì dầu (làm từ đậu nành)",
+            "got": "tương bần, xì dầu (làm từ đậu nành"
+          },
+          {
+            "qid": "0058-0005-0004",
+            "gold": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui.",
+            "got": "chuột đồng khìa nước dừa, dơi quạ hấp chao, rắn hổ đất nấu cháo đậu xanh, đuông dừa, đuông đất hoặc đuông chà là, vọp chong, cá lóc nướng trui"
+          },
+          {
+            "qid": "0058-0007-0004",
+            "gold": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa)",
+            "got": "bánh coóng phù (bánh trôi dân tộc Tày, xuất xứ từ bánh trôi tàu của người Hoa"
+          }
+        ],
+        "no_containing_window": [
+          {
+            "qid": "0017-0012-0003",
+            "gold": "Cấm hôn nhân ngoại giáo, không ăn thịt động vật chết hay thú vật cắn, không ăn thực phẩm liên quan cúng tế ngoại giáo, cấm thờ ảnh tượng,không ăn huyết động vật và những thức ăn chế biến từ huyết động vật, cấm dùng đồ uống có men như rượu, bia và thuốc lá, đưa tang ma vào lúc 9 giờ buổi sáng theo quan niệm phải mặt trời (ánh bình minh) chiếu xuống huyệt góc 60 độ về hướng Tây(?)..",
+            "got": null
+          },
+          {
+            "qid": "0022-0065-0004",
+            "gold": "\"Saltimbocca alla Romana\" – cốt lết bê theo phong cách La Mã; đứng đầu với giăm bông tươi, cây xô thơm, ninh với rượu vang trắng và bơ; \"Carciofi alla giudia\" – atisô chiên trong dầu ô liu, món điển hình của người Do Thái La Mã; \"Carciofi alla Romana\" – atisô phong cách La Mã, lớp lá bên ngoài được tách bỏ, nhồi với bạc hà, tỏi, vụn bánh mì sau đó đem om; \"Spaghetti alla Carbonara\"–spaghetti với thịt xông khói, trứng và pecorino; \"Gnocchi di semolino alla Romana\"–bánh bao semolina theo phong cách La Mã",
+            "got": null
+          },
+          {
+            "qid": "0032-0039-0003",
+            "gold": "sản phẩm khoáng sản phi kim, chế biến thực phẩm, gia công luyện và cán kim màu, khai thác và tuyển than đá, sản xuất và cung ứng điện-nhiệt, gia công luyện và cán kim loại đen, chế tạo nguyên liệu hóa học và chế phẩm hóa học, sản xuất thiết bị thông dụng, sản xuất thiết bị chuyên dụng, dệt",
+            "got": null
+          },
+          {
+            "qid": "0085-0005-0004",
+            "gold": "Khi các bong bóng này vỡ ra, chúng tạo ra một lực đáng kể cộng thêm vào lực tác động 1500 Newton của càng vào con mồi, nói cách khác 1 lần vung càng của tôm búa tạo ra đến 2 cú đập cùng một lúc vào con mồi: một cú đập bởi càng và một cú đập bởi áp suất tạo ra do sự vỡ của các bong bóng khí",
+            "got": null
+          },
+          {
+            "qid": "0109-0039-0002",
+            "gold": "Cơ sở giáo dục đại học tự chủ trong các hoạt động chủ yếu thuộc các lĩnh vực tổ chức và nhân sự, tài chính và tài sản, đào tạo, khoa học và công nghệ, hợp tác quốc tế, bảo đảm chất lượng giáo dục đại học. Cơ sở giáo dục đại học thực hiện quyền tự chủ ở mức độ cao hơn phù hợp với năng lực, kết quả xếp hạng và kết quả kiểm định chất lượng giáo dục",
+            "got": null
+          },
+          {
+            "qid": "0126-0093-0003",
+            "gold": "Alexandre Dumas (Ba chàng lính ngự lâm và Bá tước Monte Cristo), Jules Verne (Hai vạn dặm dưới đáy biển), Émile Zola (Les Rougon-Macquart), Honoré de Balzac (Tấn trò đời), Guy de Maupassant, Théophile Gautier và Stendhal (Đỏ và đen, Tu viện thành Parme)",
+            "got": null
+          },
+          {
+            "qid": "0126-0100-0002",
+            "gold": "Hector Berlioz (Symphonie fantastique), Georges Bizet (Carmen trở thành một trong các opera phổ biến và trình diễn thường xuyên nhất), Gabriel Fauré (Pavane, Requiem và các khúc cảnh đêm), Charles Gounod (Ave Maria và opera Faust), Jacques Offenbach (có 100 operetta trong thập niên 1850–1870 và opera chưa hoàn thành Những câu chuyện của Hoffmann), Édouard Lalo (Symphonie espagnole cho đàn violin và dàn nhạc cùng Cello Concerto trong cung Rê thứ), Jules Massenet (có hơn 30 opera, được trình diễn thường xuyên nhất là Manon (1884) và Werther (1892)) và Camille Saint-Saëns (Lễ hội muông thú, Vũ điệu thần chết, Samson và Delilah (Opera), Introduction and Rondo Capriccioso và Giao hưởng số 3)",
+            "got": null
+          },
+          {
+            "qid": "0138-0009-0002",
+            "gold": "trong khuôn khổ của tổ chức liên bang, những quyền tự do của các nước trong Liên bang sẽ được nới rộng và khẳng định; tính chất tự do rộng rãi của các tổ chức sẽ được nổi bật mà không hề mất đi dấu hiệu của nền văn minh và truyền thống Đông Dương; những người Đông Dương có thể nhận bất cứ công việc nào và chức vụ nào của nhà nước",
+            "got": null
+          },
+          {
+            "qid": "0138-0046-0005",
+            "gold": "Chúng tôi hoàn toàn ủng hộ chủ quyền nước Pháp sẽ được phục hồi càng sớm càng tốt trên toàn bộ lãnh thổ, chính quốc và thuộc địa, trên đó cờ nước Pháp đã tung bay vào năm 1939. Hiệp định Clark - Darlan về cuộc tấn công của chúng ta vào Bắc Phi cũng đã ghi nhận sự đồng ý giữa hai bên rằng các lực lượng của Pháp sẽ \"giúp đỡ và ủng hộ\" Đồng minh trong việc phục hồi toàn bộ Đế quốc Pháp",
+            "got": null
+          },
+          {
+            "qid": "0138-0113-0004",
+            "gold": "cổ động \"Dưới thời đô hộ của Nhật, nhiều người đã quá nông nổi, hoặc đã bị hướng dẫn sai lầm, nên vô tình gia nhập vào những đảng có tính cách phản quốc. Chính phủ hiểu rõ chỗ lầm lẫn đáng tiếc đó và sẵn sàng tha thứ cho những người con của Tổ quốc đã lầm đường, trừ những lãnh tụ đã có những hành vi phản quốc rõ rệt...\"",
+            "got": null
+          }
+        ]
+      },
+      "seconds": 17.3
+    }
+  },
+  "p6_gate": {
+    "rule": "phobert normalized >= 99.0 AND mbert - phobert <= 0.5",
+    "phobert_normalized": 99.303,
+    "mbert_normalized": 99.47,
+    "gap": 0.167,
+    "passed": true
+  }
+}
