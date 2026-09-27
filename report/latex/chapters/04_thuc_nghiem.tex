@@ -438,7 +438,7 @@ $\histHasAnsN/\histN$ và $\histNoAnsN/\histN$ (Bảng~\ref{tab:decomp}).
 \textbf{Metric} & \textbf{Từ câu có đáp án} & \textbf{Từ câu không có đáp án} & \textbf{Tổng chênh lệch} \\
 \midrule
 EM & \histMbertXlmrContribHasAnsEM & \histMbertXlmrContribNoAnsEM & \histMbertXlmrDiffEM \\
-F1 & \histMbertXlmrContribHasAnsFone & \histMbertXlmrContribNoAnsFone & \histMbertFone{} $-$ \histXlmrFone \\
+F1 & \histMbertXlmrContribHasAnsFone & \histMbertXlmrContribNoAnsFone & \histMbertXlmrDiffFone \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -494,14 +494,14 @@ Mục~\ref{sec:tagging}, trên mẫu lịch sử $n = \histN$. Tổng của bả
 \small
 \begin{tabular}{@{}l r r r r@{}}
 \toprule
-& \multicolumn{2}{c}{\textbf{single-sentence} ($n = 143$)} & \multicolumn{2}{c}{\textbf{multi-sentence} ($n = 218$)} \\
+& \multicolumn{2}{c}{\textbf{single-sentence} ($n = \histMbertSingleN$)} & \multicolumn{2}{c}{\textbf{multi-sentence} ($n = \histMbertMultiN$)} \\
 \cmidrule(lr){2-3}\cmidrule(l){4-5}
 \textbf{Mô hình} & \textbf{EM} & \textbf{F1} & \textbf{EM} & \textbf{F1} \\
 \midrule
-TF-IDF & 1,40 & 35,87 & 0,92 & 29,44 \\
-ViSoBERT & 11,19 & 17,82 & 4,13 & 7,82 \\
-XLM-R & 50,35 & 70,92 & 42,66 & \textbf{66,42} \\
-mBERT & \textbf{60,84} & \textbf{73,51} & \textbf{50,46} & 62,07 \\
+TF-IDF & \histBaselineSingleEM & \histBaselineSingleFone & \histBaselineMultiEM & \histBaselineMultiFone \\
+ViSoBERT & \histVisoSingleEM & \histVisoSingleFone & \histVisoMultiEM & \histVisoMultiFone \\
+XLM-R & \histXlmrSingleEM & \histXlmrSingleFone & \histXlmrMultiEM & \histXlmrMultiFone \\
+mBERT & \histMbertSingleEM & \histMbertSingleFone & \histMbertMultiEM & \histMbertMultiFone \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -513,18 +513,19 @@ mBERT & \textbf{60,84} & \textbf{73,51} & \textbf{50,46} & 62,07 \\
 \label{fig:qtype}
 \end{figure}
 
-\textbf{Xu hướng nhất quán:} cả bốn mô hình đều có F1 thấp hơn trên nhóm \code{multi-sentence},
-với mức chênh từ 4,51 (XLM-R) đến 11,44 điểm (mBERT). \textbf{Bằng chứng thống kê ở mức vừa
-phải:} với mBERT, chênh lệch EM giữa hai nhóm là 10,38 điểm trong khi nửa khoảng tin cậy của
-chênh lệch là 10,39 --- nằm đúng tại ngưỡng ý nghĩa; với XLM-R, chênh lệch EM (7,69) nhỏ hơn
-nửa khoảng tin cậy (10,50). Hai nhóm chỉ có 143 và 218 câu.
+\textbf{Xu hướng nhất quán:} cả bốn mô hình đều có F1 thấp hơn trên nhóm \code{multi-sentence}
+(Bảng~\ref{tab:qtype}). \textbf{Bằng chứng thống kê ở mức vừa phải:} với mBERT, chênh lệch EM
+giữa hai nhóm (\histMbertSingleEM{} so với \histMbertMultiEM) xấp xỉ đúng bằng nửa khoảng tin cậy
+của chênh lệch --- nằm tại ngưỡng ý nghĩa; với XLM-R (\histXlmrSingleEM{} so với
+\histXlmrMultiEM), chênh lệch EM nhỏ hơn nửa khoảng tin cậy. Hai nhóm chỉ có \histMbertSingleN{}
+và \histMbertMultiN{} câu.
 
 Một quan sát đáng chú ý: trên nhóm \code{multi-sentence}, XLM-R zero-shot có F1 cao hơn mBERT
-(66,42 so với 62,07), trong khi mBERT dẫn rõ trên \code{single-sentence}. Một cách giải thích
+(\histXlmrMultiFone{} so với \histMbertMultiFone), trong khi mBERT dẫn rõ trên \code{single-sentence}. Một cách giải thích
 hợp lý là fine-tune giúp mBERT khai thác tốt câu hỏi trùng từ vựng cao với một câu trong đoạn
 văn, còn XLM-R --- tiền huấn luyện trên lượng dữ liệu lớn hơn nhiều --- bền vững hơn khi câu hỏi
 diễn đạt khác đoạn văn. Đây là \emph{giả thuyết} chưa được kiểm chứng: với cỡ nhóm hiện tại,
-chênh lệch 4,35 điểm F1 chưa đủ để kết luận.
+chênh lệch F1 này chưa đủ để kết luận.
 
 \begin{warnbox}
 \textbf{Diễn giải có giới hạn.} Heuristic \code{question\_type} dựa trên độ trùng từ vựng giữa
@@ -546,17 +547,16 @@ riêng ảnh hưởng của suy luận nhiều câu.
 \begin{tabular}{@{}l r r r r@{}}
 \toprule
 \textbf{Mô hình} & \textbf{<100}$^\dagger$ & \textbf{100--200} & \textbf{200--300} & \textbf{300+}$^\dagger$ \\
- & $n=1$ & $n=405$ & $n=85$ & $n=9$ \\
+ & $n=\histMbertLenUnderHundredN$ & $n=\histMbertLenOneTwoN$ & $n=\histMbertLenTwoThreeN$ & $n=\histMbertLenOverThreeN$ \\
 \midrule
-TF-IDF & 66,67 & 23,50 & 21,27 & 17,26 \\
-ViSoBERT & 0,00 & 30,76 & 33,58 & 37,78 \\
-XLM-R & 88,89 & 58,15 & 50,06 & 58,78 \\
-mBERT & 33,33 & 59,16 & 62,97 & 44,44 \\
-\midrule
+TF-IDF & \histBaselineLenUnderHundredFone & \histBaselineLenOneTwoFone & \histBaselineLenTwoThreeFone & \histBaselineLenOverThreeFone \\
+ViSoBERT & \histVisoLenUnderHundredFone & \histVisoLenOneTwoFone & \histVisoLenTwoThreeFone & \histVisoLenOverThreeFone \\
+XLM-R & \histXlmrLenUnderHundredFone & \histXlmrLenOneTwoFone & \histXlmrLenTwoThreeFone & \histXlmrLenOverThreeFone \\
+mBERT & \histMbertLenUnderHundredFone & \histMbertLenOneTwoFone & \histMbertLenTwoThreeFone & \histMbertLenOverThreeFone \\
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-{\footnotesize EM của nhóm 100--200 / 200--300: TF-IDF 0,99 / 0,00; ViSoBERT 26,91 / 31,76; XLM-R 41,48 / 37,65; mBERT 50,62 / 52,94.}
+{\footnotesize EM của nhóm 100--200 / 200--300: TF-IDF \histBaselineLenOneTwoEM{} / \histBaselineLenTwoThreeEM; ViSoBERT \histVisoLenOneTwoEM{} / \histVisoLenTwoThreeEM; XLM-R \histXlmrLenOneTwoEM{} / \histXlmrLenTwoThreeEM; mBERT \histMbertLenOneTwoEM{} / \histMbertLenTwoThreeEM.}
 \end{table}
 
 \begin{figure}[htbp]
@@ -567,17 +567,19 @@ mBERT & 33,33 & 59,16 & 62,97 & 44,44 \\
 \end{figure}
 
 Bảng~\ref{tab:length} và Hình~\ref{fig:length} cho thấy \textbf{không có xu hướng nhất quán}
-theo độ dài đoạn văn trong phạm vi dữ liệu có đủ mẫu. Chỉ hai nhóm \code{100-200} ($n = 405$) và
-\code{200-300} ($n = 85$) đủ lớn để so sánh; giữa hai nhóm này, F1 của TF-IDF và XLM-R giảm (lần
-lượt $-2{,}23$ và $-8{,}09$ điểm) còn F1 của mBERT và ViSoBERT tăng ($+3{,}82$ và $+2{,}82$). Với
-$n = 85$, không chênh lệch nào trong số này đủ lớn để loại trừ biến động ngẫu nhiên. Hai nhóm
-\code{<100} ($n = 1$) và \code{300+} ($n = 9$) bị gắn cờ \code{unreliable}: với $n = 1$, một câu
+theo độ dài đoạn văn trong phạm vi dữ liệu có đủ mẫu. Chỉ hai nhóm \code{100-200} ($n = \histMbertLenOneTwoN$) và
+\code{200-300} ($n = \histMbertLenTwoThreeN$) đủ lớn để so sánh; giữa hai nhóm này, F1 của TF-IDF
+và XLM-R giảm còn F1 của mBERT và ViSoBERT tăng (Bảng~\ref{tab:length}). Với
+$n = \histMbertLenTwoThreeN$, không chênh lệch nào trong số này đủ lớn để loại trừ biến động ngẫu
+nhiên. Hai nhóm \code{<100} ($n = \histMbertLenUnderHundredN$) và \code{300+}
+($n = \histMbertLenOverThreeN$) bị gắn cờ \code{unreliable}: với $n = 1$, một câu
 đúng hay sai làm điểm nhóm dao động 100 điểm.
 
 Kết quả này nhất quán với cấu hình. Ở \code{max\_length} $= 384$, theo tokenizer của mBERT chỉ
 \tokCtxOverMbert{} trên \tokCtxTotal{} đoạn văn validation dài hơn 357 token (tức cần từ hai cửa
-sổ trở lên), và chỉ \tokGtTwoWinMbert{} câu hỏi validation cần \emph{hơn hai} cửa sổ --- hai đại
-lượng khác nhau, nhưng cùng cho thấy cơ chế cửa sổ trượt --- nơi đáp án có thể rơi vào cửa sổ
+sổ trở lên); chỉ \tokCtxGtTwoWinMbert{} trên \tokCtxTotal{} đoạn văn cần \emph{hơn hai} cửa sổ; và
+chỉ \tokGtTwoWinMbert{} câu hỏi validation cần hơn hai cửa sổ --- ba đại lượng khác nhau, nhưng cùng
+cho thấy cơ chế cửa sổ trượt --- nơi đáp án có thể rơi vào cửa sổ
 thiếu ngữ cảnh --- hiếm khi được kích hoạt. Mẫu \histN{} câu chứa quá ít đoạn văn
 dài để đo ảnh hưởng của cơ chế này; câu hỏi ``độ dài đoạn văn ảnh hưởng thế nào'' vì vậy
 \emph{chưa được trả lời} bởi thực nghiệm hiện tại (xem hướng phát triển).
@@ -712,6 +714,7 @@ Số token của câu ``Hà Nội là thủ đô của nước Cộng hoà Xã h
 Số token trung bình mỗi từ (\tokCtxTotal{} đoạn văn validation) & \tokPerWordMbert & \tokPerWordViso \\
 Số token trung bình mỗi đoạn văn validation & \tokCtxMeanMbert & \tokCtxMeanViso \\
 Số đoạn văn validation dài hơn 357 token (cần $\ge 2$ cửa sổ) & \tokCtxOverMbert & \tokCtxOverViso \\
+Số đoạn văn validation cần hơn 2 cửa sổ & \tokCtxGtTwoWinMbert & \tokCtxGtTwoWinViso \\
 Số câu hỏi validation cần hơn 2 cửa sổ & \tokGtTwoWinMbert & \tokGtTwoWinViso \\
 Số cửa sổ huấn luyện sinh từ 28.454 câu train & \nullFeaturesMbert & \nullFeaturesViso \\
 Số câu train phải chia nhiều cửa sổ & \nullMultiWindowMbert & \nullMultiWindowViso \\
@@ -810,8 +813,10 @@ $= 514 = 512 + 2$), mọi thứ khác giữ như bản đối chứng v2 chọn 
 EM trên câu có đáp án đổi từ \visoHasAnsEM{} (đối chứng) sang \visoLongHasAnsEM{}, tỉ lệ trả rỗng
 từ \visoEmptyRate\% sang \visoLongEmptyRate\%, EM tổng từ \visoEM{} sang \visoLongEM. Phán quyết
 theo cổng đăng ký trước (bốn điều kiện dưới đây, gồm McNemar một phía trên riêng câu có đáp án)
-được \code{scripts/check\_hypotheses.py} ghi trong \code{results/hypotheses\_report.json}; lời giải
-thích ``cửa sổ và nhãn null'' được giữ hay bác bỏ theo đúng phán quyết đó.
+(McNemar một phía trên câu có đáp án: p-value \visoLongMcnemarP) được
+\code{scripts/check\_hypotheses.py} ghi trong \code{results/hypotheses\_report.json}\ifdefined\visoLongVerdict{}:
+\textbf{\visoLongVerdict}\else{} (chưa chấm cổng)\fi. Lời giải thích ``cửa sổ và nhãn null'' được
+giữ hay bác bỏ theo đúng phán quyết đó.
 \else
 Thí nghiệm này \textbf{được đăng ký trước nhưng chưa chạy} tại thời điểm biên dịch, nên được nêu
 như hướng phát triển (Mục~\ref{sec:future}). Biến duy nhất: \code{max\_length} từ 384 lên 512
@@ -1055,35 +1060,3 @@ hiệu năng.
 \label{fig:demo}
 \end{figure}
 
-% ============================================================================
-% MOVE-TO-07: n500 history table
-% Lane B: chuyển khối dưới đây sang 07_phu_luc.tex (bỏ tiền tố "% " ở mỗi dòng)
-% rồi xoá khỏi đây. Chương 4 tham chiếu nó qua \ref{tab:hist-n500}.
-% ----------------------------------------------------------------------------
-% \begin{table}[htbp]
-% \centering
-% \caption[Kết quả v1 trên mẫu lịch sử $n = \histN$]{Kết quả v1 trên mẫu lịch sử $n = \histN$ câu validation (cùng mẫu cho mọi mô hình). Mẫu này bị dùng lẫn khi chọn epoch (\overlapSelEval{}/\overlapSelN{} câu trùng), nên chỉ có giá trị lịch sử; kết quả chính ở Bảng~\ref{tab:main}}
-% \label{tab:hist-n500}
-% \renewcommand{\arraystretch}{1.2}
-% \footnotesize
-% \setlength{\tabcolsep}{4pt}
-% \begin{tabular}{@{}l c r r r r r@{}}
-% \toprule
-% & & \multicolumn{2}{c}{\textbf{EM tổng}} & \multicolumn{2}{c}{\textbf{EM theo nhóm}} & \\
-% \cmidrule(lr){3-4}\cmidrule(lr){5-6}
-% \textbf{Mô hình} & \textbf{Fine-tune} & \textbf{EM} & \textbf{Wilson 95\%} & \textbf{có đáp án} & \textbf{không đáp án} & \textbf{F1} \\
-% & & & & $n = \histHasAnsN$ & $n = \histNoAnsN$ & \\
-% \midrule
-% Luôn trả rỗng & --- & \dataHistImpPct & --- & 0 & 100 & \dataHistImpPct \\
-% TF-IDF & không & \histBaselineEM & [\histBaselineEMlo; \histBaselineEMhi] & \histBaselineHasAnsEM{} $\pm$ \histBaselineHasAnsEMwald & \histBaselineNoAnsEM & \histBaselineFone \\
-% ViSoBERT + QA & có & \histVisoEM & [\histVisoEMlo; \histVisoEMhi] & \histVisoHasAnsEM{} $\pm$ \histVisoHasAnsEMwald & \histVisoNoAnsEM{} $\pm$ \histVisoNoAnsEMwald & \histVisoFone \\
-% XLM-R squad2 & zero-shot & \histXlmrEM & [\histXlmrEMlo; \histXlmrEMhi] & \histXlmrHasAnsEM{} $\pm$ \histXlmrHasAnsEMwald & \histXlmrNoAnsEM{} $\pm$ \histXlmrNoAnsEMwald & \histXlmrFone \\
-% mBERT + QA & có & \histMbertEM & [\histMbertEMlo; \histMbertEMhi] & \histMbertHasAnsEM{} $\pm$ \histMbertHasAnsEMwald & \histMbertNoAnsEM{} $\pm$ \histMbertNoAnsEMwald & \histMbertFone \\
-% \bottomrule
-% \end{tabular}
-% \par\vspace{2pt}
-% {\footnotesize Khoảng Wilson 95\% cho EM tổng (\code{scripts/ci.py} $\to$ \code{results/ci\_n500.json}); EM theo nhóm ghi nửa khoảng Wald $\pm$, coi câu hỏi độc lập --- \overlapHistContexts{} đoạn văn, \overlapHistArticles{} bài viết, nên khoảng thật rộng hơn. Dòng ``luôn trả rỗng'' suy ra trực tiếp từ nhãn: EM $=$ F1 $=$ tỉ lệ câu không có đáp án của mẫu.}
-% \end{table}
-% ----------------------------------------------------------------------------
-% END MOVE-TO-07
-% ============================================================================
