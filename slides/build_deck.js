@@ -83,6 +83,16 @@ const bylen = (k, b) => EV[k].by_context_length[b];
 // ── (b) Thống kê mô tả dữ liệu ───────────────────────────────────────────────
 // Nguồn: 06_BaoCao_T11/05_BANG_CHUNG/stats.py (data_stats.json),
 //        tokenizer_stats.py (tokenizer_stats.txt), ci.py (confidence_intervals.txt).
+// tỉ lệ câu hỏi loại wh trên validation — TÍNH từ data_stats.json (wh_validation),
+// không gõ tay: gộp ≥2 nhãn (vd. "vì sao" + "tại sao") bằng cách truyền nhiều nhãn.
+const whPct = (...labels) => {
+  const n = labels.reduce((sum, label) => {
+    const row = DATA_STATS.wh_validation.find(([w]) => w === label);
+    return sum + row[1];
+  }, 0);
+  return fmt(100 * n / DATA_STATS.validation.num_questions, 1) + "%";
+};
+
 const DATA = {
   split: {           //            train        validation   test
     questions:  ["28.454",   "3.814",   "7.301"],
@@ -112,8 +122,9 @@ const DATA = {
   biasEM: { head: fmt(CURVE.mbert.curve[1].val_em_biased_first300),
             random: fmt(CURVE.mbert.curve[1].val_em) },
   subsetTop5Pct: "57,0%", subsetArticles: "19/19",
-  wh: [["gì", "30,3%"], ["nào", "27,6%"], ["ai", "9,1%"], ["như thế nào", "8,3%"],
-       ["bao nhiêu", "7,9%"], ["vì sao + tại sao", "5,1%"]],
+  wh: [["gì", whPct("gì")], ["nào", whPct("nào")], ["ai", whPct("ai")],
+       ["như thế nào", whPct("như thế nào")], ["bao nhiêu", whPct("bao nhiêu")],
+       ["vì sao + tại sao", whPct("vì sao", "tại sao")]],
   // Bằng chứng tokenizer — ĐỌC từ results/tokenizer_stats.json (N2/G4: vocab
   // 15.002 token, bảng embedding 15.004 dòng — không phải cùng một con số).
   tok: {   //                        mBERT                      ViSoBERT
