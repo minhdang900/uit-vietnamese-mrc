@@ -222,3 +222,67 @@ Dù nhánh nào, không chọn lại epoch/τ/checkpoint sau khi thấy validati
 - **Báo động:** bất kỳ seed nào lệch EM so với `mbert-dev` **> 5** ⇒ nghi bug hoặc
   huấn luyện bất ổn — điều tra, không bỏ run. Cộng các báo động của P3.
 - Khoảng cách giữa các model trong báo cáo được so với độ lệch chuẩn seed này.
+
+---
+
+## Đăng ký v2 — P6 (PhoBERT, `phobert-dev`)
+
+**Ghi TRƯỚC khi chạy `phobert-dev`**, commit riêng (`prereg(P6): …`).
+
+### Điều kiện vào (cổng khứ hồi — quyết định của người dùng, đã đo)
+
+`scripts/roundtrip_audit.py` → `results/roundtrip_train.json` (19.238 câu
+answerable của TRAIN, commit 3c1af71). Cổng: PhoBERT khứ hồi **sau chuẩn hoá EM
+≥ 99 %** VÀ cách mBERT **≤ 0,5 điểm**. Kết quả: **ĐẠT** (99,303 % vs mBERT
+99,470 %, cách 0,167).
+
+| Tokenizer | cửa sổ | khứ hồi chính xác | sau chuẩn hoá EM | lỗi chính |
+|---|---|---|---|---|
+| mBERT | 384/128 | 99,366 % | 99,470 % | gold cắt giữa từ (106) |
+| ViSoBERT | 384/128 | 92,936 % | 99,574 % | dấu câu dính cuối (1.234) |
+| PhoBERT | 256/64 | 75,200 % | 99,303 % | dấu câu dính cuối (4.611) |
+
+Tỉ lệ "chính xác" thấp của PhoBERT là do tách theo khoảng trắng: dấu câu dính vào
+từ đứng trước, nên nhãn span có thêm "." — EM bỏ dấu câu nên không đổi. Cổng 100 %
+chính xác của kế hoạch ban đầu không đạt được với BẤT KỲ tokenizer nào (kể cả hai
+model đã huấn luyện), nên được thay bằng cổng trên.
+
+### Cấu hình (cố định) và các bất lợi đã biết
+
+| run_id | model | lr | epoch | max_length / doc_stride | max_answer_len | seed |
+|---|---|---|---|---|---|---|
+| `phobert-dev` | vinai/phobert-base-v2 | 3e-5 | 3 | **256 / 64** | 30 | 42 |
+
+batch 12 × 2, cùng tập dev (title, 10 %, seed 42) và quy tắc chọn (epoch, τ) như P3.
+`max_answer_len` 30: p95 độ dài đáp án là 37 token (mBERT 38, ViSoBERT 60).
+
+Bất lợi — ghi trước để không thành lời bào chữa sau:
+1. **256 token/cửa sổ** (`max_position_embeddings` = 258). `doc_stride` 128 không
+   còn chỗ, phải hạ về 64 — sai khác bắt buộc.
+2. **Không tách từ.** PhoBERT được pretrain trên văn bản đã tách từ
+   (VnCoreNLP/RDRSegmenter, Java, không có offline); ở đây đầu vào là âm tiết thô.
+3. **Tokenizer nhanh ≠ tokenizer pretrain ở mẩu hiếm.** Bản bọc `tokenizer.json`
+   cho id khác bản chậm ở 69/4.101 context và 80/3.000 cặp câu hỏi + context (mẩu
+   BPE hiếm bản chậm đổi thành `<unk>`). Offset thì khớp tuyệt đối.
+
+### Đầu vào cơ chế (đo trước, chỉ tokenizer, toàn bộ train)
+
+Nhãn null của PhoBERT ở 256/64: **47,70 %** (38.498 feature; 5.891 "đáp án ngoài
+cửa sổ"; 8.817 câu nhiều cửa sổ) — gần bằng ViSoBERT ở 384 (49,30 %, đã suy sụp)
+và xa mBERT (36,16 %, không suy sụp).
+
+### Dự đoán
+
+- **Suy sụp: CÓ** (cùng định nghĩa P3: tỉ lệ rỗng ≥ 90 % hoặc HasAns EM < 15).
+  Đây là HỆ QUẢ của chẩn đoán cửa sổ đã đăng ký ở P4: nếu tỉ lệ nhãn null ~50 %
+  gây suy sụp cho ViSoBERT thì cũng gây cho PhoBERT. Nếu P4 bác bỏ chẩn đoán đó,
+  dự đoán này cũng được kỳ vọng sai — cả hai được báo cáo nguyên trạng.
+- **Dải mới** (validation đầy đủ): EM 25–40, F1 27–45, HasAns EM 0–15.
+- **Dự đoán gốc giữ nguyên trong hồ sơ và vẫn được chấm** (2026-09-12): EM 60–70,
+  F1 78–85, và "PhoBERT > mBERT" (so với `mbert-dev`). Không xoá, không sửa.
+
+### Tín hiệu BÁO ĐỘNG
+
+Như P3 (khoảng cách dev/val > 10, τ ở mép lưới, tỉ lệ rỗng > 95 %, leakage, thứ tự
+đăng ký), cộng: EM(`phobert-dev`) > EM(`mbert-dev`) + 10 (đáng ngờ); cấu hình
+huấn luyện khác 256/64/batch 12 (sai khác chưa ghi).

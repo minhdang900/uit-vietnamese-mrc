@@ -459,6 +459,215 @@
           }
         }
       }
+    },
+    "P6": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P6. Commit riêng TRƯỚC khi chạy phobert-dev. Không sửa sau khi thấy kết quả.",
+      "run_ids": [
+        "phobert-dev"
+      ],
+      "entry_gate": {
+        "source": "results/roundtrip_train.json (commit 3c1af71)",
+        "rule": "phobert normalized >= 99 AND mbert - phobert <= 0.5",
+        "measured": {
+          "phobert": {
+            "exact": 75.2,
+            "normalized": 99.303
+          },
+          "mbert": {
+            "exact": 99.366,
+            "normalized": 99.47
+          },
+          "visobert": {
+            "exact": 92.936,
+            "normalized": 99.574
+          }
+        },
+        "gap": 0.167,
+        "passed": true,
+        "decided_by": "người dùng (thay cổng 100% chính xác của kế hoạch)"
+      },
+      "training": {
+        "phobert-dev": {
+          "model": "vinai/phobert-base-v2",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 256,
+          "doc_stride": 64,
+          "max_answer_len": 30,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        }
+      },
+      "dev_split": "như P3 (title, 0.1, seed 42)",
+      "selection": "như P3 (joint epoch x tau trên dev F1, lưới [-5,5] bước 0.25)",
+      "handicaps": {
+        "window": "max_position_embeddings=258 ⇒ max_length 256; doc_stride 128 → 64 (sai khác bắt buộc)",
+        "segmentation": "pretrain trên văn bản tách từ (VnCoreNLP); ở đây âm tiết thô",
+        "tokenizer_parity": "fast wrapper vs slow: id khác ở 69/4101 context, 80/3000 cặp (mẩu BPE hiếm -> <unk> ở bản chậm); offset khớp tuyệt đối"
+      },
+      "mechanism_inputs": {
+        "phobert_256_64": {
+          "features": 38498,
+          "null_frac": 47.7,
+          "cls_answer_outside": 5891,
+          "q_multiwindow": 8817
+        },
+        "visobert_384_128": {
+          "null_frac": 49.3
+        },
+        "mbert_384_128": {
+          "null_frac": 36.16
+        },
+        "answer_len_p95_tokens": {
+          "phobert": 37,
+          "mbert": 38,
+          "visobert": 60
+        }
+      },
+      "bands": {
+        "phobert-dev": {
+          "EM": [
+            25,
+            40
+          ],
+          "F1": [
+            27,
+            45
+          ],
+          "HasAns_EM": [
+            0,
+            15
+          ]
+        }
+      },
+      "original_prediction_kept": {
+        "registered_utc": "2026-09-12",
+        "EM": [
+          60,
+          70
+        ],
+        "F1": [
+          78,
+          85
+        ],
+        "qualitative": "PhoBERT > mBERT"
+      },
+      "predictions": [
+        {
+          "id": "phobert-dev-collapses",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "phobert-dev suy sụp (tỉ lệ rỗng >= 90% hoặc HasAns EM < 15) — hệ quả của chẩn đoán cửa sổ P4 (null 47,70% ≈ ViSoBERT 384)",
+          "gate": {
+            "any": [
+              {
+                "metric": "empty_rate",
+                "op": ">=",
+                "value": 90
+              },
+              {
+                "metric": "HasAns_EM",
+                "op": "<",
+                "value": 15
+              }
+            ]
+          }
+        },
+        {
+          "id": "phobert-original-band",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "Dự đoán gốc 2026-09-12: EM 60-70 và F1 78-85",
+          "gate": {
+            "all": [
+              {
+                "metric": "EM",
+                "op": ">=",
+                "value": 60
+              },
+              {
+                "metric": "EM",
+                "op": "<=",
+                "value": 70
+              },
+              {
+                "metric": "F1",
+                "op": ">=",
+                "value": 78
+              },
+              {
+                "metric": "F1",
+                "op": "<=",
+                "value": 85
+              }
+            ]
+          }
+        },
+        {
+          "id": "phobert-beats-mbert",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "Dự đoán gốc 2026-09-12: PhoBERT > mBERT (EM phobert-dev > EM mbert-dev)",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": ">",
+            "value": 0
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "leakage": {
+          "kind": "enforced_in_finetune",
+          "meaning": "assert_no_leakage (train/dev, train/val, dev/val) thất bại ⇒ run dừng trước khi huấn luyện"
+        },
+        "suspiciously_good": {
+          "kind": "gate",
+          "meaning": "EM(phobert-dev) > EM(mbert-dev) + 10 ⇒ đáng ngờ",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": ">",
+            "value": 10
+          }
+        },
+        "config_max_length": {
+          "kind": "config_differs",
+          "key": "max_length",
+          "expected": 256,
+          "meaning": "cấu hình khác đăng ký"
+        },
+        "config_doc_stride": {
+          "kind": "config_differs",
+          "key": "doc_stride",
+          "expected": 64,
+          "meaning": "cấu hình khác đăng ký"
+        },
+        "config_batch": {
+          "kind": "config_differs",
+          "key": "batch_size",
+          "expected": 12,
+          "meaning": "cấu hình khác đăng ký"
+        }
+      }
     }
   }
 }
