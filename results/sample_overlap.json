@@ -1,0 +1,21 @@
+{
+ "seed": 42,
+ "report_n": 500,
+ "report_subset_contexts": 331,
+ "report_subset_articles": 19,
+ "overlaps": {
+  "300": {
+   "n": 300,
+   "overlap_with_report_n": 284,
+   "report_n": 500
+  },
+  "200": {
+   "n": 200,
+   "overlap_with_report_n": 195,
+   "report_n": 500
+  }
+ },
+ "shared_titles_train_validation": 0,
+ "commit": "36bff4f",
+ "timestamp": "2026-09-27T15:34:54+00:00"
+}

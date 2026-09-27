@@ -217,12 +217,13 @@ có thể kiểm tra lại bất kỳ con số nào.
 EM, F1, tách nhóm, độ trễ (Bảng~\ref{tab:main}, \ref{tab:ans-imp}, \ref{tab:qtype}, \ref{tab:length}, \ref{tab:cost}) & \code{results/eval\_*\_validation.json} \\
 Dự đoán mẫu (Bảng~\ref{tab:qualitative}) & Trường \code{sample\_predictions} của các tệp trên \\
 Đường cong huấn luyện, siêu tham số (Bảng~\ref{tab:curves}, \ref{tab:hparams}) & \code{results/training\_curve\_*.json}, \code{results/finetune\_*.log} \\
-Khoảng tin cậy, phân rã chênh lệch (Bảng~\ref{tab:decomp}) & \code{evidence/ci.py} $\to$ \code{evidence/confidence\_intervals.txt} \\
-Thống kê dữ liệu, từ để hỏi (Bảng~\ref{tab:data-stats}, \ref{tab:wh}) & \code{evidence/stats.py} $\to$ \code{evidence/data\_stats.json} \\
-Hình dữ liệu (Hình~\ref{fig:dataset-composition}, \ref{fig:length-dist}) & \code{evidence/figs.py} \\
+Khoảng tin cậy, phân rã chênh lệch (Bảng~\ref{tab:decomp}) & \code{scripts/ci.py} $\to$ \code{results/ci\_n500.json} \\
+Thống kê dữ liệu, từ để hỏi (Bảng~\ref{tab:data-stats}, \ref{tab:wh}) & \code{scripts/data\_stats.py} $\to$ \code{results/data\_stats.json} \\
+Hình dữ liệu (Hình~\ref{fig:dataset-composition}, \ref{fig:length-dist}) & \code{scripts/figs\_data.py} $\to$ \code{results/figures/dataset\_*.png} \\
 Giả thuyết (Bảng~\ref{tab:hyp-quant}) & \code{results/hypotheses.md}, \code{results/hypotheses.json}, \code{scripts/check\_hypotheses.py} \\
 Chẩn đoán ViSoBERT (Bảng~\ref{tab:confounds}, \ref{tab:threshold}) & Nhật ký commit \code{abb6d8f}, \code{c63b28c}, \code{388b0ba} \\
-Phân mảnh token, số tham số (Bảng~\ref{tab:tokenization}) & \code{evidence/tokenizer\_stats.txt}; tokenizer, \code{config.json} và tệp trọng số trong \code{models/} \\
+Tỉ lệ nhãn null lúc huấn luyện, mBERT so ViSoBERT (§7.2, N1) & \code{scripts/null\_labels.py} $\to$ \code{results/null\_labels\_train.json} \\
+Phân mảnh token, số tham số (Bảng~\ref{tab:tokenization}) & \code{scripts/tokenizer\_stats.py} $\to$ \code{results/tokenizer\_stats.json}; tokenizer, \code{config.json} và tệp trọng số trong \code{models/} \\
 Số test, độ phủ (Bảng~\ref{tab:modules}) & \code{pytest} tại commit \code{c5b06ba} \\
 Hình kết quả (Hình~\ref{fig:model-comparison}, \ref{fig:ans-imp}, \ref{fig:qtype}, \ref{fig:length}, \ref{fig:curves}) & \code{scripts/make\_figures.py} $\to$ \code{results/figures/} \\
 Ảnh giao diện (Hình~\ref{fig:demo}) & Chụp từ ứng dụng chạy cục bộ với \code{models/mbert} \\
