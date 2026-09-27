@@ -93,6 +93,70 @@ def _gap(curve: dict) -> float:
     return last["val_em"] - last["val_em_biased_first300"]
 
 
+# Bằng chứng P1.2 (scripts/{null_labels,tokenizer_stats,ci,overlap_audit,data_stats}.py).
+_TOK = {"Mbert": "mbert", "Viso": "visobert"}
+
+
+def _evidence() -> list[Spec]:
+    nl, tok = "file:null_labels_train.json", "file:tokenizer_stats.json"
+    ci, ov, ds = "file:ci_n500.json", "file:sample_overlap.json", "file:data_stats.json"
+    out: list[Spec] = []
+    for name, run in _TOK.items():
+        out += [Spec(f"nullRate{name}", nl, f"[model={run}].null_frac"),
+                Spec(f"nullFeatures{name}", nl, f"[model={run}].features", "int"),
+                Spec(f"nullMultiWindow{name}", nl, f"[model={run}].q_multiwindow", "int"),
+                Spec(f"tokVocab{name}", tok, f"{run}.vocab_size", "int"),
+                Spec(f"tokEmbRows{name}", tok, f"{run}.embedding_rows", "int"),
+                Spec(f"tokParams{name}", tok, f"{run}.total_params", "f1", scale=1e-6),
+                Spec(f"tokEmbParams{name}", tok, f"{run}.embedding_params", "f1", scale=1e-6),
+                Spec(f"tokBodyParams{name}", tok, f"{run}.encoder_body_params", "f1",
+                     scale=1e-6),
+                Spec(f"tokSampleTokens{name}", tok, f"{run}.sample_sentence_tokens", "int"),
+                Spec(f"tokCtxMean{name}", tok, f"{run}.val_ctx_mean_tokens", "f1"),
+                Spec(f"tokPerWord{name}", tok, f"{run}.val_ctx_tokens_per_word", "f2"),
+                Spec(f"tokCtxOver{name}", tok, f"{run}.val_ctx_over_357", "int"),
+                Spec(f"tokGtTwoWin{name}", tok, f"{run}.questions_gt2_windows", "int"),
+                Spec(f"tokAnsOverThirty{name}", tok, f"{run}.train_answers_over_30_pct", "f1")]
+    out.append(Spec("tokCtxTotal", tok, "mbert.val_ctx_total", "int"))
+    # Wilson/Wald trên n=500 (lịch sử).
+    for name, run in _HIST.items():
+        out += [Spec(f"hist{name}EMlo", ci, f"per_model.{run}.EM_wilson[0]"),
+                Spec(f"hist{name}EMhi", ci, f"per_model.{run}.EM_wilson[1]"),
+                Spec(f"hist{name}EMwald", ci, f"per_model.{run}.EM_wald_half"),
+                Spec(f"hist{name}HasAnsEMwald", ci, f"per_model.{run}.ans_EM_wald_half"),
+                Spec(f"hist{name}NoAnsEMwald", ci, f"per_model.{run}.imp_EM_wald_half")]
+    mx = "comparisons.mbert_vs_xlmr"
+    for suffix, key in (("", "overall_EM"), ("HasAns", "answerable_EM"),
+                        ("NoAns", "impossible_EM")):
+        out += [Spec(f"histMbertXlmr{suffix}DiffEM", ci, f"{mx}.{key}.diff"),
+                Spec(f"histMbertXlmr{suffix}ZEM", ci, f"{mx}.{key}.z")]
+    out += [Spec("histMbertXlmrContribHasAnsFone", ci, f"{mx}.F1_contrib_answerable"),
+            Spec("histMbertXlmrContribNoAnsFone", ci, f"{mx}.F1_contrib_impossible"),
+            Spec("histMbertXlmrContribHasAnsEM", ci, f"{mx}.EM_contrib_answerable"),
+            Spec("histMbertXlmrContribNoAnsEM", ci, f"{mx}.EM_contrib_impossible"),
+            Spec("histMbertVisoHasAnsDiffEM", ci,
+                 "comparisons.mbert_vs_visobert_answerable_EM.diff"),
+            Spec("histMbertVisoHasAnsZEM", ci, "comparisons.mbert_vs_visobert_answerable_EM.z")]
+    # G1/G2/N6: chồng lấp mẫu chọn-model với mẫu báo cáo (đếm, không phải kết quả).
+    out += [Spec("overlapSelEval", ov, "overlaps.300.overlap_with_report_n", "int"),
+            Spec("overlapSelN", ov, "overlaps.300.n", "int"),
+            Spec("overlapTauEval", ov, "overlaps.200.overlap_with_report_n", "int"),
+            Spec("overlapTauN", ov, "overlaps.200.n", "int"),
+            Spec("overlapHistContexts", ov, "report_subset_contexts", "int"),
+            Spec("overlapHistArticles", ov, "report_subset_articles", "int"),
+            Spec("overlapSharedTitles", ov, "shared_titles_train_validation", "int")]
+    # Số liệu dữ liệu: ĐƯỢC gõ tay (result=False) — có macro để giải va chạm C7
+    # (vd. 27,8 % câu impossible của mẫu n=500 == EM của ViSoBERT v1).
+    for name, split in (("Train", "train"), ("Val", "validation"), ("Test", "test")):
+        out += [Spec(f"data{name}N", ds, f"{split}.num_questions", "int", result=False),
+                Spec(f"data{name}Contexts", ds, f"{split}.num_contexts", "int", result=False),
+                Spec(f"data{name}Articles", ds, f"{split}.num_articles", "int", result=False),
+                Spec(f"data{name}ImpPct", ds, f"{split}.impossible_pct", "f2", result=False)]
+    out += [Spec("dataHistImpPct", ds, "subset.impossible_pct", "f2", result=False),
+            Spec("dataHistImp", ds, "subset.impossible", "int", result=False)]
+    return out
+
+
 MACRO_SPEC: tuple[Spec, ...] = (
     # Bảng v1, n=500 (phụ lục lịch sử). Bắt buộc: đây là kết quả đã nộp.
     *(s for name, run in _HIST.items()
@@ -112,6 +176,7 @@ MACRO_SPEC: tuple[Spec, ...] = (
     Spec("valNoAnsN", "eval:mbert", "impossible_only.count", "int", flag="hasFullEval"),
     *(s for prefix, run, flag in _DEV
       for s in _eval_metrics(prefix, f"eval:{run}", flag=flag, extra=("EmptyRate", "Tau"))),
+    *_evidence(),
 )
 
 #: Cờ → điều kiện (tên tệp phải tồn tại, tính tương đối ``results/``). Cờ bật khi

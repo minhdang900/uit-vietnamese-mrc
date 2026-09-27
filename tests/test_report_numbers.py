@@ -440,3 +440,33 @@ def test_allowlist_is_valid_and_has_no_stale_entries():
 
 def test_real_results_have_no_literal_collision():
     check_collisions(result_literals(RESULTS), known_non_results(RESULTS))
+
+
+def test_evidence_files_map_to_their_macros(tmp_path):
+    """Schema của scripts/{null_labels,tokenizer_stats,ci,overlap_audit}.py (P1.2)."""
+    results = write_tree(tmp_path)
+    (results / "null_labels_train.json").write_text(json.dumps([
+        {"model": "mbert", "features": 30540, "null_frac": 36.16, "q_multiwindow": 900},
+        {"model": "visobert", "features": 40984, "null_frac": 49.3, "q_multiwindow": 5000},
+    ]), encoding="utf-8")
+    tok = {"vocab_size": 15002, "embedding_rows": 15004, "total_params": 97_000_000,
+           "embedding_params": 11_523_072, "encoder_body_params": 85_054_464,
+           "sample_sentence_tokens": 23, "val_ctx_mean_tokens": 250.1,
+           "val_ctx_tokens_per_word": 1.61, "val_ctx_over_357": 154, "val_ctx_total": 557,
+           "questions_gt2_windows": 2, "train_answers_over_30_pct": 1.2}
+    (results / "tokenizer_stats.json").write_text(
+        json.dumps({"mbert": tok, "visobert": tok}), encoding="utf-8")
+    (results / "sample_overlap.json").write_text(json.dumps({
+        "report_subset_contexts": 331, "report_subset_articles": 19,
+        "shared_titles_train_validation": 0,
+        "overlaps": {"300": {"n": 300, "overlap_with_report_n": 284},
+                     "200": {"n": 200, "overlap_with_report_n": 195}}}), encoding="utf-8")
+
+    macros, _ = collect_all(results)
+
+    assert macros["nullRateViso"] == "49{,}30"
+    assert macros["tokVocabViso"] == "15.002" and macros["tokEmbRowsViso"] == "15.004"
+    assert macros["tokEmbParamsViso"] == "11{,}5"
+    assert macros["tokBodyParamsMbert"] == "85{,}1"
+    assert macros["overlapSelEval"] == "284" and macros["overlapTauEval"] == "195"
+    assert 49.3 in result_literals(results), "tỉ lệ nhãn null là kết quả"
