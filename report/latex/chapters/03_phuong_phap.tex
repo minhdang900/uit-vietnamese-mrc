@@ -1,0 +1,580 @@
+% ============================================================================
+\bigskip
+\section{Phương pháp đề xuất và thiết kế hệ thống}
+\label{sec:method}
+% ============================================================================
+
+\subsection{Tổng quan kiến trúc}
+
+Hệ thống được tổ chức thành bốn tầng (Hình~\ref{fig:architecture}). \textbf{Tầng dữ
+liệu} nạp UIT-ViQuAD~2.0, kiểm tra rò rỉ và khả năng chấm điểm, rồi gán nhãn phục vụ
+phân tích. \textbf{Tầng mô hình} gồm bốn bộ dự đoán cùng tuân theo một giao diện
+\code{Predictor.predict(context, question) -> str}, nên harness đánh giá xử lý baseline
+và Transformer hoàn toàn như nhau. \textbf{Tầng đánh giá} chạy bộ dự đoán, tính metric,
+tách nhóm và ghi kết quả kèm thông tin truy vết. \textbf{Tầng sản phẩm} sinh hình vẽ từ
+tệp kết quả, kiểm tra giả thuyết và phục vụ ứng dụng web.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  font=\small,
+  box/.style={draw=black!45,rounded corners=3pt,fill=white,align=center,minimum height=1.0cm,inner sep=4pt},
+  layer/.style={draw=none,rounded corners=6pt,inner sep=8pt},
+  lbl/.style={font=\footnotesize\bfseries,anchor=south west,inner sep=2pt,fill=white,rounded corners=2pt},
+  arr/.style={-{Latex[length=2.2mm]},black!65,thick},
+  gate/.style={draw=badred,thick,fill=red!5,rounded corners=2pt,font=\footnotesize,align=center,inner sep=4pt,minimum height=1.0cm}]
+
+  % Tầng dữ liệu
+  \node[box] (hf) at (0,0) {HuggingFace\\\code{taidng/UIT-ViQuAD2.0}};
+  \node[box,right=0.8cm of hf] (data) {\code{data.py}\\parse SQuAD~2.0 $\to$ \code{Example}};
+  \node[gate,right=0.8cm of data] (gates) {\code{assert\_no\_leakage}\\\code{assert\_gradeable}};
+  \node[box,right=0.8cm of gates] (tag) {\code{tagging.py}\\độ dài, loại câu hỏi};
+  \draw[arr] (hf) -- (data); \draw[arr] (data) -- (gates); \draw[arr] (gates) -- (tag);
+
+  % Tầng mô hình
+  \node[box] (tfidf) at (0,-2.6) {\code{baseline\_tfidf.py}\\TF-IDF + cosine};
+  \node[box,right=0.5cm of tfidf] (xlmr) {XLM-R squad2\\(zero-shot)};
+  \node[box,right=0.5cm of xlmr] (mbert) {mBERT + QA\\(fine-tune)};
+  \node[box,right=0.5cm of mbert] (viso) {ViSoBERT + QA\\(fine-tune)};
+  \node[box,right=0.8cm of viso,fill=orange!10] (ft) {\code{finetune.py}\\\code{training.py}, \code{features.py}};
+  \draw[arr] (ft.west) -- (viso.east);
+  \node[box,fill=uitblue!8,minimum width=9.2cm] (tqa) at ($(mbert.south)+(-0.2,-1.0)$)
+     {\code{transformer\_qa.py} + \code{windowing.py}: cửa sổ trượt, offset, chọn span, ngưỡng null};
+  \foreach \m in {xlmr,mbert,viso} { \draw[black!45,densely dashed] (\m.south) -- (\m.south |- tqa.north); }
+
+  % Tầng đánh giá
+  \node[box,fill=okgreen!10,minimum width=7.6cm] (eval) at ($(tqa.south)+(-1.2,-1.6)$)
+     {\code{evaluate.py} + \code{metrics.py}\\EM, F1, answerable/impossible, breakdown, provenance};
+  \node[box,right=0.9cm of eval] (json) {\code{results/eval\_*.json}\\commit · thời điểm · thiết bị · $n$};
+  \draw[arr] (eval) -- (json);
+
+  % Tầng sản phẩm
+  \node[box] (fig) at ($(eval.south)+(-2.6,-1.7)$) {\code{make\_figures.py}\\hình vẽ báo cáo};
+  \node[box,right=0.6cm of fig] (hyp) {\code{check\_hypotheses.py}\\đối chiếu giả thuyết};
+  \node[box,right=0.6cm of hyp] (app) {\code{streamlit\_app.py}\\demo web};
+  \coordinate (jbus) at ($(json.south)+(0,-0.55)$);
+  \draw[arr] (json.south) -- (jbus) -| (hyp.north);
+  \draw[arr] (jbus) -| (fig.north);
+  \draw[arr] (ft.south) |- ($(app.north)+(0,0.8)$) -- (app.north);
+
+  % Luồng chính
+  \coordinate (dbus) at ($(tag.south)+(0,-0.7)$);
+  \draw[arr] (tag.south) -- (dbus) -| (ft.north);
+  \draw[arr] (dbus) -| (tfidf.north);
+  \draw[arr] (tfidf.south) |- (eval.west);
+  \draw[arr] (tqa.south) -- (tqa.south |- eval.north);
+
+  % Nền các tầng
+  \begin{scope}[on background layer]
+    \node[layer,fill=uitblue!4,fit=(hf)(tag)] (L1) {};
+    \node[layer,fill=orange!4,fit=(tfidf)(ft)(tqa)] (L2) {};
+    \node[layer,fill=okgreen!4,fit=(eval)(json)] (L3) {};
+    \node[layer,fill=black!4,fit=(fig)(app)] (L4) {};
+  \end{scope}
+  \node[lbl,text=uitblue]    at (L1.north west) {TẦNG DỮ LIỆU};
+  \node[lbl,text=warnorange] at (L2.north west) {TẦNG MÔ HÌNH --- giao diện chung \code{Predictor.predict(context, question)}};
+  \node[lbl,text=okgreen]    at (L3.north west) {TẦNG ĐÁNH GIÁ};
+  \node[lbl,text=black!70]   at (L4.north west) {TẦNG SẢN PHẨM};
+\end{tikzpicture}}
+\caption{Kiến trúc tổng thể của hệ thống. Ô viền đỏ là cổng kiểm tra làm dừng chương trình khi vi phạm}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Nguyên tắc thiết kế: bốn bất biến}
+\label{sec:invariants}
+
+Thiết kế của dự án là phản ứng trực tiếp với thất bại của phiên bản trước đó của chính
+đồ án này: một bản kiểm toán nội bộ phát hiện báo cáo cũ trình bày những con số chưa từng
+được sinh ra bởi bất kỳ lần chạy nào, và các con số mâu thuẫn giữa README, báo cáo và
+ứng dụng. Kết luận rút ra là đây không phải lỗi cẩu thả mà là \emph{lỗi kiến trúc}: không
+có thước đo đáng tin nào được xác lập trước khi có số để báo cáo. Vì vậy dự án mới đặt
+bốn bất biến; vi phạm bất kỳ bất biến nào đều làm test thất bại hoặc làm dừng chương
+trình (Bảng~\ref{tab:invariants}).
+
+\begin{table}[htbp]
+\centering
+\caption{Bốn bất biến của hệ thống và cơ chế thực thi}
+\label{tab:invariants}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}c l L L@{}}
+\toprule
+\textbf{\#} & \textbf{Bất biến} & \textbf{Phát biểu} & \textbf{Cơ chế thực thi} \\
+\midrule
+1 & Trích xuất & Mọi \code{predict()} trả về chuỗi con của \code{context} hoặc chuỗi rỗng & Test thuộc tính cho các bộ dự đoán; cắt chuỗi gốc theo offset, không dùng \code{decode()} \\
+2 & Không rò rỉ & Không đoạn văn nào xuất hiện ở cả hai split & \code{assert\_no\_leakage()} chạy trước khi huấn luyện, \emph{raise} khi vi phạm \\
+3 & Truy vết được & Mọi con số gắn với \code{commit}, \code{timestamp}, \code{device}, \code{split}, $n$ & Harness ghi các trường này vào mọi tệp kết quả \\
+4 & Có $n$ kèm số & Không bảng nào có số thiếu cỡ mẫu; nhóm $n < 30$ bị gắn cờ & Trường \code{count} và \code{unreliable} trong mọi breakdown \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Tầng dữ liệu}
+\label{sec:datalayer}
+
+\subsubsection{Phân biệt ba loại câu hỏi}
+
+Mỗi câu hỏi được biểu diễn bằng một đối tượng \code{Example} bất biến (frozen dataclass)
+gồm \code{qid}, \code{question}, \code{context}, \code{title}, \code{answers},
+\code{answer\_start} và \code{is\_impossible}. Điểm thiết kế quan trọng nhất là thuộc tính
+\code{is\_gradeable}, phân biệt ba trường hợp mà một cách cài đặt ngây thơ sẽ gộp làm một
+(Bảng~\ref{tab:gradeable}).
+
+\begin{table}[htbp]
+\centering
+\caption{Ba trường hợp nhãn và khả năng chấm điểm}
+\label{tab:gradeable}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}l c c L@{}}
+\toprule
+\textbf{Tình huống} & \textbf{Gold} & \textbf{Chấm được?} & \textbf{Đáp án đúng} \\
+\midrule
+Câu có đáp án & không rỗng & có & Chuỗi gold \\
+\code{is\_impossible = True} & rỗng & có & Chuỗi rỗng \\
+Gold rỗng, \code{is\_impossible = False} & rỗng & \textbf{không} & Không biết --- nhãn đã bị lược bỏ (blind split) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Trường hợp thứ ba chính là toàn bộ test split của UIT-ViQuAD~2.0 (Mục~\ref{sec:blind}).
+Nếu suy ra \code{is\_impossible} từ việc gold rỗng, cả 7.301 câu test sẽ bị coi là câu
+không có đáp án, và một mô hình \emph{luôn trả về chuỗi rỗng} sẽ đạt EM 100\% --- một con
+số trông hoàn toàn hợp lệ trong báo cáo. Hàm \code{assert\_gradeable()} được gọi ở đầu
+harness đánh giá và từ chối chấm một split như vậy.
+
+\subsubsection{Chống rò rỉ theo đoạn văn}
+
+Mỗi đoạn văn trong UIT-ViQuAD có nhiều câu hỏi. Nếu chia dữ liệu theo \emph{câu hỏi}, mô
+hình có thể được huấn luyện trên một số câu hỏi của một đoạn văn rồi được đánh giá trên
+các câu hỏi khác của chính đoạn văn đó --- rò rỉ theo nhóm (group leakage), cho kết quả
+cao giả tạo. Đơn vị chia và kiểm tra rò rỉ trong dự án là \textbf{đoạn văn}
+(\code{context}), không phải bài viết (\code{title}): tập train có 138 bài viết nhưng
+4.101 đoạn văn, và nhầm hai đơn vị này làm vô hiệu hoá chính cơ chế bảo vệ. Hàm
+\code{split\_by\_context()} cài đặt chia nhóm có seed (tương đương \code{GroupShuffleSplit}
+với nhóm là đoạn văn) cho trường hợp cần tự chia; với train/validation có sẵn,
+\code{assert\_no\_leakage()} kiểm tra giao của hai tập đoạn văn phải rỗng và được gọi trước
+khi bắt đầu mọi lần fine-tune.
+
+\subsubsection{Lấy mẫu con tái lập được và không thiên lệch}
+\label{sec:subset}
+
+Để giữ thời gian đánh giá trong tầm kiểm soát, các thực nghiệm dùng mẫu con 500 câu. Hàm
+\code{reproducible\_subset(examples, n, seed=42)} lấy mẫu \emph{ngẫu nhiên có seed} thay vì
+lấy $n$ câu đầu tệp. Lựa chọn này được đưa ra sau khi phát hiện một lỗi thực tế: câu hỏi
+trong tệp được sắp theo bài viết, nên $n$ câu đầu chỉ thuộc vài chủ đề. Cùng một checkpoint
+mBERT (epoch 2) cho \textbf{EM 42,00} trên 300 câu đầu tệp nhưng \textbf{EM 52,00} trên 300
+câu ngẫu nhiên --- chênh 10 điểm chỉ do cách lấy mẫu. Hàm này được dùng chung cho cả
+đường cong huấn luyện lẫn bảng kết quả cuối, nên hai nguồn số liệu so sánh được với nhau.
+
+\subsection{Chuẩn hoá và metric cho tiếng Việt}
+\label{sec:metric-design}
+
+Metric được cài đặt \emph{trước} mọi mô hình, theo nguyên tắc ``thước đo phải được kiểm
+chứng trước vật được đo'', và đạt độ phủ kiểm thử 100\%. Bộ đánh giá SQuAD gốc được điều
+chỉnh bằng ba quyết định, mỗi quyết định được ``ghim'' bằng test để người sau không vô
+tình ``sửa cho giống SQuAD'' (Bảng~\ref{tab:metric-decisions}).
+
+\begin{table}[htbp]
+\centering
+\caption{Ba quyết định chuẩn hoá đặc thù tiếng Việt}
+\label{tab:metric-decisions}
+\renewcommand{\arraystretch}{1.22}
+\small
+\begin{tabularx}{\textwidth}{@{}c l L L@{}}
+\toprule
+& \textbf{Quyết định} & \textbf{Lý do} & \textbf{Hành vi được test ghim} \\
+\midrule
+A & Không loại bỏ mạo từ & Tiếng Việt không có mạo từ; ``các'', ``những'', ``con'' là loại từ và có thể thuộc đáp án & ``các tỉnh'' giữ nguyên ``các'' sau chuẩn hoá \\
+B & Tách token theo khoảng trắng & Khớp cách đánh giá thông dụng của ViQuAD; không phụ thuộc và không nhiễm lỗi bộ tách từ & ``Hà Nội'' là 2 token \\
+C & Giữ dấu tiếng Việt & ``hoà'' $\ne$ ``hoa''; bỏ dấu làm sai EM hàng loạt & EM(``hoà'', ``hoa'') $= 0$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Hai chi tiết cài đặt khác cũng được test: dấu câu được nhận diện theo nhóm Unicode
+\code{P*} thay vì \code{string.punctuation}, để bắt được các ký tự như ``–'', ``“'', ``…''
+thường gặp trong Wikipedia; và F1 dùng \code{Counter} (đa tập) thay vì \code{set}, để token
+lặp được đếm đúng. Hàm tổng hợp \code{evaluate()} \emph{raise} \code{KeyError} nếu thiếu dự
+đoán cho bất kỳ câu nào: âm thầm bỏ qua câu thiếu sẽ khiến EM được tính trên tập con trong
+khi báo cáo ghi $n$ đầy đủ.
+
+\subsection{Baseline TF-IDF}
+\label{sec:baseline}
+
+Thuật toán~\ref{alg:tfidf} mô tả baseline. Hai chi tiết đáng chú ý. Thứ nhất, bộ tách
+câu dùng biểu thức chính quy \verb/(?<!\d)[.!?]+(?:\s+|$)/: dấu chấm đứng sau chữ số
+không kết thúc câu, tránh cắt ``8.5 triệu'' thành hai câu; dấu kết thúc câu được giữ lại
+để câu trả về vẫn là chuỗi con của đoạn văn (bất biến~1). Thứ hai, TF-IDF được
+\code{fit} trên chính các câu của đoạn văn cùng câu hỏi --- truy hồi trong tài liệu, không
+dùng kho văn bản ngoài, nên không có rò rỉ. N-gram $(1,2)$ giúp bắt các từ hai âm tiết như
+``thủ đô'', ``Hà Nội''.
+
+\begin{algorithm}[H]
+\caption{Baseline truy hồi câu bằng TF-IDF}
+\label{alg:tfidf}
+\KwIn{đoạn văn $C$, câu hỏi $Q$}
+\KwOut{một câu của $C$ (chuỗi con của $C$)}
+$\mathcal{S} \leftarrow \textsc{TáchCâu}(C)$\;
+\If{$|\mathcal{S}| = 0$}{\Return chuỗi rỗng\;}
+\If{$|\mathcal{S}| = 1$}{\Return $\mathcal{S}_1$\;}
+$M \leftarrow \textsc{TfidfVectorizer}(\text{ngram}=(1,2)).\textsc{fit\_transform}(\mathcal{S} \cup \{Q\})$\;
+$\mathbf{s} \leftarrow \cos(M_Q, M_{\mathcal{S}})$\tcp*{độ tương đồng với từng câu}
+\Return $\mathcal{S}_{\arg\max \mathbf{s}}$\;
+\end{algorithm}
+
+\subsection{Suy luận với mô hình Transformer}
+\label{sec:inference}
+
+\subsubsection{Quy trình}
+
+Lớp \code{TransformerQA} bọc \code{AutoModelForQuestionAnswering} thành một
+\code{Predictor}. Khi khởi tạo, lớp này \emph{từ chối} mọi mô hình không có fast tokenizer
+thay vì chạy rồi cho kết quả sai. Thuật toán~\ref{alg:infer} tóm tắt quy trình suy luận.
+
+\begin{algorithm}[H]
+\caption{Suy luận hỏi đáp trích xuất với cửa sổ trượt}
+\label{alg:infer}
+\KwIn{đoạn văn $C$, câu hỏi $Q$, mô hình $f$, \code{max\_length} $=384$, \code{doc\_stride} $=128$, $L_{\max}$, $\tau$}
+\KwOut{chuỗi con của $C$, hoặc chuỗi rỗng}
+$\mathcal{W} \leftarrow \textsc{MakeWindows}(Q, C)$\tcp*{offset tuyệt đối trong $C$}
+$\text{best} \leftarrow -\infty$;\quad $\text{span} \leftarrow \varnothing$\;
+\ForEach{cửa sổ $w \in \mathcal{W}$}{
+  $(S, E) \leftarrow f(w)$\;
+  $(i, j) \leftarrow$ span tốt nhất theo công thức~\eqref{eq:span}\;
+  \If{$S_i + E_j \le S_{\mathrm{CLS}} + E_{\mathrm{CLS}} + \tau$}{\Continue\tcp*{cửa sổ nói ``không có đáp án''}}
+  \If{$S_i + E_j > \text{best}$}{$\text{best} \leftarrow S_i + E_j$;\quad $\text{span} \leftarrow (w.\mathrm{start}_i,\, w.\mathrm{end}_j)$\;}
+}
+\If{$\text{span} = \varnothing$}{\Return chuỗi rỗng\;}
+\Return $C[\text{span}]$\tcp*{cắt chuỗi gốc, không dùng \code{decode()}}
+\end{algorithm}
+
+\subsubsection{Tự cài đặt cửa sổ trượt}
+\label{sec:window-bug}
+
+Cách thông thường để tạo cửa sổ là tham số \code{return\_overflowing\_tokens=True} của
+tokenizer. Trong quá trình kiểm thử, nhóm phát hiện rằng với phiên bản
+\code{transformers 5.17.0} được dùng, cơ chế này \textbf{chỉ sinh 2 cửa sổ} bất kể độ dài
+đoạn văn: đoạn văn 210, 420, 700 và 1.400 token đều sinh 2 cửa sổ, trong khi theo công
+thức~\eqref{eq:nwin} phải là 2, 5, 8 và 16. Phần đuôi đoạn văn bị cắt \emph{âm thầm} ---
+không ngoại lệ, không cảnh báo --- nên đáp án nằm cuối đoạn văn dài sẽ không bao giờ được
+tìm thấy khi suy luận, và không bao giờ được gán nhãn khi huấn luyện. Lỗi được phát hiện bởi
+test \code{test\_at\_least\_one\_window\_of\_long\_context\_finds\_the\_answer}.
+
+Dự án tự cài hàm \code{make\_windows()} (Hình~\ref{fig:windows}): tokenize đoạn văn một
+lần để lấy offset của từng token trong chuỗi gốc, cắt theo ngân sách token $B$ với bước
+$B - \texttt{doc\_stride}$, tokenize từng cặp (câu hỏi, đoạn cắt) với
+\code{truncation="only\_second"} để không bao giờ cắt câu hỏi, rồi \emph{dịch offset của
+đoạn cắt về hệ toạ độ của đoạn văn gốc}. Ở \code{max\_length} $=384$, ảnh hưởng thực tế trên
+tập validation là nhỏ (2 trên 557 đoạn văn cần nhiều hơn 2 cửa sổ), nhưng vì đây là lỗi
+đúng--sai âm thầm, nó được sửa tận gốc thay vì chấp nhận.
+
+\begin{figure}[htbp]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[font=\small,
+  win/.style={draw,rounded corners=2pt,minimum height=0.55cm,inner sep=2pt},
+  arr/.style={-{Latex[length=2mm]},black!60}]
+  \fill[black!6] (0,0) rectangle (14,0.6);
+  \draw[black!40] (0,0) rectangle (14,0.6);
+  \node at (7,0.3) {Đoạn văn gốc: $N$ token, mỗi token mang offset ký tự tuyệt đối};
+  \draw[decorate,decoration={brace,amplitude=4pt}] (0,0.75) -- (3.6,0.75) node[midway,above=4pt,font=\footnotesize] {bước $= B - \texttt{doc\_stride}$};
+  \node[win,draw=uitblue,fill=uitblue!10,minimum width=5.6cm,anchor=west] (w1) at (0,-0.75) {cửa sổ 1: \code{[CLS] Q [SEP]} đoạn $[0, B)$ \code{[SEP]}};
+  \node[win,draw=okgreen,fill=okgreen!10,minimum width=5.6cm,anchor=west] (w2) at (3.6,-1.5) {cửa sổ 2};
+  \node[win,draw=warnorange,fill=orange!10,minimum width=5.6cm,anchor=west] (w3) at (7.2,-2.25) {cửa sổ 3};
+  \node[win,draw=badred,fill=red!8,minimum width=3.2cm,anchor=west] (w4) at (10.8,-3.0) {cửa sổ 4 (phần đuôi)};
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror}] (3.6,-1.85) -- (5.6,-1.85) node[midway,below=4pt,font=\footnotesize] {chồng lấp $=$ \code{doc\_stride}};
+  \node[align=left,font=\footnotesize,text=badred,anchor=west] at (0,-3.05)
+     {\textbf{\code{return\_overflowing\_tokens}} (transformers 5.17.0):\\ dừng sau cửa sổ 2 $\Rightarrow$ cửa sổ 3, 4 bị bỏ \emph{âm thầm}};
+\end{tikzpicture}}
+\caption{Cửa sổ trượt tự cài đặt. Offset của mỗi cửa sổ được dịch về hệ toạ độ của đoạn văn gốc để cắt đáp án trực tiếp từ chuỗi gốc}
+\label{fig:windows}
+\end{figure}
+
+\subsubsection{Ba lỗi chọn span được chặn bằng test}
+
+Hàm thuần \code{select\_best\_span()} (công thức~\eqref{eq:span}--\eqref{eq:null}) được kiểm
+thử bằng logit tổng hợp, không cần tải mô hình. Các test chặn ba lỗi kinh điển không gây
+ngoại lệ: (i) span lấy từ vùng câu hỏi, (ii) span đảo ngược khi $\arg\max$ độc lập cho
+điểm đầu và điểm cuối, (iii) lấy lại chuỗi bằng \code{decode()} làm mất dấu. Hàm
+\code{decode\_span()} \emph{raise} khi offset không hợp lệ thay vì trả chuỗi rỗng, vì một
+span sai là lỗi cần sửa, không phải ``không tìm thấy đáp án''.
+
+\subsection{Fine-tuning}
+\label{sec:finetune}
+
+\subsubsection{Chuyển vị trí đáp án từ ký tự sang token}
+
+Hàm \code{prepare\_train\_features()} tạo các cửa sổ bằng cùng \code{make\_windows()} dùng khi
+suy luận, rồi với mỗi cửa sổ tìm cặp token bao trọn khoảng ký tự
+$[\text{answer\_start},\ \text{answer\_start} + |\text{answer}|)$. Nếu đáp án không nằm trọn
+trong cửa sổ, hoặc câu hỏi không có đáp án, nhãn được gán về \code{[CLS]}. Đây là chỗ sai
+âm thầm nguy hiểm nhất của toàn pipeline: nếu ánh xạ lệch, mô hình học nhãn sai mà
+\emph{loss vẫn giảm bình thường}. Vì vậy bất biến được kiểm thử không phải ``chạy không
+lỗi'', mà là \emph{giải mã ngược nhãn token phải ra đúng chuỗi đáp án vàng}.
+
+\subsubsection{Siêu tham số}
+
+Bảng~\ref{tab:hparams} liệt kê cấu hình fine-tune, lấy trực tiếp từ trường \code{config}
+trong tệp đường cong huấn luyện và nhật ký huấn luyện. Tốc độ học $3\cdot10^{-5}$ và 2 epoch
+là cấu hình thông dụng khi fine-tune mô hình họ BERT cho QA. ViSoBERT dùng tốc độ học, số
+epoch và $L_{\max}$ lớn hơn, sau quá trình chẩn đoán được trình bày ở
+Mục~\ref{sec:visobert-analysis}. Không có tìm kiếm siêu tham số có hệ thống.
+
+\begin{table}[htbp]
+\centering
+\caption{Cấu hình fine-tune (nguồn: \code{results/training\_curve\_*.json}, \code{results/finetune\_*.log})}
+\label{tab:hparams}
+\renewcommand{\arraystretch}{1.15}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}l r r l@{}}
+\toprule
+\textbf{Tham số} & \textbf{mBERT} & \textbf{ViSoBERT} & \textbf{Ghi chú} \\
+\midrule
+Dữ liệu huấn luyện & 28.454 câu & 28.454 câu & toàn bộ train \\
+Số feature (cửa sổ) & 30.540 & 40.984 & ViSoBERT phân mảnh nhiều hơn \\
+Số batch mỗi epoch & 2.545 & 3.416 & batch size 12 \\
+Số epoch & 2 & 3 & \\
+Tích luỹ gradient & 2 & 2 & batch hiệu dụng 24 \\
+Tốc độ học $\eta_{\max}$ & $3\cdot10^{-5}$ & $5\cdot10^{-5}$ & \\
+Warmup / weight decay & 0,1 / 0,01 & 0,1 / 0,01 & warmup theo tỉ lệ tổng số bước \\
+\code{max\_length} / \code{doc\_stride} & 384 / 128 & 384 / 128 & \\
+$L_{\max}$ (độ dài đáp án tối đa) & 30 & 64 & phụ thuộc tokenizer \\
+Cắt gradient & 1,0 & 1,0 & chuẩn L2 \\
+Đánh giá mỗi epoch & 300 câu & 300 câu & ngẫu nhiên, seed 42 \\
+Seed & 42 & 42 & \\
+Độ chính xác số & fp32 & fp32 & không dùng fp16 kiểu CUDA trên MPS \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Chọn epoch và chẩn đoán đường cong}
+
+Sau mỗi epoch, checkpoint được lưu và đánh giá trên 300 câu validation ngẫu nhiên (seed 42)
+bằng \emph{chính} pipeline suy luận dùng cho kết quả cuối. Epoch có F1 validation cao nhất
+được chọn làm mô hình cuối (hoà thì chọn epoch sớm hơn) --- chọn theo F1 chứ không theo
+loss, vì loss là đại lượng trên tập train. Toàn bộ logic ra quyết định nằm trong module
+\code{training.py} dưới dạng hàm thuần, được test trong vài mili-giây thay vì phải chạy một
+epoch 35 phút mới biết đúng sai:
+
+\begin{itemize}
+  \item \code{compute\_schedule()} tính số bước cập nhật theo đơn vị \emph{lần cập nhật}
+        (sau tích luỹ gradient), không phải theo batch.
+  \item \code{detect\_overfitting()} trả về ba tín hiệu: \emph{overfitting} (F1 validation
+        đạt đỉnh rồi giảm trong khi loss train vẫn giảm), \emph{still\_improving} (F1 vẫn
+        tăng ở epoch cuối --- thiếu epoch) và \emph{degenerate\_collapse}.
+  \item \emph{Degenerate collapse} được phát hiện khi $|\mathrm{EM} - \mathrm{F1}| \le 0{,}5$
+        ở mọi epoch. F1 cho điểm bán phần nên bình thường cao hơn EM; hai giá trị trùng nhau
+        nghĩa là mọi câu chỉ đúng hoàn toàn hoặc sai hoàn toàn --- dấu hiệu mô hình luôn trả
+        về chuỗi rỗng (Mục~\ref{sec:metrics-theory}).
+\end{itemize}
+
+\subsection{Lựa chọn mô hình như một thiết kế thí nghiệm}
+\label{sec:models}
+
+Bốn mô hình không được chọn để ``thử nhiều cho chắc'', mà để mỗi bước trong chuỗi trả lời
+một câu hỏi khoa học riêng (Bảng~\ref{tab:model-design}).
+
+\begin{table}[htbp]
+\centering
+\caption{Bốn mô hình và câu hỏi khoa học tương ứng}
+\label{tab:model-design}
+\renewcommand{\arraystretch}{1.22}
+\small
+\begin{tabularx}{\textwidth}{@{}l l c L@{}}
+\toprule
+\textbf{Mô hình} & \textbf{Checkpoint} & \textbf{Fine-tune} & \textbf{Câu hỏi khoa học} \\
+\midrule
+TF-IDF & --- & không & Bài toán có giải được bằng so khớp từ khoá thuần tuý? \\
+XLM-R & \code{deepset/xlm-roberta-base-squad2} & không & Chuyển giao từ SQuAD~2.0 tiếng Anh sang tiếng Việt được bao nhiêu? \\
+mBERT & \code{bert-base-multilingual-cased} & có & Fine-tune trên dữ liệu tiếng Việt trong miền thêm được bao nhiêu? \\
+ViSoBERT & \code{uitnlp/visobert} & có & Tiền huấn luyện chuyên tiếng Việt đóng góp bao nhiêu? \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Cần lưu ý rằng chuỗi này \emph{không} phải ablation thuần tuý: XLM-R và mBERT khác nhau
+đồng thời ở mô hình nền và ở dữ liệu fine-tune; mBERT và ViSoBERT khác nhau đồng thời ở
+ngôn ngữ, miền tiền huấn luyện, cỡ từ vựng và siêu tham số huấn luyện. Các kết luận ở
+Mục~\ref{sec:experiments} vì vậy được phát biểu ở mức ``cấu hình A so với cấu hình B'',
+không quy toàn bộ chênh lệch cho một yếu tố duy nhất.
+
+\subsubsection{Vì sao không dùng PhoBERT}
+\label{sec:phobert}
+
+Đề tài gợi ý ``PhoBERT encoder + QA head'', và kế hoạch ban đầu của nhóm dùng
+\code{vinai/phobert-base-v2}. Kiểm tra trực tiếp cho thấy điều này không khả thi với
+pipeline trích xuất dựa trên offset (Bảng~\ref{tab:phobert}).
+
+\begin{table}[htbp]
+\centering
+\caption{Kiểm tra các encoder tiếng Việt ứng viên}
+\label{tab:phobert}
+\renewcommand{\arraystretch}{1.18}
+\small
+\begin{tabularx}{\textwidth}{@{}l c c L@{}}
+\toprule
+\textbf{Checkpoint} & \textbf{Fast tokenizer} & \textbf{Offset mapping} & \textbf{Kết luận} \\
+\midrule
+\code{vinai/phobert-base} & \no & \no & Không dùng được cho trích xuất theo offset \\
+\code{vinai/phobert-base-v2} & \no & \no & Không dùng được cho trích xuất theo offset \\
+\code{nguyenvulebinh/vi-mrc-base} & --- & --- & Bị giới hạn truy cập (gated) trên HuggingFace \\
+\code{FPTAI/videberta-base} & --- & --- & Không tìm thấy model id \\
+\code{uitnlp/visobert} & \yes & \yes & \textbf{Được chọn} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Thiếu fast tokenizer là yếu tố chặn chứ không chỉ gây bất tiện: không có offset mapping thì
+cách duy nhất có sẵn để lấy lại chuỗi đáp án là \code{decode()}, vốn không bảo toàn dấu
+tiếng Việt và khoảng trắng gốc (Mục~\ref{sec:offsets}). PhoBERT còn yêu cầu đầu vào đã tách
+từ, làm việc ánh xạ ngược về đoạn văn thô càng phức tạp. Về nguyên tắc có thể tự xây bảng
+ánh xạ ký tự cho PhoBERT; nhóm đánh giá phần việc này vượt phạm vi thời gian của đồ án và
+ghi nhận nó ở hướng phát triển. ViSoBERT được chọn thay thế vì là encoder tiếng Việt của
+NLP@UIT --- nhóm công bố ViQuAD --- và có fast tokenizer. Hạn chế đã biết \emph{trước khi
+chạy}: ViSoBERT được tiền huấn luyện trên văn bản mạng xã hội, khác miền Wikipedia của
+ViQuAD.
+
+\subsection{Gán nhãn phục vụ phân tích}
+\label{sec:tagging}
+
+\paragraph{Độ dài đoạn văn.} Mỗi câu hỏi được xếp vào một trong bốn nhóm theo số \emph{từ}
+(tách theo khoảng trắng) của đoạn văn: \code{<100}, \code{100-200}, \code{200-300},
+\code{300+}; biên trên của mỗi nhóm là đóng (200 từ thuộc nhóm \code{100-200}).
+
+\paragraph{Phạm vi suy luận của câu hỏi.} UIT-ViQuAD \emph{không} cung cấp nhãn
+single-sentence/multi-sentence, nên nhóm tự suy ra bằng heuristic: tách đoạn văn thành câu;
+nếu tồn tại một câu đơn lẻ chứa ít nhất 60\% số token (âm tiết, không trùng lặp) của câu
+hỏi thì câu hỏi được gán \code{single-sentence}, ngược lại \code{multi-sentence}. Chỉ câu hỏi
+có đáp án được gán nhãn này, vì câu không có đáp án không có ``phạm vi bằng chứng'' để phân
+loại.
+
+\begin{warnbox}
+\textbf{Giới hạn của heuristic.} Nhãn \code{question\_type} là xấp xỉ, không phải nhãn vàng.
+Heuristic dựa trên \emph{độ trùng từ vựng}: một câu hỏi được diễn đạt lại bằng từ đồng nghĩa
+có thể bị gán \code{multi-sentence} dù bằng chứng nằm trong một câu. Vì các mô hình --- đặc
+biệt là TF-IDF --- cũng hưởng lợi từ độ trùng từ vựng, chênh lệch giữa hai nhóm phản ánh
+\emph{một phần} độ khó do ít trùng từ, không chỉ độ khó của suy luận nhiều câu. Ngưỡng 0,6
+được chọn theo quan sát và là một siêu tham số của heuristic.
+\end{warnbox}
+
+\subsection{Harness đánh giá và truy vết}
+\label{sec:harness}
+
+Hàm \code{run\_evaluation()} thực hiện theo thứ tự: kiểm tra \code{assert\_gradeable}; chạy bộ
+dự đoán trên từng câu và đo độ trễ thực bằng \code{time.perf\_counter}; tính metric; gán nhãn
+và tách nhóm; ghi kết quả. Mỗi tệp kết quả có cấu trúc như sau (trích từ
+\code{results/eval\_mbert\_validation.json}, lược bớt):
+
+\begin{lstlisting}
+{
+  "model": "mbert (fine-tuned)", "dataset": "UIT-ViQuAD 2.0",
+  "split": "validation", "n": 500,
+  "timestamp": "2026-09-12T14:03:03+00:00", "commit": "590e775", "device": "mps",
+  "env": {"torch": "2.14.0", "platform": "macOS-26.4.1-arm64-arm-64bit"},
+  "overall":         {"EM": 50.8,    "F1": 59.4886, "count": 500},
+  "answerable_only": {"EM": 54.5706, "F1": 66.6047, "count": 361},
+  "impossible_only": {"EM": 41.0072, "count": 139},
+  "avg_latency_ms": 12.264,
+  "by_context_length": {"300+": {"EM": 44.4444, "F1": 44.4444, "count": 9,
+                                 "unreliable": true}, ...},
+  "by_question_type":  {..., "_note": "Tổng của bảng này là 361 chứ không phải n=500 ..."},
+  "sample_predictions": [ ... 10 mẫu ... ]
+}
+\end{lstlisting}
+
+Hai cơ chế trong cấu trúc này nhắm vào lỗi trình bày: nhóm có $n < 30$ tự động mang cờ
+\code{unreliable: true}, và khi tổng của một bảng tách nhóm không bằng $n$ (vì câu không có
+đáp án bị loại khỏi phân tích loại câu hỏi), harness sinh trường \code{\_note} giải thích
+lý do.
+
+\subsection{Đăng ký giả thuyết trước khi chạy}
+\label{sec:prereg}
+
+Trước khi chạy bất kỳ đánh giá nào, nhóm ghi lại dự đoán định lượng và các ``tín hiệu báo
+động'' vào \code{results/hypotheses.md} (ngày 12/9/2026), với cam kết không sửa sau khi thấy
+kết quả. Mục đích là phòng vệ chống tự lừa mình: nếu không biết trước mình mong đợi gì, mọi
+con số đều trông hợp lý --- kể cả con số sai. Script \code{check\_hypotheses.py} đối chiếu tự
+động kết quả với các khoảng dự đoán lưu trong \code{results/hypotheses.json} và với các tín
+hiệu báo động (Bảng~\ref{tab:alarms}); kết quả đối chiếu được trình bày ở
+Mục~\ref{sec:hypothesis-check}.
+
+\begin{table}[htbp]
+\centering
+\caption{Các tín hiệu báo động được định nghĩa để điều tra thay vì ăn mừng}
+\label{tab:alarms}
+\renewcommand{\arraystretch}{1.18}
+\small
+\begin{tabularx}{\textwidth}{@{}L L@{}}
+\toprule
+\textbf{Quan sát} & \textbf{Nghi vấn cần điều tra} \\
+\midrule
+EM của TF-IDF $> 10\%$ & Lỗi metric hoặc rò rỉ dữ liệu \\
+EM của bất kỳ mô hình nào $> 85\%$ & Rò rỉ dữ liệu \\
+Mô hình fine-tune kém hơn zero-shot & Lỗi cấu hình huấn luyện: lệch nhãn, tốc độ học, fp16 trên MPS \\
+EM $\approx$ F1 (chênh $\le 0{,}5$) & Mô hình suy sụp về ``luôn trả rỗng'' \\
+EM $\approx$ tỉ lệ câu không có đáp án (chênh $\le 1{,}0$) & Mô hình chỉ ghi điểm nhờ đoán rỗng \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent Ba tín hiệu đầu được ghi trong \code{hypotheses.md} trước khi chạy. Tệp này cũng ghi
+trước một tín hiệu định tính: \emph{``điểm trên câu impossible $\approx$ 100\% mà answerable
+$\approx$ 0\% $\Rightarrow$ mô hình học luôn trả về rỗng''}. Hai tín hiệu cuối của bảng là dạng
+\emph{định lượng hoá} của tín hiệu đó, được bổ sung vào \code{hypotheses.json} sau khi quan
+sát đường cong huấn luyện của ViSoBERT; các khoảng dự đoán định lượng không bị thay đổi.
+
+\subsection{Kỹ thuật phần mềm và kiểm thử}
+\label{sec:testing}
+
+Mã nguồn được viết theo TDD qua 9 giai đoạn, bắt đầu từ metric và tầng dữ liệu, sau đó
+đến baseline, cửa sổ trượt, harness, fine-tuning, hình vẽ và demo. Test được đánh dấu
+\code{slow} khi cần tải tokenizer hoặc mô hình, để vòng lặp phát triển nhanh
+(\code{pytest -m "not slow"}) chạy trong khoảng 2 giây. Bộ test được kiểm chứng ngược bằng
+\emph{mutation testing}: cố tình phá mã nguồn và xác nhận có test thất bại, qua đó bịt các
+lỗ hổng kiểm thử (Bảng~\ref{tab:modules}).
+
+\begin{table}[htbp]
+\centering
+\caption{Module mã nguồn, số test và độ phủ (commit \code{c5b06ba})}
+\label{tab:modules}
+\renewcommand{\arraystretch}{1.12}
+\small
+\begin{tabularx}{\textwidth}{@{}l L r r@{}}
+\toprule
+\textbf{Module} & \textbf{Trách nhiệm} & \textbf{Số test (chậm)} & \textbf{Độ phủ$^\ast$} \\
+\midrule
+\code{normalize.py} & Chuẩn hoá chuỗi (quyết định A/B/C) & 15 & 100\% \\
+\code{metrics.py} & EM, F1, tổng hợp theo quy ước SQuAD~2.0 & 25 & 100\% \\
+\code{data.py} & Parse, chống rò rỉ, lấy mẫu con & 36 & 94\% \\
+\code{tagging.py} & Nhóm độ dài, loại câu hỏi & 12 & 97\% \\
+\code{baseline\_tfidf.py} & Baseline TF-IDF & 14 & 95\% \\
+\code{windowing.py} & Cửa sổ trượt, chọn span, xác suất & 43 (10) & 76\% \\
+\code{transformer\_qa.py} & Suy luận, bằng chứng cho quyết định & 26 (26) & 17\% \\
+\code{features.py} & Gán nhãn token cho huấn luyện & 15 (15) & 0\% \\
+\code{training.py} & Lịch học, chọn epoch, chẩn đoán & 34 & 94\% \\
+\code{evaluate.py} & Harness, breakdown, truy vết & 16 & 92\% \\
+\code{demo/} (6 module) & Logic ứng dụng web, tách khỏi Streamlit & 176 & --- \\
+\code{reporting/} & Sinh hình và bảng cho báo cáo & 29 & --- \\
+CLI / đóng gói & \code{test\_evaluation\_cli}, \code{test\_docker}, \code{test\_scripts} & 16 / 10 / 7 & --- \\
+\midrule
+\multicolumn{2}{@{}l}{\textbf{Tổng}: 423 test nhanh đều đạt; 51 test chậm cần tải mô hình} & \textbf{474 (51)} & \textbf{75\%} \\
+\bottomrule
+\end{tabularx}
+\par\vspace{3pt}
+{\footnotesize $^\ast$ Độ phủ đo khi chỉ chạy 423 test nhanh, phạm vi \code{src/mrc}. Module có test thuộc nhóm \code{slow} vì vậy có độ phủ \emph{đo được} thấp hơn phạm vi kiểm thử thực tế --- \code{transformer\_qa.py} có 26 test nhưng cả 26 đều cần tải mô hình thật. Hai thư mục \code{demo} và \code{reporting} nằm ngoài phạm vi đo nên không có số ở cột này.}
+\end{table}
+
+\subsection{Ứng dụng web}
+\label{sec:demo-design}
+
+Ứng dụng Streamlit \code{app/streamlit\_app.py} chỉ là lớp giao diện: logic nằm trong
+\code{demo/logic.py} (hàm \code{answer()} và \code{highlight()}), nhận bộ dự đoán qua tham số nên
+test được bằng đối tượng giả mà không cần chạy server hay tải mô hình. Người dùng chọn một
+trong ba mô hình Transformer (chỉ mô hình đã có trên máy mới hiện ra), nhập đoạn văn và câu
+hỏi, điều chỉnh ngưỡng $\tau$ trong khoảng $[-10, 10]$. Kết quả hiển thị đáp án, tô sáng vị
+trí đáp án trong đoạn văn và độ trễ suy luận; khi mô hình kết luận không có đáp án, ứng dụng
+giải thích rằng đây là hành vi hợp lệ với UIT-ViQuAD~2.0. Ảnh chụp giao diện được trình bày
+ở Mục~\ref{sec:demo}.

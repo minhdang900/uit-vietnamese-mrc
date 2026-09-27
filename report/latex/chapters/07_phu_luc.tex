@@ -1,0 +1,231 @@
+% ============================================================================
+\bigskip
+\appendix
+\renewcommand{\thesection}{\Alph{section}}
+\titleformat{\section}{\normalfont\Large\bfseries}{Phụ lục \thesection.}{0.6em}{}
+% ============================================================================
+
+\section{Hướng dẫn tái lập}
+\label{app:reproduce}
+
+Các lệnh dưới đây chạy từ thư mục gốc của kho mã \code{uit-vietnamese-mrc}. Mã nguồn nằm trong
+\code{src/} nhưng không được cài như một gói, nên \textbf{mọi script cần biến môi trường
+\code{PYTHONPATH=src}}; thiếu biến này, các script dừng với lỗi \code{ModuleNotFoundError}.
+
+\begin{lstlisting}[language=bash]
+# 0. Moi truong (Python >= 3.12; tren Apple Silicon PyTorch tu dung MPS)
+uv venv --python 3.12 .venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+export PYTHONPATH=src
+
+# 1. Tai du lieu -> data/raw/viquad2_{train,validation,test}.json
+python scripts/fetch_data.py
+
+# 2. Kiem thu nhanh (khong tai mo hinh, ~2 giay) va day du
+pytest -m "not slow"
+pytest --cov=mrc
+
+# 3. Fine-tune tren toan bo train (~35 phut/epoch voi mBERT tren M5 Pro)
+python scripts/finetune.py --model bert-base-multilingual-cased --out models/mbert
+python scripts/finetune.py --model uitnlp/visobert --out models/visobert \
+       --epochs 3 --lr 5e-5 --max-answer-len 64
+
+# 4. Danh gia tren cung mau 500 cau (seed 42); --full de chay ca 3.814 cau
+python scripts/run_eval.py --models baseline xlmr mbert visobert --limit 500
+
+# 5. Doi chieu gia thuyet va sinh hinh tu results/*.json
+python scripts/check_hypotheses.py
+python scripts/make_figures.py
+
+# 6. Ung dung web
+streamlit run app/streamlit_app.py
+\end{lstlisting}
+
+\paragraph{Tài liệu phân tích đi kèm.} Bản phân tích kết quả đầy đủ --- gồm bảng đối chiếu từng
+giả thuyết đăng ký trước, chẩn đoán lần huấn luyện ViSoBERT, phân rã chênh lệch theo nhóm câu,
+và toàn bộ bằng chứng kiểm định tính tái lập ở Phụ lục~\ref{app:repro-evidence} --- nằm ở
+\code{08\_PHAN\_TICH/PHAN\_TICH\_KET\_QUA.md} trong thư mục nộp. Tài liệu đó dẫn nguồn tới từng
+tệp trong \code{results/} cho mỗi con số, và là bản ghi chi tiết mà Chương~\ref{sec:experiments}
+tóm lược.
+
+Kết quả đánh giá được ghi vào \code{results/eval\_<mô hình>\_validation.json}; đường cong huấn luyện
+vào \code{results/training\_curve\_<mô hình>.json}; hình vẽ vào \code{results/figures/}. Các thống kê
+và hình bổ sung chỉ có trong báo cáo này (Bảng~\ref{tab:data-stats}, \ref{tab:wh},
+\ref{tab:decomp}, \ref{tab:tokenization}, các khoảng tin cậy, Hình~\ref{fig:dataset-composition},
+\ref{fig:length-dist}) được sinh bằng các script trong thư mục \code{evidence/} đi kèm báo cáo.
+
+\section{Bằng chứng tái lập và toàn vẹn gói nộp}
+\label{app:repro-evidence}
+
+Phụ lục này ghi lại bằng chứng \emph{đo được} cho các khẳng định về chất lượng kỹ thuật ở
+Mục~\ref{sec:testing}, thay vì khẳng định suông. Phụ lục~\ref{app:reproduce} nói \emph{cách} chạy
+lại; phụ lục này nói kết quả khi đã chạy lại thật. Mọi phép đo dưới đây được thực hiện trên gói nộp
+thật, ở commit \code{c9a6de9}.
+
+\subsection{Bộ kiểm thử chạy trong container}
+
+\begin{table}[htbp]
+\centering
+\caption{Kết quả kiểm thử và khởi động, đo trên gói nộp}
+\label{tab:repro-tests}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}L L l@{}}
+\toprule
+\textbf{Phép kiểm} & \textbf{Lệnh} & \textbf{Kết quả} \\
+\midrule
+Dựng ảnh & \code{docker compose build app} & \yes\ sạch, ảnh 2,49 GB \\
+Test nhanh & \code{docker compose run -{}-rm tests} & \yes\ \textbf{423 đạt}, 51 bỏ chọn, \textbf{0 bị bỏ qua} \\
+Test đầy đủ & \code{docker compose run -{}-rm tests-full} & \yes\ \textbf{474 đạt}, 0 hỏng, 0 bị bỏ qua \\
+Khởi động demo & \code{docker compose up -{}-wait app} & \yes\ healthy; cả 6 màn hình trả HTTP 200 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\noindent Chi tiết đáng chú ý là cột cuối: \textbf{không có test nào bị bỏ qua}. Hai test cấm gõ
+tay số đo (Mục~\ref{sec:testing}) đọc thư mục \code{report/} và hai tệp \code{slides/index.html},
+\code{slides/build\_deck.js} từ
+\emph{bên trong} container; nếu \code{.dockerignore} loại nhầm hai thư mục đó thì hai test này sẽ
+\emph{lặng lẽ bỏ qua} thay vì báo đỏ. Con số 0 bị bỏ qua vì vậy là bằng chứng rằng chúng đã thật
+sự chạy --- một test bị bỏ qua âm thầm không bảo vệ được gì.
+
+\subsection{Mô phỏng máy người chấm}
+
+Phép kiểm nghiêm nhất là xoá hẳn ảnh Docker khỏi máy rồi chạy gói đúng như người chấm sẽ chạy:
+
+\begin{lstlisting}[language=bash]
+docker image rm vietnamese-mrc:latest    # -> Deleted
+./run.sh test                            # -> Loaded image: vietnamese-mrc:latest
+                                         # -> 423 passed, 51 deselected
+\end{lstlisting}
+
+\noindent Gói \textbf{tự đứng được}: không cần mạng, không cần dựng lại ảnh, không cần Python
+trên máy chủ.
+
+\subsection{Demo và báo cáo có khớp nhau không}
+
+Đây là bất biến số một của dự án (Mục~\ref{sec:testing}): con số trên màn hình và con số trong báo
+cáo phải đến từ cùng một nguồn. Phép kiểm được thực hiện bằng suy luận thật trong container, chứ
+không bằng cách đọc lại tệp kết quả.
+
+\begin{table}[htbp]
+\centering
+\caption{Đối chiếu demo với báo cáo, và tính đơn điệu của ngưỡng từ chối $\tau$}
+\label{tab:repro-demo}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabular}{@{}l r@{}}
+\toprule
+\textbf{Phép đo} & \textbf{Kết quả} \\
+\midrule
+Tỉ lệ từ chối đo trực tiếp trong container (mBERT, $\tau = 0{,}0$) & 40\% (2/5 câu) \\
+\code{impossible\_EM} công bố ở Bảng~\ref{tab:ans-imp} & 41,01 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent Hai con số khớp nhau trong phạm vi cỡ mẫu của phép đo tại chỗ (5 câu): demo và báo cáo
+đang đọc cùng một thực tại. Quét tiếp ngưỡng $\tau$ trên chính 5 câu đó --- đúng thao tác mà tài
+liệu hướng dẫn đề nghị người chấm tự làm --- cho số câu bị từ chối là 2, 2, 3, 3, 5 tại
+$\tau = 0{,}0$; $0{,}5$; $1{,}0$; $1{,}5$; $3{,}0$: \textbf{đơn điệu tăng}, đúng như thiết kế ở
+Mục~\ref{sec:inference}. Biên độ \code{null\_delta} giữ nguyên giá trị $-2{,}371$ ở cả
+$\tau = 0{,}0$ lẫn $\tau = 1{,}5$, xác nhận rằng ngưỡng chỉ dịch ranh giới quyết định chứ không
+bóp méo điểm số của mô hình.
+
+\subsection{Tính toàn vẹn của gói nộp và của dữ liệu}
+
+\begin{table}[htbp]
+\centering
+\caption{Kiểm tra tính toàn vẹn của gói nộp và của các split dữ liệu}
+\label{tab:repro-integrity}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}L L@{}}
+\toprule
+\textbf{Hạng mục} & \textbf{Kết quả} \\
+\midrule
+Kích thước gói demo & 1,5 GB (ảnh nén 502 MB) \\
+Commit ghim trong \code{MANIFEST.txt} & \code{c9a6de9} \\
+Đối chiếu manifest & \yes\ 137 tệp liệt kê $=$ 137 tệp thực tế \\
+Kiểm tra nén & \yes\ \code{gzip -t} \\
+Rác lọt vào gói & \yes\ không (\code{.DS\_Store}, \code{\_\_pycache\_\_}, \code{.venv}, \code{.omc} đều sạch)$^\ast$ \\
+\midrule
+Đoạn văn dùng chung train $\cap$ validation & \yes\ \textbf{0} --- không có rò rỉ \\
+Đoạn văn dùng chung train $\cap$ test & 449 (không ảnh hưởng --- test là tập ẩn nhãn) \\
+Câu chấm được trong test split & 0 --- toàn bộ đáp án vàng rỗng (Mục~\ref{sec:blind}) \\
+\bottomrule
+\end{tabularx}
+\par\vspace{2pt}
+{\footnotesize $^\ast$ Phép đối chiếu manifest đáng chạy lại \emph{ngay trước khi nộp}: chỉ cần mở một
+terminal có công cụ ghi trạng thái vào thư mục gói là số tệp thực tế lệch khỏi manifest, dù nội
+dung nộp không đổi. Lệnh kiểm: so \code{find . -type f} với danh sách trong \code{MANIFEST.txt}.}
+\end{table}
+
+\noindent Dòng quan trọng nhất là \textbf{0 đoạn văn dùng chung giữa train và validation}. Đây là
+bằng chứng trực tiếp rằng mọi điểm số trong chương này không bị thổi phồng do rò rỉ theo nhóm
+(Mục~\ref{sec:datalayer}) --- và cũng là lý do mọi kết quả được báo cáo trên validation chứ không
+phải trên test.
+
+\section{Cấu trúc mã nguồn}
+\label{app:structure}
+
+\begin{lstlisting}
+uit-vietnamese-mrc/
+|-- src/
+|   |-- mrc/                  # thu vien loi, co kiem thu
+|   |   |-- normalize.py      #   chuan hoa chuoi (quyet dinh A/B/C)
+|   |   |-- metrics.py        #   EM, token-F1, tong hop SQuAD-2.0
+|   |   |-- data.py           #   Example, chong ro ri, assert_gradeable, lay mau con
+|   |   |-- tagging.py        #   nhom do dai, loai cau hoi (heuristic)
+|   |   |-- predictor.py      #   giao dien Predictor + do do tre
+|   |   |-- baseline_tfidf.py #   baseline TF-IDF + cosine
+|   |   |-- windowing.py      #   cua so truot tu cai, chon span, offset
+|   |   |-- transformer_qa.py #   suy luan voi lop QA
+|   |   |-- features.py       #   gan nhan token cho huan luyen
+|   |   |-- training.py       #   lich hoc, chon epoch, chan doan duong cong
+|   |   |-- evaluate.py       #   harness danh gia + provenance
+|   |   `-- device.py         #   chon MPS / CUDA / CPU
+|   |-- evaluation/           # logic dong lenh cua run_eval
+|   |-- reporting/            # sinh hinh ve tu results/*.json
+|   `-- demo/logic.py         # logic ung dung web, tach khoi Streamlit
+|-- scripts/                  # vo mong: fetch_data, finetune, run_eval,
+|                             #          make_figures, check_hypotheses
+|-- app/streamlit_app.py      # giao dien web
+|-- tests/                    # 474 test (51 danh dau slow)
+|-- results/                  # ket qua JSON, nhat ky, gia thuyet, hinh ve
+|-- docs/                     # SOLUTION.md, PLAN_TDD.md
+|-- requirements.txt          # phien ban thu vien duoc ghim
+`-- pyproject.toml
+\end{lstlisting}
+
+\section{Bảng truy vết số liệu}
+\label{app:trace}
+
+Bảng~\ref{tab:trace} ánh xạ các nhóm số liệu trong báo cáo về nguồn gốc của chúng, để người đọc
+có thể kiểm tra lại bất kỳ con số nào.
+
+\begin{table}[H]
+\centering
+\caption{Nguồn gốc các nhóm số liệu trong báo cáo}
+\label{tab:trace}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}L L@{}}
+\toprule
+\textbf{Số liệu} & \textbf{Nguồn} \\
+\midrule
+EM, F1, tách nhóm, độ trễ (Bảng~\ref{tab:main}, \ref{tab:ans-imp}, \ref{tab:qtype}, \ref{tab:length}, \ref{tab:cost}) & \code{results/eval\_*\_validation.json} \\
+Dự đoán mẫu (Bảng~\ref{tab:qualitative}) & Trường \code{sample\_predictions} của các tệp trên \\
+Đường cong huấn luyện, siêu tham số (Bảng~\ref{tab:curves}, \ref{tab:hparams}) & \code{results/training\_curve\_*.json}, \code{results/finetune\_*.log} \\
+Khoảng tin cậy, phân rã chênh lệch (Bảng~\ref{tab:decomp}) & \code{evidence/ci.py} $\to$ \code{evidence/confidence\_intervals.txt} \\
+Thống kê dữ liệu, từ để hỏi (Bảng~\ref{tab:data-stats}, \ref{tab:wh}) & \code{evidence/stats.py} $\to$ \code{evidence/data\_stats.json} \\
+Hình dữ liệu (Hình~\ref{fig:dataset-composition}, \ref{fig:length-dist}) & \code{evidence/figs.py} \\
+Giả thuyết (Bảng~\ref{tab:hyp-quant}) & \code{results/hypotheses.md}, \code{results/hypotheses.json}, \code{scripts/check\_hypotheses.py} \\
+Chẩn đoán ViSoBERT (Bảng~\ref{tab:confounds}, \ref{tab:threshold}) & Nhật ký commit \code{abb6d8f}, \code{c63b28c}, \code{388b0ba} \\
+Phân mảnh token, số tham số (Bảng~\ref{tab:tokenization}) & \code{evidence/tokenizer\_stats.txt}; tokenizer, \code{config.json} và tệp trọng số trong \code{models/} \\
+Số test, độ phủ (Bảng~\ref{tab:modules}) & \code{pytest} tại commit \code{c5b06ba} \\
+Hình kết quả (Hình~\ref{fig:model-comparison}, \ref{fig:ans-imp}, \ref{fig:qtype}, \ref{fig:length}, \ref{fig:curves}) & \code{scripts/make\_figures.py} $\to$ \code{results/figures/} \\
+Ảnh giao diện (Hình~\ref{fig:demo}) & Chụp từ ứng dụng chạy cục bộ với \code{models/mbert} \\
+\bottomrule
+\end{tabularx}
+\end{table}
