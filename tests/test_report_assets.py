@@ -254,12 +254,15 @@ def test_the_slide_deck_contains_no_hand_written_metrics():
 
     Dùng ``result_literals`` + bộ so khớp nguyên token (luật C7) thay vì
     ``metric_literals``: bắt cả CI, tỉ lệ nhãn null, latency… chứ không chỉ EM/F1
-    tổng. Ngoại lệ có lý do nằm trong ``tests/report_literal_allowlist.txt``.
+    tổng. Chỉ soi chữ người xem THẤY (chuỗi JS, nội dung thẻ HTML): số trần trong
+    mã là toạ độ dàn trang. Ngoại lệ có lý do nằm trong
+    ``tests/report_literal_allowlist.txt``.
     """
     from pathlib import Path
 
     from reporting.assets import result_literals
-    from reporting.literals import find_literals, load_allowlist, unallowed
+    from reporting.literals import (find_literals, load_allowlist, scannable_text,
+                                    unallowed)
 
     root = Path(__file__).resolve().parents[1]
     decks = [root / "slides" / "index.html", root / "slides" / "build_deck.js"]
@@ -271,7 +274,8 @@ def test_the_slide_deck_contains_no_hand_written_metrics():
     allow = load_allowlist(root / "tests" / "report_literal_allowlist.txt")
     for deck in decks:
         rel = deck.relative_to(root).as_posix()
-        hits = {rel: find_literals(deck.read_text(encoding="utf-8"), literals)}
+        text = scannable_text(deck, deck.read_text(encoding="utf-8"))
+        hits = {rel: find_literals(text, literals)}
         offenders = [f"{h.line}:{h.text} ({h.source})" for _, h in unallowed(hits, allow)[0]]
 
         assert not offenders, (

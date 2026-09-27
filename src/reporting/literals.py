@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 __all__ = ["Hit", "AllowEntry", "LiteralCollision", "MAX_ALLOWLIST",
-           "significant_digits", "variants", "normalise", "find_literals",
+           "significant_digits", "variants", "normalise", "find_literals", "scannable_text",
            "check_collisions", "load_allowlist", "unallowed"]
 
 MIN_SIGNIFICANT = 3
@@ -186,3 +186,100 @@ def unallowed(hits: Mapping[str, Iterable[Hit]], entries: Iterable[AllowEntry]
                 offenders.append((file, hit))
     stale = [e for e in entries if (e.file, e.literal) not in used]
     return offenders, stale
+
+
+# ── chỉ quét chữ người đọc THẤY ─────────────────────────────────────────────
+# Mã dựng deck đầy số dàn trang (``fontSize: 11.5``, ``card(…, 3.05)``) trùng
+# ngẫu nhiên với kết quả. Số người xem thấy nằm trong CHUỖI (JS) hoặc nội dung
+# thẻ (HTML); số trần trong mã là toạ độ. Phần bị bỏ được thay bằng khoảng trắng,
+# giữ nguyên xuống dòng, để số dòng trong thông báo lỗi vẫn đúng.
+
+_REGEX_BEFORE = set("(,=:[!&|?{};+-*%<>~^")
+
+
+def _blank(chunk: str) -> str:
+    return re.sub(r"[^\n]", " ", chunk)
+
+
+def _js_visible(src: str) -> str:
+    out: list[str] = []
+    i, n, prev = 0, len(src), ""
+    while i < n:
+        c = src[i]
+        if src.startswith("//", i) or src.startswith("/*", i):
+            if src[i + 1] == "/":
+                end = src.find("\n", i)
+            else:
+                end = src.find("*/", i + 2)
+                end = end + 2 if end >= 0 else -1
+            end = n if end < 0 else end
+            out.append(_blank(src[i:end]))
+            i = end
+        elif c in "\"'`":
+            j, depth, keep = i + 1, 0, [" "]
+            while j < n:
+                d = src[j]
+                if d == "\\":
+                    keep.append(" " if depth else src[j:j + 2])
+                    j += 2
+                    continue
+                if c == "`" and src.startswith("${", j) and depth == 0:
+                    depth, j = 1, j + 2
+                    keep.append("  ")
+                    continue
+                if depth:
+                    depth += {"{": 1, "}": -1}.get(d, 0)
+                    keep.append(d if d == "\n" else " ")
+                elif d == c or (d == "\n" and c != "`"):
+                    break
+                else:
+                    keep.append(d)
+                j += 1
+            keep.append(" " if j < n and src[j] != "\n" else "")
+            out.append("".join(keep))
+            i = j + 1 if j < n and src[j] != "\n" else j
+            prev = c
+        elif c == "/" and (prev in _REGEX_BEFORE or prev == ""):
+            j, in_class = i + 1, False
+            while j < n and src[j] != "\n":
+                if src[j] == "\\":
+                    j += 2
+                    continue
+                if src[j] == "[":
+                    in_class = True
+                elif src[j] == "]":
+                    in_class = False
+                elif src[j] == "/" and not in_class:
+                    break
+                j += 1
+            j += 1
+            while j < n and src[j].isalpha():
+                j += 1
+            out.append(_blank(src[i:j]))
+            i, prev = j, "/"
+        else:
+            out.append(c if c == "\n" else " ")
+            if not c.isspace():
+                prev = c
+            i += 1
+    return "".join(out)
+
+
+def _html_visible(src: str) -> str:
+    def script(m: re.Match) -> str:
+        return _blank(m.group(1)) + _js_visible(m.group(2)) + _blank(m.group(3))
+
+    src = re.sub(r"(<script\b[^>]*>)(.*?)(</script>)", script, src, flags=re.S | re.I)
+    src = re.sub(r"<style\b.*?</style>", lambda m: _blank(m.group()), src, flags=re.S | re.I)
+    return re.sub(r"<[^>]*>", lambda m: _blank(m.group()), src)
+
+
+def scannable_text(name: str | Path, text: str) -> str:
+    """Phần văn bản của ``name`` cần soi: chuỗi (``.js``), chữ hiển thị + chuỗi
+    trong ``<script>`` (``.html``), nguyên văn với mọi loại tệp khác."""
+    suffix = Path(name).suffix.lower()
+    if suffix in (".js", ".mjs", ".cjs"):
+        return _js_visible(text)
+    if suffix in (".html", ".htm"):
+        return _html_visible(text)
+    return text

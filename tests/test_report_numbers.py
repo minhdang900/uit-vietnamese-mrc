@@ -26,6 +26,7 @@ from reporting.literals import (
     find_literals,
     load_allowlist,
     normalise,
+    scannable_text,
     significant_digits,
     unallowed,
     variants,
@@ -398,7 +399,6 @@ def test_main_tex_inputs_numbers_before_the_document():
     assert main.index(r"\input{numbers}") < main.index(r"\begin{document}")
 
 
-@pytest.mark.xfail(strict=True, reason=WORDING_PENDING)
 def test_2_chapters_contain_no_result_literal():
     _assert_clean(CHAPTERS, result_literals(RESULTS))
 
@@ -435,7 +435,6 @@ def test_3b_flags_used_in_chapters_are_known():
     assert not unknown, unknown
 
 
-@pytest.mark.xfail(strict=True, reason=WORDING_PENDING)
 def test_4a_readme_results_table_is_generated():
     from reporting.assets import render_readme_table
 
@@ -655,3 +654,31 @@ def test_tex_layout_lengths_are_not_results(text):
 
 def test_a_value_next_to_a_word_is_still_caught():
     assert find_literals("chênh 1.15 điểm", {1.1523: "x"})
+
+
+# ── deck: chỉ chữ người xem thấy, không phải toạ độ dàn trang ───────────────
+
+def test_js_numbers_in_code_are_layout_but_strings_are_text():
+    src = ('card(s, M, 1.78, 6.1, 3.05, { size: 11.5 });\n'
+           'body(s, "EM đạt 50,80% — chênh 3,05", 1, 2);  // 50,80 trong chú thích\n'
+           "const t = `ViSoBERT ${fmt(3.05)} và 11,5M`; /* 11,5 */\n"
+           "const re = i.replace(/\\B(?=(\\d{3})+(?!\\d))/g, '.');\n")
+    text = scannable_text("deck.js", src)
+
+    assert text.count("\n") == src.count("\n"), "giữ nguyên số dòng cho thông báo lỗi"
+    hits = find_literals(text, {3.0512: "loss", 11.523: "emb", 50.8: "em"})
+    assert sorted((h.line, h.text) for h in hits) == [(2, "3,05"), (2, "50,80"), (3, "11,5")]
+
+
+def test_html_scans_visible_text_and_script_strings_not_css():
+    src = ('<style>\n.x{line-height:1.15;max-width:22ch}\n</style>\n'
+           '<p class="a" style="margin:1.15em">EM 1,15 điểm</p>\n'
+           '<script>\nconst w = 1.15; const s = "chênh 1,15";\n</script>\n')
+    text = scannable_text("index.html", src)
+
+    hits = find_literals(text, {1.1523: "x"})
+    assert [h.line for h in hits] == [4, 6]
+
+
+def test_other_files_are_scanned_verbatim():
+    assert scannable_text("README.md", "a 1.15 b") == "a 1.15 b"
