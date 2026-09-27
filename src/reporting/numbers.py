@@ -24,6 +24,7 @@ Hợp đồng ``results/stats_validation.json`` (``scripts/compute_stats.py``, P
                            "EM_wilson": [lo, hi],          # → <p>EMlo / <p>EMhi
                            "EM_cluster_ci": [lo, hi],      # → <p>EMclo / <p>EMchi
                            "F1_cluster_ci": [lo, hi],      # → <p>Foneclo / <p>Fonechi
+                           "icc_paragraph": float,         # ICC(1,1) EM theo đoạn → <p>ICC
                            "has_ans": {"n", "EM", "F1", "EM_wilson": [lo, hi]},
                            "no_ans": {"n", "EM", "EM_wilson": [lo, hi]}}},
      "pairs": [{"a", "b", "b01", "b10", "p_mcnemar",   # → <pair>P
@@ -78,7 +79,7 @@ class Spec:
     name: str
     source: str   # "hist:<run>" | "eval:<run>" | "file:<tên>.json" | "stats:<run>" | "pair:<a>:<b>" | "seeds:"
     path: str | Callable[[Any], Any]
-    fmt: str = "f2"                 # f2 | f1 | f4 | int | p | text
+    fmt: str = "f2"                 # f1 | f2 | f3 | f4 | int | p | text
     scale: float = 1.0
     required: bool = False
     flag: str | None = None         # cờ bọc chỗ dùng macro trong chương
@@ -261,6 +262,7 @@ def _stats() -> list[Spec]:
             ("NoAnsEMlo", "no_ans.EM_wilson[0]"), ("NoAnsEMhi", "no_ans.EM_wilson[1]"),
             ("EMclo", "EM_cluster_ci[0]"), ("EMchi", "EM_cluster_ci[1]"),
             ("Foneclo", "F1_cluster_ci[0]"), ("Fonechi", "F1_cluster_ci[1]"))]
+        out.append(Spec(prefix + "ICC", src, "icc_paragraph", "f3", flag=flag))
     for prefix, a, b, flag in _PAIRS:
         src = f"pair:{a}:{b}"
         out += [Spec(prefix + "P", src, "p_mcnemar", "p", flag=flag),
@@ -330,7 +332,7 @@ def fmt_vn(value: float, fmt: str) -> str:
     value = abs(value)
     if fmt == "int":
         return sign + f"{round(value):,}".replace(",", ".")
-    decimals = {"f4": 4, "f2": 2, "f1": 1}[fmt]
+    decimals = {"f4": 4, "f3": 3, "f2": 2, "f1": 1}[fmt]
     return sign + f"{value:.{decimals}f}".replace(".", "{,}")
 
 

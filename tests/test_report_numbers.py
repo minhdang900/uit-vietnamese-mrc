@@ -185,6 +185,7 @@ def test_vn_formatting():
     assert fmt_vn(50.8, "f2") == "50{,}80"
     assert fmt_vn(12.264, "f1") == "12{,}3"
     assert fmt_vn(1.296, "f4") == "1{,}2960"
+    assert fmt_vn(0.1234, "f3") == "0{,}123"
     assert fmt_vn(3814, "int") == "3.814"
     assert fmt_vn(15002, "int") == "15.002"
     assert fmt_vn(500, "int") == "500"
@@ -514,7 +515,7 @@ def make_stats(runs=("mbert", "xlmr"), pairs=(("mbert", "xlmr"),)):
     def run(em):
         return {"n": 3814, "EM": em, "F1": em + 8.0, "empty_rate": 30.0,
                 "EM_wilson": [em - 1.55, em + 1.61], "EM_cluster_ci": [em - 2.25, em + 2.35],
-                "F1_cluster_ci": [em + 5.75, em + 10.25],
+                "F1_cluster_ci": [em + 5.75, em + 10.25], "icc_paragraph": -0.0194,
                 "has_ans": {"n": 2640, "EM": 54.12, "F1": 66.3, "EM_wilson": [52.21, 56.02]},
                 "no_ans": {"n": 1174, "EM": 41.33, "EM_wilson": [38.55, 44.17]}}
     return {"split": "validation", "B": 10000, "seed": 0, "cluster": "paragraph_id",
@@ -536,6 +537,7 @@ def test_stats_file_maps_to_ci_and_mcnemar_macros(tmp_path):
     assert macros["mbertVoneNoAnsEMhi"] == "44{,}17"
     assert macros["mbertVoneEMclo"] == "48{,}25" and macros["mbertVoneEMchi"] == "52{,}85"
     assert macros["mbertVoneFoneclo"] == "56{,}25" and macros["mbertVoneFonechi"] == "60{,}75"
+    assert macros["mbertVoneICC"] == r"\ensuremath{-}0{,}019", "ICC: hệ số, 3 chữ số lẻ"
     assert macros["mbertVoneXlmrP"] == r"\ensuremath{<}0{,}001"
     assert macros["mbertVoneXlmrDiffEM"] == "9{,}87"
     assert macros["mbertVoneXlmrDiffEMclo"] == "7{,}65"
