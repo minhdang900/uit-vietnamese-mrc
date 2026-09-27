@@ -153,12 +153,12 @@ lớn câu hỏi yêu cầu một thực thể, khái niệm hoặc thuộc tín
 \toprule
 \textbf{Từ khoá} & \textbf{Số câu} & \textbf{\%} & \textbf{Từ khoá} & \textbf{Số câu} & \textbf{\%} \\
 \midrule
-gì & 1.156 & 30,3 & vì sao & 115 & 3,0 \\
-nào & 1.051 & 27,6 & khi nào & 93 & 2,4 \\
-ai & 347 & 9,1 & năm nào & 84 & 2,2 \\
-như thế nào & 315 & 8,3 & ở đâu & 80 & 2,1 \\
-bao nhiêu & 301 & 7,9 & tại sao & 80 & 2,1 \\
-không khớp từ khoá nào & 161 & 4,2 & mấy & 31 & 0,8 \\
+gì & 1.156 & 30,31 & vì sao & 115 & 3,02 \\
+nào & 1.051 & 27,56 & khi nào & 93 & 2,44 \\
+ai & 347 & 9,10 & năm nào & 84 & 2,20 \\
+như thế nào & 315 & 8,26 & ở đâu & 80 & 2,10 \\
+bao nhiêu & 301 & 7,89 & tại sao & 80 & 2,10 \\
+không khớp từ khoá nào & 161 & 4,22 & mấy & 31 & 0,81 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -270,7 +270,7 @@ mBERT (v2, dev) & \mbertEM & --- & --- & \mbertFone & --- & \mbertEmptyRate \\
 \bottomrule
 \end{tabular}
 \par\vspace{2pt}
-{\footnotesize \ifhasStats Khoảng Wilson 95\% coi câu hỏi độc lập; khoảng ``cụm đoạn văn'' là bootstrap lấy mẫu lại 557 đoạn văn (\code{results/stats\_validation.json}) và vẫn là cận dưới của độ bất định thật.\else $^\ast$ Khoảng tin cậy cho bản chấm đầy đủ chưa được tính (\code{scripts/compute\_stats.py}); cột Wilson tạm ghi khoảng của \emph{mẫu lịch sử} $n = \histN$ (Bảng~\ref{tab:hist-n500}), không phải của $n = \valN$.\fi}
+{\footnotesize \ifhasStats Khoảng Wilson 95\% coi câu hỏi độc lập; khoảng ``cụm đoạn văn'' là bootstrap lấy mẫu lại 557 đoạn văn (\code{results/stats\_validation.json}); hai khoảng gần như trùng nhau vì tương quan trong đoạn văn xấp xỉ 0. Tương quan ở mức 19 bài viết chưa được lượng hoá.\else $^\ast$ Khoảng tin cậy cho bản chấm đầy đủ chưa được tính (\code{scripts/compute\_stats.py}); cột Wilson tạm ghi khoảng của \emph{mẫu lịch sử} $n = \histN$ (Bảng~\ref{tab:hist-n500}), không phải của $n = \valN$.\fi}
 \end{table}
 
 \begin{table}[htbp]
@@ -368,13 +368,22 @@ số câu chỉ $b$ đúng / chỉ $a$ đúng):
 \end{itemize}
 \fi\fi
 
-\paragraph{Độ bất định: câu hỏi không độc lập.} Khoảng Wilson và McNemar đều coi các câu hỏi là
-độc lập. Thực tế chúng theo cụm: 3.814 câu validation đến từ 557 đoạn văn thuộc 19 bài viết (mẫu
-v1 $n = \histN$: \overlapHistContexts{} đoạn văn, \overlapHistArticles{} bài viết). Các câu cùng
-một đoạn văn thường cùng dễ hoặc cùng khó, nên khoảng tính theo giả định độc lập \emph{hẹp hơn
-thực tế}; đó là lý do báo cáo thêm khoảng bootstrap lấy mẫu lại theo đoạn văn. Ngay cả khoảng này
-vẫn lạc quan: 557 đoạn văn chỉ thuộc 19 bài viết, và bootstrap trên 19 cụm bài viết quá bất ổn
-để báo cáo, nên khoảng theo đoạn văn là \emph{cận dưới} của độ bất định thật.
+\paragraph{Độ bất định: câu hỏi có độc lập không?} Khoảng Wilson và McNemar đều coi các câu hỏi
+là độc lập, trong khi câu hỏi theo cụm: 3.814 câu validation đến từ 557 đoạn văn thuộc 19 bài viết
+(mẫu v1 $n = \histN$: \overlapHistContexts{} đoạn văn, \overlapHistArticles{} bài viết). Nếu các
+câu cùng một đoạn văn cùng dễ hoặc cùng khó, khoảng tính theo giả định độc lập sẽ hẹp hơn thực tế;
+vì vậy báo cáo thêm khoảng bootstrap lấy mẫu lại theo đoạn văn.
+\ifhasStats
+Đo trên dữ liệu, lo ngại này \emph{không} thành hiện thực ở mức đoạn văn: tương quan trong cụm
+đoạn văn của EM xấp xỉ bằng 0, và hai loại khoảng gần như trùng nhau --- với mBERT v1, khoảng
+Wilson là [\mbertVoneEMlo; \mbertVoneEMhi] còn khoảng bootstrap theo đoạn văn là
+[\mbertVoneEMclo; \mbertVoneEMchi]. Điều còn bỏ ngỏ là tương quan ở mức \emph{bài viết}: với chỉ 19
+bài viết, tương quan này không ước lượng tin cậy được và bootstrap trên 19 cụm quá bất ổn để báo
+cáo, nên độ bất định do chọn chủ đề bài viết chưa được lượng hoá.
+\else
+Ở mức bài viết, với chỉ 19 cụm, tương quan không ước lượng tin cậy được và bootstrap trên 19 cụm
+quá bất ổn để báo cáo; đây là giới hạn còn bỏ ngỏ.
+\fi
 
 \begin{figure}[htbp]
 \centering
