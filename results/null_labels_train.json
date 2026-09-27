@@ -1,0 +1,34 @@
+[
+ {
+  "model": "mbert",
+  "split": "train",
+  "max_length": 384,
+  "doc_stride": 128,
+  "commit": "36bff4f",
+  "timestamp": "2026-09-27T15:34:24+00:00",
+  "tokenizer_path": "models/mbert",
+  "questions": 28454,
+  "features": 30540,
+  "cls_impossible": 9909,
+  "cls_answer_outside": 1135,
+  "positive": 19496,
+  "null_frac": 36.16,
+  "q_multiwindow": 1884
+ },
+ {
+  "model": "visobert",
+  "split": "train",
+  "max_length": 384,
+  "doc_stride": 128,
+  "commit": "36bff4f",
+  "timestamp": "2026-09-27T15:34:24+00:00",
+  "tokenizer_path": "models/visobert",
+  "questions": 28454,
+  "features": 40984,
+  "cls_impossible": 13309,
+  "cls_answer_outside": 6895,
+  "positive": 20780,
+  "null_frac": 49.3,
+  "q_multiwindow": 10386
+ }
+]

@@ -1,0 +1,48 @@
+{
+ "mbert": {
+  "vocab_size": 119547,
+  "sample_sentence_tokens": 17,
+  "val_ctx_mean_tokens": 204.6,
+  "val_ctx_tokens_per_word": 1.22,
+  "val_ctx_over_357": 16,
+  "val_ctx_total": 557,
+  "questions_gt2_windows": 14,
+  "val_ctx_gt2_windows": 2,
+  "questions_gt2_windows_config": {
+   "max_length": 384,
+   "doc_stride": 128
+  },
+  "train_answers_sampled": 2698,
+  "train_answers_p95": 42,
+  "train_answers_over_30_pct": 12.0,
+  "total_params": 177264386,
+  "embedding_rows": 119547,
+  "hidden_size": 768,
+  "embedding_params": 91812096,
+  "encoder_body_params": 85057538
+ },
+ "visobert": {
+  "vocab_size": 15002,
+  "sample_sentence_tokens": 23,
+  "val_ctx_mean_tokens": 326.5,
+  "val_ctx_tokens_per_word": 1.95,
+  "val_ctx_over_357": 154,
+  "val_ctx_total": 557,
+  "questions_gt2_windows": 132,
+  "val_ctx_gt2_windows": 23,
+  "questions_gt2_windows_config": {
+   "max_length": 384,
+   "doc_stride": 128
+  },
+  "train_answers_sampled": 2698,
+  "train_answers_p95": 67,
+  "train_answers_over_30_pct": 27.8,
+  "total_params": 96976898,
+  "embedding_rows": 15004,
+  "hidden_size": 768,
+  "embedding_params": 11523072,
+  "encoder_body_params": 85057538
+ },
+ "commit": "896bc5e",
+ "timestamp": "2026-09-27T15:48:22+00:00"
+}

@@ -425,8 +425,12 @@ con số trông hợp lý.
 | XLM-R squad2 | 14,35 ms | — | |
 | ViSoBERT + QA | **22,73 ms** | — | Chậm nhất dù model **nhỏ nhất** |
 
-**ViSoBERT nhỏ hơn 45% về tham số (97,0 M so với 177,3 M) nhưng chậm hơn 85%.**
-Nguyên nhân không nằm ở model mà ở tokenizer: vocab 15.002 chia context validation
+**ViSoBERT có 97,0 M tham số so với 177,3 M của mBERT — nhưng chậm hơn 85%, dù
+"nhỏ hơn" hơn.** Khác biệt tham số này KHÔNG nằm ở khả năng suy luận: cả hai
+model dùng **cùng một thân encoder (~85,06 M tham số)**; toàn bộ chênh lệch nằm
+ở bảng embedding (91,81 M của mBERT so với 11,52 M của ViSoBERT — vocab nhỏ hơn
+thì bảng embedding nhỏ hơn, không phải encoder nông hơn). Nguyên nhân độ trễ
+không nằm ở model mà ở tokenizer: vocab 15.002 chia context validation
 thành **326,5 token trung bình** so với 204,6 của mBERT (1,95 so với 1,22
 token/từ). Nhiều token hơn ⇒ nhiều cửa sổ hơn ⇒ nhiều lần forward hơn. Ở ngưỡng
 357 token, **154/557 context** của ViSoBERT cần nhiều cửa sổ, so với 16/557 của

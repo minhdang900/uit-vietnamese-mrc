@@ -1,0 +1,25 @@
+{
+ "composition": {
+  "train": {
+   "answerable": 19238,
+   "impossible": 9216,
+   "blind": 0
+  },
+  "validation": {
+   "answerable": 2653,
+   "impossible": 1161,
+   "blind": 0
+  },
+  "test": {
+   "answerable": 0,
+   "impossible": 0,
+   "blind": 7301
+  }
+ },
+ "train_ctx_over_300": 239,
+ "train_ctx_total": 4101,
+ "train_answer_words_p95": 31,
+ "train_answers_total": 19238,
+ "commit": "36bff4f",
+ "timestamp": "2026-09-27T15:35:40+00:00"
+}

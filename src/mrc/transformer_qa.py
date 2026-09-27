@@ -9,10 +9,18 @@ Hai điều kiện bắt buộc, sai là hỏng âm thầm chứ không báo l�
 * **Fast tokenizer.** Chỉ nó có ``return_offsets_mapping``, thứ cần để map token
   span về ký tự trong context gốc. Không có nó, cách duy nhất lấy lại chuỗi là
   ``tokenizer.decode()`` — và decode **làm mất dấu tiếng Việt** (``"hoà"`` ->
-  ``"hoa"``), phá cả EM lẫn bất biến substring. PhoBERT rơi đúng vào trường hợp
-  này, nên lớp này TỪ CHỐI khởi tạo thay vì chạy rồi cho kết quả sai.
+  ``"hoa"``), phá cả EM lẫn bất biến substring. Model nào không có fast tokenizer
+  thì lớp này TỪ CHỐI khởi tạo thay vì chạy rồi cho kết quả sai. PhoBERT chỉ có
+  bản chậm qua ``AutoTokenizer``, nhưng ``tokenizer.json`` của nó bọc được thành
+  bản nhanh (:func:`mrc.tokenization.load_fast_tokenizer`).
 * **Windowing tự cài.** transformers 5.17 giới hạn ``return_overflowing_tokens`` ở
   2 window bất kể context dài bao nhiêu, cắt mất phần đuôi mà không cảnh báo.
+
+Quyết định rỗng là quyết định trên TOÀN BỘ cửa sổ: đáp án chỉ rỗng khi MỌI cửa sổ
+đều nghiêng về null; chỉ cần một cửa sổ vượt ngưỡng là model trả lời. Hệ quả: lúc
+suy luận, context càng bị cắt thành nhiều cửa sổ (``max_length`` nhỏ, tokenizer
+sinh nhiều token) thì càng ÍT đáp án rỗng — ngược chiều với lúc huấn luyện, nơi
+nhiều cửa sổ hơn nghĩa là nhiều nhãn null hơn.
 """
 
 from __future__ import annotations
@@ -43,7 +51,9 @@ class TransformerQA(TimedPredictorMixin):
         name: str | None = None,
     ) -> None:
         import torch
-        from transformers import AutoModelForQuestionAnswering, AutoTokenizer
+        from transformers import AutoModelForQuestionAnswering
+
+        from mrc.tokenization import load_fast_tokenizer
 
         self.model_name = model_name
         self.max_length = max_length
@@ -54,15 +64,8 @@ class TransformerQA(TimedPredictorMixin):
         self.name = name or model_name
         self._torch = torch
 
-        tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-        if not getattr(tokenizer, "is_fast", False):
-            raise RuntimeError(
-                f"{model_name}: không có fast tokenizer ⇒ không có offset_mapping ⇒ "
-                "không map được token span về ký tự gốc. Cách thay thế duy nhất là "
-                "tokenizer.decode(), nhưng decode làm mất dấu tiếng Việt. "
-                "Không dùng được model này cho extractive QA."
-            )
-        self.tokenizer = tokenizer
+        # Raise nếu không có đường nào ra fast tokenizer (xem mrc.tokenization).
+        self.tokenizer = load_fast_tokenizer(model_name)
 
         self.model = AutoModelForQuestionAnswering.from_pretrained(model_name)
         self.model.to(self.device)
@@ -111,6 +114,13 @@ class TransformerQA(TimedPredictorMixin):
             ``top_k``
                 ``[{"text", "score", "prob"}]`` — các span xếp sau span thắng cuộc,
                 giảm dần theo điểm.
+            ``windows``
+                Một bản ghi cho MỖI cửa sổ, đúng thứ tự gốc, TRƯỚC ngưỡng:
+                ``{"best_score", "null_score", "start_char", "end_char", "text"}``,
+                hoặc ``{"skipped": True}`` cho cửa sổ không có ứng viên.
+                ``null_score`` là ``None`` khi cửa sổ không có ``[CLS]``. Đủ để
+                :func:`mrc.threshold.replay` tái hiện chính xác quyết định ở mọi
+                ``null_threshold`` mà không chạy lại model.
 
         Note:
             Với context nhiều cửa sổ, ``null_delta`` lấy GIÁ TRỊ NHỎ NHẤT trên các
@@ -120,7 +130,7 @@ class TransformerQA(TimedPredictorMixin):
         """
         empty: dict = {
             "answer": "", "span": None, "found": False, "null_delta": None,
-            "start_prob": None, "end_prob": None, "top_k": [],
+            "start_prob": None, "end_prob": None, "top_k": [], "windows": [],
         }
         if not context or not context.strip():
             return empty
@@ -132,6 +142,7 @@ class TransformerQA(TimedPredictorMixin):
 
         best_score, best_span, best_scores = float("-inf"), None, None
         evidence, evidence_delta = None, None
+        records: list[dict] = []
 
         for window in windows:
             start_logits, end_logits = self._score_window(window)
@@ -140,7 +151,15 @@ class TransformerQA(TimedPredictorMixin):
                 max_answer_len=self.max_answer_len, top_k=top_k,
             )
             if scores is None or scores.best is None:
+                records.append({"skipped": True})
                 continue
+            records.append({
+                "best_score": scores.best.score,
+                "null_score": scores.null_score,
+                "start_char": scores.best.start_char,
+                "end_char": scores.best.end_char,
+                "text": decode_span(context, scores.best.start_char, scores.best.end_char),
+            })
 
             # Cửa sổ tự tin nhất, kể cả khi nó từ chối: thanh đo của demo vẫn phải
             # hiện biên độ để người xem thấy mình đang cách ranh giới bao xa.
@@ -171,6 +190,7 @@ class TransformerQA(TimedPredictorMixin):
                 }
                 for s in (shown.candidates[1:] if shown else ())
             ],
+            "windows": records,
         }
 
         if best_span is None:

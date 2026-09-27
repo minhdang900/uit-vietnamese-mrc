@@ -11,7 +11,9 @@ import json
 import pytest
 
 from reporting.figures import (
+    FIGURE_RUNS,
     collect_results,
+    figure_results,
     format_results_table,
     order_length_buckets,
     unreliable_groups,
@@ -102,3 +104,44 @@ def test_results_table_includes_n_with_every_row(tmp_path):
 def test_results_table_separates_answerable_from_impossible(tmp_path):
     row = format_results_table([_result("a", 10, 20)])[0]
     assert "answerable_EM" in row and "impossible_EM" in row
+
+
+# ── run nào được vẽ (FIGURE_RUNS) ────────────────────────────────────
+def _write(results, name, em, **extra):
+    data = {**_result(name, em, em + 5), **extra}
+    (results / f"eval_{name}_validation.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def test_figures_plot_only_whitelisted_runs(tmp_path):
+    """Cộng thêm eval_*.json (run seed, run lạ) không được lặng lẽ chui vào hình."""
+    for name, em in (("baseline", 1.0), ("xlmr", 40.0), ("mbert", 50.0),
+                     ("visobert", 27.0), ("mbert-dev-s43", 49.0), ("scratch", 99.0)):
+        _write(tmp_path, name, em)
+
+    runs = [r["_run_id"] for r in figure_results(tmp_path)]
+
+    assert runs == ["baseline", "visobert", "xlmr", "mbert"], "chỉ run trong whitelist, EM tăng dần"
+
+
+def test_run_id_field_wins_over_the_filename(tmp_path):
+    _write(tmp_path, "renamed", 30.0, run_id="xlmr")
+
+    assert [r["_run_id"] for r in figure_results(tmp_path)] == ["xlmr"]
+
+
+def test_dev_selected_runs_replace_their_v1_counterparts(tmp_path):
+    """Có ``mbert-dev`` thì hình tiêu đề vẽ nó, không vẽ thêm ``mbert`` v1 (D2)."""
+    for name, em in (("mbert", 50.0), ("mbert-dev", 55.0), ("visobert", 27.0),
+                     ("empty", 28.0)):
+        _write(tmp_path, name, em)
+
+    runs = [r["_run_id"] for r in figure_results(tmp_path)]
+
+    assert runs == ["visobert", "empty", "mbert-dev"]
+    assert "empty" in FIGURE_RUNS, "N7: baseline luôn-trả-rỗng thuộc bảng/hình tiêu đề"
+
+
+def test_figure_results_fails_loudly_when_no_whitelisted_run(tmp_path):
+    _write(tmp_path, "scratch", 10.0)
+    with pytest.raises(FileNotFoundError, match="FIGURE_RUNS"):
+        figure_results(tmp_path)

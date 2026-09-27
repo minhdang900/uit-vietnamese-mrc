@@ -65,5 +65,609 @@
       "tolerance": 1.0,
       "meaning": "EM xap xi ti le impossible cua tap ⇒ model khong tra loi duoc cau nao, chi an diem tu viec doan rong. Quan sat duoc o ViSoBERT: EM 25.67 tren tap co 25.67% impossible."
     }
+  },
+  "registrations": {
+    "P3": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P3 (dev split). Commit riêng TRƯỚC khi chạy. Không sửa sau khi thấy kết quả.",
+      "run_ids": [
+        "mbert-dev",
+        "visobert-dev"
+      ],
+      "dev_split": {
+        "function": "split_by_context",
+        "group": "title",
+        "dev_frac": 0.1,
+        "dev_seed": 42,
+        "expected_from_code": {
+          "articles": 13,
+          "contexts": 515,
+          "questions": 3420,
+          "impossible": 1109
+        },
+        "reseed_forbidden": true,
+        "deviation": "D3: đặc tả AC-4 ghi split_by_context() (mặc định theo context); dùng group='title' vì validation không chung article nào với train."
+      },
+      "training": {
+        "mbert-dev": {
+          "model": "bert-base-multilingual-cased",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 384,
+          "doc_stride": 128,
+          "max_answer_len": 30,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        },
+        "visobert-dev": {
+          "model": "uitnlp/visobert",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 384,
+          "doc_stride": 128,
+          "max_answer_len": 64,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        }
+      },
+      "selection": {
+        "on": "dev",
+        "joint": "epoch x tau",
+        "criterion": "F1",
+        "tau_grid": {
+          "lo": -5.0,
+          "hi": 5.0,
+          "step": 0.25
+        },
+        "tie_rule": "earlier epoch, then smallest |tau|, then smaller tau",
+        "headline": "evaluated once on full validation (3814)"
+      },
+      "collapse_definition": "empty_prediction_rate >= 90 OR HasAns EM < 15 (full validation, selected tau)",
+      "bands": {
+        "mbert-dev": {
+          "EM": [
+            47,
+            58
+          ],
+          "F1": [
+            56,
+            68
+          ]
+        },
+        "visobert-dev": {
+          "EM": [
+            25,
+            38
+          ],
+          "F1": [
+            27,
+            42
+          ],
+          "HasAns_EM": [
+            0,
+            15
+          ],
+          "empty_rate": [
+            50,
+            100
+          ]
+        }
+      },
+      "predictions": [
+        {
+          "id": "mbert-dev-near-v1",
+          "run_id": "mbert-dev",
+          "claim": "EM của mbert-dev nằm trong ±3 điểm EM của checkpoint v1 mbert trên validation đầy đủ",
+          "expected": true,
+          "gate": {
+            "metric": "EM",
+            "op": "abs_le",
+            "ref_run": "mbert",
+            "value": 3
+          }
+        },
+        {
+          "id": "visobert-dev-still-collapses",
+          "run_id": "visobert-dev",
+          "claim": "visobert-dev (lr 3e-5) VẪN suy sụp: tỉ lệ rỗng >= 90% hoặc HasAns EM < 15",
+          "expected": true,
+          "gate": {
+            "any": [
+              {
+                "metric": "empty_rate",
+                "op": ">=",
+                "value": 90
+              },
+              {
+                "metric": "HasAns_EM",
+                "op": "<",
+                "value": 15
+              }
+            ]
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "leakage": {
+          "kind": "enforced_in_finetune",
+          "meaning": "assert_no_leakage (train/dev, train/val, dev/val) thất bại ⇒ run dừng trước khi huấn luyện"
+        }
+      }
+    },
+    "P4": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P4. Commit riêng TRƯỚC khi có kết quả visobert-dev trên validation. Không sửa sau khi thấy kết quả.",
+      "run_ids": [
+        "visobert-len512"
+      ],
+      "control": "visobert-dev",
+      "variable": {
+        "max_length": [
+          384,
+          512
+        ]
+      },
+      "training": {
+        "visobert-len512": {
+          "model": "uitnlp/visobert",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 512,
+          "doc_stride": 128,
+          "max_answer_len": 64,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2,
+          "oom_fallback": {
+            "batch_size": 6,
+            "grad_accum": 4,
+            "rule": "chỉ khi smoke 512 OOM; ghi sai khác bằng commit mới TRƯỚC khi chạy thật"
+          }
+        }
+      },
+      "dev_split": "như P3 (title, 0.1, seed 42)",
+      "selection": "như P3 (joint epoch x tau trên dev F1, lưới [-5,5] bước 0.25)",
+      "mechanism_inputs": {
+        "source": "scripts/null_labels.py --models visobert --doc-stride 128, toàn bộ train (28454 câu), commit 896bc5e, chỉ tokenizer",
+        "visobert_384": {
+          "features": 40984,
+          "null_frac": 49.3,
+          "cls_answer_outside": 6895,
+          "q_multiwindow": 10386
+        },
+        "visobert_512": {
+          "features": 32292,
+          "null_frac": 39.33,
+          "cls_answer_outside": 2241,
+          "q_multiwindow": 3573
+        },
+        "mbert_384_reference": {
+          "features": 30540,
+          "null_frac": 36.16,
+          "cls_answer_outside": 1135,
+          "q_multiwindow": 1884
+        }
+      },
+      "anchors": {
+        "visobert_v1_full_val_HasAns_EM": 8.29,
+        "visobert_v1_n500_HasAns_EM": 6.93,
+        "absolute_threshold_note": "16.93 = 6.93 (n=500, đặc tả) + 10, giữ nguyên như đặc tả; cổng quyết định là so với đối chứng visobert-dev"
+      },
+      "branching": "nhánh chọn CƠ HỌC theo định nghĩa suy sụp của P3 áp lên eval visobert-dev: then = đối chứng vẫn suy sụp (phép thử quyết định), else = đối chứng hết suy sụp (phát hiện chính là nhiễu lr; P4 đo hiệu ứng phụ)",
+      "predictions": [
+        {
+          "id": "visobert-len512-window-hypothesis",
+          "run_id": "visobert-len512",
+          "expected": true,
+          "claim": "Riêng max_length 512 gỡ suy sụp (nhánh A: 4 điều kiện) / cải thiện HasAns (nhánh B: ΔHasAns ≥ +3 và McNemar HasAns một phía p<0.01)",
+          "gate": {
+            "if": {
+              "run": "visobert-dev",
+              "any": [
+                {
+                  "metric": "empty_rate",
+                  "op": ">=",
+                  "value": 90
+                },
+                {
+                  "metric": "HasAns_EM",
+                  "op": "<",
+                  "value": 15
+                }
+              ]
+            },
+            "then": {
+              "all": [
+                {
+                  "kind": "delta",
+                  "metric": "answerable_only.EM",
+                  "vs": "visobert-dev",
+                  "op": ">=",
+                  "value": 10.0
+                },
+                {
+                  "kind": "delta",
+                  "metric": "empty_prediction_rate",
+                  "vs": "visobert-dev",
+                  "op": "<=",
+                  "value": -30.0
+                },
+                {
+                  "kind": "abs",
+                  "metric": "empty_prediction_rate",
+                  "op": "<",
+                  "value": 65.0
+                },
+                {
+                  "kind": "abs",
+                  "metric": "answerable_only.EM",
+                  "op": ">",
+                  "value": 16.93
+                },
+                {
+                  "kind": "mcnemar",
+                  "subset": "has_ans",
+                  "vs": "visobert-dev",
+                  "alternative": "greater",
+                  "direction": "b10>b01",
+                  "alpha": 0.01
+                }
+              ]
+            },
+            "else": {
+              "all": [
+                {
+                  "kind": "delta",
+                  "metric": "answerable_only.EM",
+                  "vs": "visobert-dev",
+                  "op": ">=",
+                  "value": 3.0
+                },
+                {
+                  "kind": "mcnemar",
+                  "subset": "has_ans",
+                  "vs": "visobert-dev",
+                  "alternative": "greater",
+                  "direction": "b10>b01",
+                  "alpha": 0.01
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "suspiciously_good": {
+          "kind": "gate",
+          "meaning": "EM(visobert-len512) > EM(mbert-dev) + 10 ⇒ đáng ngờ, nghi leakage/bug",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": ">",
+            "value": 10
+          }
+        },
+        "oom_fallback_batch": {
+          "kind": "config_differs",
+          "key": "batch_size",
+          "expected": 12,
+          "meaning": "đã dùng phương án OOM — phải có commit ghi sai khác trước khi chạy"
+        },
+        "oom_fallback_accum": {
+          "kind": "config_differs",
+          "key": "grad_accum",
+          "expected": 2,
+          "meaning": "đã dùng phương án OOM — phải có commit ghi sai khác trước khi chạy"
+        }
+      }
+    },
+    "P5": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P5. Commit riêng TRƯỚC khi chạy. Headline vẫn là mbert-dev (seed 42) bất kể kết quả seed; seed 43/44 chỉ để đo độ dao động, không bao giờ để chọn seed tốt nhất.",
+      "run_ids": [
+        "mbert-dev-s43",
+        "mbert-dev-s44"
+      ],
+      "training": {
+        "mbert-dev-s43": {
+          "same_as": "mbert-dev",
+          "seed": 43,
+          "dev_seed": 42
+        },
+        "mbert-dev-s44": {
+          "same_as": "mbert-dev",
+          "seed": 44,
+          "dev_seed": 42
+        }
+      },
+      "headline": "mbert-dev",
+      "nondeterminism_note": "MPS không tất định; dao động giữa các lần chạy là một phần của đại lượng được đo",
+      "predictions": [
+        {
+          "id": "mbert-seed-std",
+          "run_id": "mbert-dev-s44",
+          "expected": true,
+          "claim": "std mẫu (ddof=1) của EM validation đầy đủ qua mbert-dev, s43, s44 <= 1.5",
+          "gate": {
+            "kind": "seed_std",
+            "runs": [
+              "mbert-dev",
+              "mbert-dev-s43",
+              "mbert-dev-s44"
+            ],
+            "metric": "overall.EM",
+            "op": "<=",
+            "value": 1.5
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "seed_far_from_headline": {
+          "kind": "gate",
+          "meaning": "một seed lệch EM so với mbert-dev > 5 ⇒ nghi bug/bất ổn",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": "abs_gt",
+            "value": 5
+          }
+        }
+      }
+    },
+    "P6": {
+      "registered_utc": "2026-09-27",
+      "note": "Đăng ký v2 — P6. Commit riêng TRƯỚC khi chạy phobert-dev. Không sửa sau khi thấy kết quả.",
+      "run_ids": [
+        "phobert-dev"
+      ],
+      "entry_gate": {
+        "source": "results/roundtrip_train.json (commit 3c1af71)",
+        "rule": "phobert normalized >= 99 AND mbert - phobert <= 0.5",
+        "measured": {
+          "phobert": {
+            "exact": 75.2,
+            "normalized": 99.303
+          },
+          "mbert": {
+            "exact": 99.366,
+            "normalized": 99.47
+          },
+          "visobert": {
+            "exact": 92.936,
+            "normalized": 99.574
+          }
+        },
+        "gap": 0.167,
+        "passed": true,
+        "decided_by": "người dùng (thay cổng 100% chính xác của kế hoạch)"
+      },
+      "training": {
+        "phobert-dev": {
+          "model": "vinai/phobert-base-v2",
+          "lr": 3e-05,
+          "epochs": 3,
+          "max_length": 256,
+          "doc_stride": 64,
+          "max_answer_len": 30,
+          "seed": 42,
+          "batch_size": 12,
+          "grad_accum": 2
+        }
+      },
+      "dev_split": "như P3 (title, 0.1, seed 42)",
+      "selection": "như P3 (joint epoch x tau trên dev F1, lưới [-5,5] bước 0.25)",
+      "handicaps": {
+        "window": "max_position_embeddings=258 ⇒ max_length 256; doc_stride 128 → 64 (sai khác bắt buộc)",
+        "segmentation": "pretrain trên văn bản tách từ (VnCoreNLP); ở đây âm tiết thô",
+        "tokenizer_parity": "fast wrapper vs slow: id khác ở 69/4101 context, 80/3000 cặp (mẩu BPE hiếm -> <unk> ở bản chậm); offset khớp tuyệt đối"
+      },
+      "mechanism_inputs": {
+        "phobert_256_64": {
+          "features": 38498,
+          "null_frac": 47.7,
+          "cls_answer_outside": 5891,
+          "q_multiwindow": 8817
+        },
+        "visobert_384_128": {
+          "null_frac": 49.3
+        },
+        "mbert_384_128": {
+          "null_frac": 36.16
+        },
+        "answer_len_p95_tokens": {
+          "phobert": 37,
+          "mbert": 38,
+          "visobert": 60
+        }
+      },
+      "bands": {
+        "phobert-dev": {
+          "EM": [
+            25,
+            40
+          ],
+          "F1": [
+            27,
+            45
+          ],
+          "HasAns_EM": [
+            0,
+            15
+          ]
+        }
+      },
+      "original_prediction_kept": {
+        "registered_utc": "2026-09-12",
+        "EM": [
+          60,
+          70
+        ],
+        "F1": [
+          78,
+          85
+        ],
+        "qualitative": "PhoBERT > mBERT"
+      },
+      "predictions": [
+        {
+          "id": "phobert-dev-collapses",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "phobert-dev suy sụp (tỉ lệ rỗng >= 90% hoặc HasAns EM < 15) — hệ quả của chẩn đoán cửa sổ P4 (null 47,70% ≈ ViSoBERT 384)",
+          "gate": {
+            "any": [
+              {
+                "metric": "empty_rate",
+                "op": ">=",
+                "value": 90
+              },
+              {
+                "metric": "HasAns_EM",
+                "op": "<",
+                "value": 15
+              }
+            ]
+          }
+        },
+        {
+          "id": "phobert-original-band",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "Dự đoán gốc 2026-09-12: EM 60-70 và F1 78-85",
+          "gate": {
+            "all": [
+              {
+                "metric": "EM",
+                "op": ">=",
+                "value": 60
+              },
+              {
+                "metric": "EM",
+                "op": "<=",
+                "value": 70
+              },
+              {
+                "metric": "F1",
+                "op": ">=",
+                "value": 78
+              },
+              {
+                "metric": "F1",
+                "op": "<=",
+                "value": 85
+              }
+            ]
+          }
+        },
+        {
+          "id": "phobert-beats-mbert",
+          "run_id": "phobert-dev",
+          "expected": true,
+          "claim": "Dự đoán gốc 2026-09-12: PhoBERT > mBERT (EM phobert-dev > EM mbert-dev)",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": ">",
+            "value": 0
+          }
+        }
+      ],
+      "alarms": {
+        "dev_not_representative": {
+          "kind": "dev_val_gap",
+          "max": 10,
+          "meaning": "dev EM − val EM > 10 ⇒ dev không đại diện cho validation"
+        },
+        "tau_grid_too_narrow": {
+          "kind": "tau_at_grid_edge",
+          "meaning": "τ chọn được nằm ở mép lưới [−5, 5] ⇒ lưới quá hẹp"
+        },
+        "collapse": {
+          "kind": "empty_rate_above",
+          "max": 95,
+          "meaning": "tỉ lệ dự đoán rỗng > 95% ⇒ suy sụp"
+        },
+        "leakage": {
+          "kind": "enforced_in_finetune",
+          "meaning": "assert_no_leakage (train/dev, train/val, dev/val) thất bại ⇒ run dừng trước khi huấn luyện"
+        },
+        "suspiciously_good": {
+          "kind": "gate",
+          "meaning": "EM(phobert-dev) > EM(mbert-dev) + 10 ⇒ đáng ngờ",
+          "gate": {
+            "kind": "delta",
+            "metric": "overall.EM",
+            "vs": "mbert-dev",
+            "op": ">",
+            "value": 10
+          }
+        },
+        "config_max_length": {
+          "kind": "config_differs",
+          "key": "max_length",
+          "expected": 256,
+          "meaning": "cấu hình khác đăng ký"
+        },
+        "config_doc_stride": {
+          "kind": "config_differs",
+          "key": "doc_stride",
+          "expected": 64,
+          "meaning": "cấu hình khác đăng ký"
+        },
+        "config_batch": {
+          "kind": "config_differs",
+          "key": "batch_size",
+          "expected": 12,
+          "meaning": "cấu hình khác đăng ký"
+        }
+      }
+    }
   }
 }

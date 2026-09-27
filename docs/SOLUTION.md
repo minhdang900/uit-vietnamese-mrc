@@ -188,16 +188,21 @@ Không có `offset_mapping`, cách duy nhất để lấy lại chuỗi đáp á
 
 ### B. Tự cài doc-stride windowing, không dùng `return_overflowing_tokens`
 
-**Đo được trên transformers 5.17.0:** context dài 210 / 420 / 700 / 1400 token đều
+**Đo được trên transformers 5.17.0** (ở `max_length=128, doc_stride=32`, cấu hình
+của `tests/test_windowing.py`): context dài 210 / 420 / 700 / 1400 token đều
 chỉ sinh **2 window**, đáng lẽ phải là 2 / 5 / 8 / 16 — và con số này **không đổi**
-dù `stride` bằng bao nhiêu. Phần đuôi context bị cắt **âm thầm**: không exception,
-không cảnh báo, chỉ là đáp án nằm cuối đoạn văn thì không bao giờ tìm được.
+dù `stride` bằng bao nhiêu. Ở cấu hình chạy thật `384/128`, số window đáng lẽ
+phải là 1 / 2 / 3 / 6 (`results/window_counts.json`). Phần đuôi context bị cắt
+**âm thầm**: không exception, không cảnh báo, chỉ là đáp án nằm cuối đoạn văn thì
+không bao giờ tìm được.
 
 Dự án tự cài `make_windows()` trong `windowing.py`: cắt context theo token, giữ
 chồng lấp `doc_stride`, và **dịch offset về hệ toạ độ của context gốc**.
 
-Ảnh hưởng thực tế ở `max_length=384` là nhỏ (2/557 context validation vượt ngưỡng
-2 window), nhưng đây là lỗi đúng-sai âm thầm nên được sửa tận gốc thay vì chấp nhận.
+Ảnh hưởng thực tế ở `max_length=384` là nhỏ (2/557 context validation **cần hơn
+2 cửa sổ** — không phải "16/557 context vượt 357 token", đại lượng khác đo trên
+tokenizer ViSoBERT, xem README/`docs/ARCHITECTURE.md`), nhưng đây là lỗi
+đúng-sai âm thầm nên được sửa tận gốc thay vì chấp nhận.
 
 ### C. `truncation="only_second"` — không được cắt câu hỏi
 

@@ -408,23 +408,29 @@ sổ chồng lấp. `transformers` có sẵn `return_overflowing_tokens` cho vi�
 
 **Decision.** Tự cài `make_windows()` trong `windowing.py`.
 
-**Lý do — một phép đo, không phải một linh cảm.** Trên `transformers 5.17.0`:
+**Lý do — một phép đo, không phải một linh cảm.** Trên `transformers 5.17.0`, đo
+ở cấu hình của `tests/test_windowing.py` (`max_length=128, doc_stride=32` —
+**không phải** cấu hình chạy thật 384/128; cột cuối là con số ở cấu hình thật,
+từ `results/window_counts.json`):
 
-| Độ dài context | Số window sinh ra | Đáng lẽ phải là |
-|---:|---:|---:|
-| 210 token | 2 | 2 |
-| 420 token | **2** | 5 |
-| 700 token | **2** | 8 |
-| 1400 token | **2** | 16 |
+| Độ dài context | Số window `transformers` sinh ra | Đáng lẽ phải là @ 128/32 (test) | Đáng lẽ phải là @ 384/128 (thật) |
+|---:|---:|---:|---:|
+| 210 token | 2 | 2 | 1 |
+| 420 token | **2** | 5 | 2 |
+| 700 token | **2** | 8 | 3 |
+| 1400 token | **2** | 16 | 6 |
 
 Giới hạn ở 2 window bất kể `stride` bằng bao nhiêu. Phần đuôi context bị cắt
 **âm thầm**: không exception, không cảnh báo — chỉ là đáp án nằm cuối đoạn văn
 thì không bao giờ tìm được.
 
 **Trade-off.** Ảnh hưởng thực tế ở `max_length=384` là nhỏ: chỉ **2/557 context
-validation** vượt ngưỡng với tokenizer của mBERT. Nhưng đây là lỗi **đúng-sai âm
-thầm**, không phải lỗi hiệu năng, nên chi phí 402 dòng tự cài là đáng — và với
-ViSoBERT con số không còn nhỏ: **154/557 context** vượt 357 token (xem §7.2).
+validation cần hơn 2 cửa sổ** với tokenizer của mBERT — đại lượng này **khác**
+với "16/557 context vượt 357 token" ngay dưới đây: cái trước đo giới hạn cứng
+của `return_overflowing_tokens`, cái sau đo độ dài chuỗi token hoá thực tế so
+với ngân sách cửa sổ. Đây là lỗi **đúng-sai âm thầm**, không phải lỗi hiệu năng,
+nên chi phí 402 dòng tự cài là đáng — và với ViSoBERT con số không còn nhỏ:
+**154/557 context** vượt 357 token (xem §7.2).
 
 **Consequences.**
 - ✅ Offset trả về là **tuyệt đối** trong context gốc, không phải trong chunk.
@@ -626,22 +632,30 @@ chỉ 6,93. `scripts/check_hypotheses.py` phát hiện tự động điều này
 Sau khi rà lại để viết báo cáo: **một trục vẫn CHƯA được bù trừ** — `max_length`
 giữ nguyên 384 (và `doc_stride` 128) cho cả hai model, dù tokenizer ViSoBERT sinh
 ra chuỗi dài hơn ~60%. Đó **không** phải giới hạn thật của model mà là một nguyên
-nhân cấu hình. Bằng chứng đo được từ `evidence/tokenizer_stats.py`:
+nhân cấu hình. Bằng chứng đo được từ `scripts/tokenizer_stats.py` →
+`results/tokenizer_stats.json`:
 
 | | vocab | tham số | câu mẫu | context validation trung bình | token/từ | vượt 357 token |
 |---|---:|---:|---:|---:|---:|---:|
 | mBERT | 119.547 | 177,3 M | 17 token | 204,6 token | 1,22 | 16/557 |
 | ViSoBERT | 15.002 | 97,0 M | **23 token** | **326,5 token** | **1,95** | **154/557** |
 
+Vocab ViSoBERT là **15.002** token; bảng embedding thực tế có **15.004 dòng**
+(đệm thêm, không tương ứng token nào — đừng nhầm hai con số này).
+
 ⇒ 27,6% context của ViSoBERT vượt ngân sách cửa sổ, so với 2,9% của mBERT — gấp
-gần mười lần. Cùng với loss chưa hội tụ (2,19 sau 3 epoch so với 1,30 sau 2), sức
-chứa nhỏ hơn 45%, và hố cực tiểu "luôn trả rỗng" do 32,39% câu impossible trong
-train, **bốn yếu tố này đã đủ** để giải thích sự suy sụp.
+gần mười lần. Cùng với loss chưa hội tụ (2,19 sau 3 epoch so với 1,30 sau 2),
+**cùng một thân encoder ở cả hai model (~85M tham số) — khác biệt chỉ nằm ở bảng
+embedding: 91,8M (mBERT) so với 11,5M (ViSoBERT), KHÔNG phải "sức chứa nhỏ hơn
+45%"** như từng viết, và hố cực tiểu "luôn trả rỗng" do 32,39% câu impossible
+trong train, **bốn yếu tố này đã đủ** để giải thích sự suy sụp.
 
 ⇒ Vì vậy **chưa kết luận được** rằng tiền huấn luyện tiếng Việt không giúp ích;
 đây là **một lần huấn luyện thất bại đã được chẩn đoán**, không phải một phép đo
 năng lực encoder. PhoBERT — mô hình mà giả thuyết gốc nói tới — chưa từng được
-chạy. Phép kiểm trực tiếp: huấn luyện lại với `max_length` 768 và lr 3e-5.
+chạy. Phép kiểm trực tiếp: huấn luyện lại với `max_length` **512** (giới hạn bởi
+`max_position_embeddings = 514 = 512+2` — 768 KHÔNG dùng được; phương án khác là
+giảm cửa sổ null / tăng `doc_stride`) và lr 3e-5.
 
 ### 7.3 Kiến trúc nào đã cho phép phát hiện này
 
@@ -653,12 +667,14 @@ Không có quyết định kiến trúc nào trong danh sách dưới đây là 
 | ViSoBERT suy sụp về trả rỗng | ADR-008 — tách `answerable_only` / `impossible_only` |
 | Vocab nhỏ là nguyên nhân | ADR-004 — `TransformerQA` từ chối tokenizer không fast, buộc phải đo tokenizer |
 | `return_overflowing_tokens` giới hạn 2 window | ADR-003 — test span trên context dài |
-| Lấy mẫu thiên lệch làm lệch 8,8 điểm EM | `reproducible_subset()` dùng chung cho cả đường cong lẫn bảng cuối |
+| Lấy mẫu thiên lệch làm lệch 10,00 điểm EM (n=300 cả hai) | `reproducible_subset()` dùng chung cho cả đường cong lẫn bảng cuối |
 
 Mục cuối đáng nhắc riêng: lấy `examples[:n]` thay vì mẫu ngẫu nhiên có seed cho
-**EM 42,00 so với 50,80** trên cùng model — chênh 8,8 điểm chỉ do cách lấy mẫu.
-Cả đường cong huấn luyện lẫn bảng kết quả cuối dùng chung một hàm, nên hai nơi đó
-so sánh được với nhau.
+**EM 42,00 (300 câu đầu file) so với 52,00 (300 câu ngẫu nhiên, seed=42)** —
+**cả hai ở n=300**, cùng model, cùng epoch 2 — chênh **10,00** điểm chỉ do cách
+lấy mẫu. (Không so với 50,80: đó là EM ở n=500 của bảng kết quả đầy đủ, một
+cỡ mẫu khác.) Cả đường cong huấn luyện lẫn bảng kết quả cuối dùng chung một hàm,
+nên hai nơi đó so sánh được với nhau.
 
 ---
 

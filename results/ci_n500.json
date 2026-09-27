@@ -1,0 +1,159 @@
+{
+ "per_model": {
+  "baseline": {
+   "model": "TF-IDF",
+   "n": 500,
+   "EM": 0.8,
+   "F1": 23.0943,
+   "EM_wald_half": 0.78,
+   "EM_wilson": [
+    0.31,
+    2.04
+   ],
+   "ans_EM": 1.108,
+   "ans_F1": 31.9866,
+   "ans_n": 361,
+   "ans_EM_wald_half": 1.08,
+   "imp_EM": 0.0,
+   "imp_n": 139,
+   "imp_EM_wald_half": 0.0,
+   "n_ans_correct": 4,
+   "n_imp_correct": 0,
+   "ans_gap_F1_EM": 30.88,
+   "overall_gap_F1_EM": 22.29,
+   "avg_latency_ms": 0.536,
+   "single_EM_wald_half": 1.92,
+   "multi_EM_wald_half": 1.27,
+   "single_multi_F1_gap": 6.44,
+   "single_multi_EM": {
+    "diff": 0.48,
+    "wald_half_width": 2.3,
+    "z": 0.41
+   }
+  },
+  "visobert": {
+   "model": "ViSoBERT",
+   "n": 500,
+   "EM": 27.8,
+   "F1": 31.3059,
+   "EM_wald_half": 3.93,
+   "EM_wilson": [
+    24.05,
+    31.88
+   ],
+   "ans_EM": 6.9252,
+   "ans_F1": 11.781,
+   "ans_n": 361,
+   "ans_EM_wald_half": 2.62,
+   "imp_EM": 82.0144,
+   "imp_n": 139,
+   "imp_EM_wald_half": 6.38,
+   "n_ans_correct": 25,
+   "n_imp_correct": 114,
+   "ans_gap_F1_EM": 4.86,
+   "overall_gap_F1_EM": 3.51,
+   "avg_latency_ms": 22.734,
+   "single_EM_wald_half": 5.17,
+   "multi_EM_wald_half": 2.64,
+   "single_multi_F1_gap": 10.0,
+   "single_multi_EM": {
+    "diff": 7.06,
+    "wald_half_width": 5.8,
+    "z": 2.38
+   }
+  },
+  "xlmr": {
+   "model": "XLM-R",
+   "n": 500,
+   "EM": 40.6,
+   "F1": 56.8429,
+   "EM_wald_half": 4.3,
+   "EM_wilson": [
+    36.38,
+    44.96
+   ],
+   "ans_EM": 45.7064,
+   "ans_F1": 68.2035,
+   "ans_n": 361,
+   "ans_EM_wald_half": 5.14,
+   "imp_EM": 27.3381,
+   "imp_n": 139,
+   "imp_EM_wald_half": 7.41,
+   "n_ans_correct": 165,
+   "n_imp_correct": 38,
+   "ans_gap_F1_EM": 22.5,
+   "overall_gap_F1_EM": 16.24,
+   "avg_latency_ms": 14.349,
+   "single_EM_wald_half": 8.19,
+   "multi_EM_wald_half": 6.57,
+   "single_multi_F1_gap": 4.51,
+   "single_multi_EM": {
+    "diff": 7.69,
+    "wald_half_width": 10.5,
+    "z": 1.44
+   }
+  },
+  "mbert": {
+   "model": "mBERT",
+   "n": 500,
+   "EM": 50.8,
+   "F1": 59.4886,
+   "EM_wald_half": 4.38,
+   "EM_wilson": [
+    46.43,
+    55.16
+   ],
+   "ans_EM": 54.5706,
+   "ans_F1": 66.6047,
+   "ans_n": 361,
+   "ans_EM_wald_half": 5.14,
+   "imp_EM": 41.0072,
+   "imp_n": 139,
+   "imp_EM_wald_half": 8.18,
+   "n_ans_correct": 197,
+   "n_imp_correct": 57,
+   "ans_gap_F1_EM": 12.03,
+   "overall_gap_F1_EM": 8.69,
+   "avg_latency_ms": 12.264,
+   "single_EM_wald_half": 8.0,
+   "multi_EM_wald_half": 6.64,
+   "single_multi_F1_gap": 11.44,
+   "single_multi_EM": {
+    "diff": 10.38,
+    "wald_half_width": 10.39,
+    "z": 1.96
+   }
+  }
+ },
+ "comparisons": {
+  "mbert_vs_xlmr": {
+   "overall_EM": {
+    "diff": 10.2,
+    "wald_half_width": 6.14,
+    "z": 3.25
+   },
+   "answerable_EM": {
+    "diff": 8.86,
+    "wald_half_width": 7.27,
+    "z": 2.39
+   },
+   "impossible_EM": {
+    "diff": 13.67,
+    "wald_half_width": 11.03,
+    "z": 2.43
+   },
+   "F1_contrib_answerable": -1.15,
+   "F1_contrib_impossible": 3.8,
+   "EM_contrib_answerable": 6.4,
+   "EM_contrib_impossible": 3.8
+  },
+  "mbert_vs_visobert_answerable_EM": {
+   "diff": 47.65,
+   "wald_half_width": 5.77,
+   "z": 16.2
+  }
+ },
+ "source_dir": "results/history/n500",
+ "commit": "dc980ac",
+ "timestamp": "2026-09-27T15:50:09+00:00"
+}

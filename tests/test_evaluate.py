@@ -152,3 +152,86 @@ def test_result_is_json_serialisable(answerable_set, tmp_path):
     r = run_evaluation(StubPerfect(), answerable_set)
     (tmp_path / "r.json").write_text(json.dumps(r, ensure_ascii=False))
     assert json.loads((tmp_path / "r.json").read_text())["n"] == 2
+
+
+# ── bản ghi từng câu hỏi (preds JSONL) ───────────────────────────────
+class StubDetailed:
+    """Predictor có predict_detailed, như TransformerQA, không cần model."""
+    name = "stub-detailed"
+    null_threshold = 0.0
+
+    def predict_detailed(self, context, question):
+        return {"answer": "Hà Nội", "span": (0, 6), "null_delta": -1.5,
+                "windows": [{"best_score": 2.0, "null_score": 0.5, "start_char": 0,
+                             "end_char": 6, "text": "Hà Nội"}]}
+
+
+def _mixed_set():
+    return [_ex("q1", "Hà Nội là thủ đô.", ["Hà Nội"]),
+            _ex("q2", "Huế là cố đô.", ["Huế"]),
+            _ex("i1", "Một đoạn văn.", [], impossible=True)]
+
+
+def test_preds_jsonl_has_one_line_per_question(tmp_path):
+    from mrc.evaluate import read_jsonl
+
+    path = tmp_path / "preds.jsonl"
+    r = run_evaluation(StubDetailed(), _mixed_set(), preds_path=path, run_id="stub")
+    recs = read_jsonl(path)
+    assert len(recs) == r["n"] == 3
+    assert [x["qid"] for x in recs] == ["q1", "q2", "i1"]
+
+
+def test_preds_jsonl_schema_for_transformer_like_predictor(tmp_path):
+    from mrc.evaluate import paragraph_id, read_jsonl
+
+    path = tmp_path / "preds.jsonl"
+    run_evaluation(StubDetailed(), _mixed_set(), preds_path=path)
+    rec = read_jsonl(path)[0]
+    assert set(rec) == {"qid", "paragraph_id", "title", "is_impossible", "gold", "pred",
+                        "em", "f1", "null_delta", "windows"}
+    assert rec["paragraph_id"] == paragraph_id("Hà Nội là thủ đô.")
+    assert len(rec["paragraph_id"]) == 12
+    assert rec["null_delta"] == -1.5 and rec["windows"][0]["text"] == "Hà Nội"
+
+
+def test_preds_jsonl_for_baseline_has_same_schema_without_windows(tmp_path):
+    from mrc.evaluate import read_jsonl
+
+    path = tmp_path / "preds.jsonl"
+    run_evaluation(StubEmpty(), _mixed_set(), preds_path=path)
+    rec = read_jsonl(path)[0]
+    assert "windows" not in rec and rec["null_delta"] is None
+    assert rec["pred"] == ""
+
+
+def test_record_scores_agree_with_aggregate(tmp_path):
+    from mrc.evaluate import read_jsonl
+
+    path = tmp_path / "preds.jsonl"
+    r = run_evaluation(StubDetailed(), _mixed_set(), preds_path=path)
+    recs = read_jsonl(path)
+    assert 100.0 * sum(x["em"] for x in recs) / len(recs) == pytest.approx(r["overall"]["EM"], abs=1e-4)
+
+
+def test_result_records_run_provenance_and_empty_rate():
+    r = run_evaluation(StubEmpty(), _mixed_set(), run_id="empty", checkpoint=None,
+                       inference_config={"tau": 0.0})
+    assert r["run_id"] == "empty"
+    assert r["empty_prediction_rate"] == pytest.approx(100.0)
+    assert r["inference_config"] == {"tau": 0.0}
+    assert "null_threshold" in r and "checkpoint" in r and "selected_on" in r
+
+
+def test_empty_predictor_em_equals_impossible_share():
+    from mrc.predictor import EmptyPredictor
+
+    r = run_evaluation(EmptyPredictor(), _mixed_set())
+    assert r["overall"]["EM"] == pytest.approx(100.0 / 3, abs=1e-4)
+    assert r["overall"]["EM"] == pytest.approx(r["overall"]["F1"])
+
+
+def test_no_preds_file_written_by_default(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    r = run_evaluation(StubPerfect(), _mixed_set())
+    assert r["preds_file"] is None and not list(tmp_path.iterdir())

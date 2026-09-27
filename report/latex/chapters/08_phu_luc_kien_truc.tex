@@ -1,0 +1,231 @@
+% ============================================================================
+%  Phụ lục E — Các quyết định kiến trúc (ADR)
+%  Bản rút gọn của docs/ARCHITECTURE.md và docs/SYSTEM_DESIGN.md trong kho mã.
+% ============================================================================
+
+\section{Các quyết định kiến trúc}
+\label{app:adr}
+
+Phần~\ref{sec:method} mô tả \emph{hệ thống được xây như thế nào}. Phụ lục này ghi lại
+\emph{vì sao nó được xây như vậy}: tám quyết định kiến trúc, mỗi quyết định kèm phương án
+đã cân nhắc, đánh đổi và hệ quả đo được. Bản đầy đủ nằm trong kho mã tại
+\code{docs/ARCHITECTURE.md} (dạng ADR) và \code{docs/SYSTEM\_DESIGN.md} (thiết kế chi tiết,
+mô hình dữ liệu, đường lỗi, hiệu năng, triển khai).
+
+\subsection{Bốn lực định hình thiết kế}
+
+\begin{table}[H]
+\centering
+\caption{Ràng buộc và hệ quả kiến trúc tương ứng}
+\label{tab:forces}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+\textbf{\#} & \textbf{Ràng buộc} & \textbf{Hệ quả kiến trúc} \\
+\midrule
+1 & Phiên bản trước của đồ án đã trình bày những con số chưa từng được sinh ra & Truy vết trở thành \emph{cấu trúc dữ liệu bắt buộc}, không phải quy trình (ADR-008) \\
+2 & Tập \code{test} của ViQuAD~2.0 là tập mù: 7.301 câu có \code{answers} rỗng nhưng \code{is\_impossible = False} & Cổng \code{assert\_gradeable()} chặn trước mọi lần chấm điểm \\
+3 & PhoBERT không có fast tokenizer $\Rightarrow$ không có \code{offset\_mapping} & Đổi bộ mã hoá tiếng Việt sang ViSoBERT (ADR-004) \\
+4 & Máy thực nghiệm là Apple Silicon có MPS, 48\,GB bộ nhớ hợp nhất & Fine-tune thật khả thi $\Rightarrow$ có tầng huấn luyện, không chỉ suy luận \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Ràng buộc thứ nhất là ràng buộc quan trọng nhất và cũng dễ bị xem nhẹ nhất. Nó không phải
+ràng buộc kỹ thuật mà là ràng buộc về \emph{tính trung thực}, và nó được giải quyết bằng
+kiến trúc chứ không bằng kỷ luật cá nhân: khi mọi con số bắt buộc phải mang theo mã commit
+và thiết bị sinh ra nó, việc gõ tay một con số trở thành \emph{khó hơn} việc chạy lại
+thí nghiệm.
+
+\subsection{Tám quyết định}
+
+\begin{table}[H]
+\centering
+\caption{Tóm tắt các quyết định kiến trúc, phương án bị loại và đánh đổi}
+\label{tab:adr}
+\renewcommand{\arraystretch}{1.25}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}l L L L@{}}
+\toprule
+\textbf{ADR} & \textbf{Quyết định} & \textbf{Phương án bị loại} & \textbf{Đánh đổi} \\
+\midrule
+001 & Một \code{Protocol} \code{Predictor} chung, chốt \emph{trước} khi viết mô hình nào
+    & Lớp cơ sở trừu tượng; rẽ nhánh \code{isinstance} trong harness
+    & Không ràng buộc lúc biên dịch, bù bằng kiểm thử bất biến cho mọi mô hình \\
+002 & Khử trùng lặp và chia tập theo \textbf{đoạn văn} (context)
+    & Theo bài viết (138 nhóm); theo câu hỏi (28.454 nhóm)
+    & Phức tạp hơn, nhưng đúng đơn vị của bất biến cần bảo vệ \\
+003 & Tự cài cửa sổ trượt \code{make\_windows()} (402 dòng)
+    & \code{return\_overflowing\_tokens} của \code{transformers}
+    & Phải tự bảo trì khi thư viện nâng cấp \\
+004 & Dùng \code{uitnlp/visobert} thay PhoBERT
+    & \code{phobert-base(-v2)}: không fast tokenizer; \code{vi-mrc-base}: bị khoá xác thực
+    & Lệch miền: mạng xã hội so với Wikipedia \\
+005 & Cắt chuỗi gốc theo offset ký tự
+    & \code{tokenizer.decode()}
+    & Buộc phải có fast tokenizer --- chính là nguyên nhân của ADR-004 \\
+006 & Tách \code{app/} (vỏ Streamlit) khỏi \code{src/demo/} (hàm thuần)
+    & Kiểm thử end-to-end trên Streamlit; giữ nguyên và cẩn thận hơn
+    & Phải viết \code{render.py} trả về chuỗi HTML thay vì gọi widget \\
+007 & Một ảnh Docker cho cả kiểm thử lẫn ứng dụng web
+    & Ba ảnh riêng cho ba việc
+    & Ảnh mang cả \code{pytest} lẫn Streamlit \\
+008 & Truy vết là cấu trúc dữ liệu: \code{commit}, \code{timestamp}, \code{device}, \code{split}, \code{n}
+    & Quy ước ``nhớ ghi lại mã commit''
+    & Mỗi lần đánh giá gọi \code{git rev-parse} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Ba quyết định có hệ quả đo được}
+
+\subsubsection*{ADR-003 --- vì sao phải tự cài cửa sổ trượt}
+
+Trên \code{transformers 5.17.0}, tham số \code{return\_overflowing\_tokens} sinh ra tối đa
+\textbf{hai} cửa sổ bất kể đoạn văn dài bao nhiêu và bất kể \code{stride} được đặt là bao
+nhiêu (Bảng~\ref{tab:windowbug}). Phần đuôi đoạn văn bị cắt \emph{âm thầm}: không ngoại lệ,
+không cảnh báo --- chỉ là câu trả lời nằm ở cuối đoạn văn thì không bao giờ được tìm thấy.
+
+\begin{table}[H]
+\centering
+\caption{Số cửa sổ sinh ra bởi \code{return\_overflowing\_tokens} (lỗi của thư viện, đo tại
+\code{max\_length=384}) so với số cửa sổ đúng do \code{make\_windows()} tự cài sinh ra, đo ở
+hai cấu hình khác nhau (\code{results/window\_counts.json})}
+\label{tab:windowbug}
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+\textbf{Độ dài đoạn văn} & \textbf{Thư viện (384/128)} &
+\textbf{Đúng (128/32)} & \textbf{Đúng (384/128)} \\
+\midrule
+210 token  & 2 & 2 & 1 \\
+420 token  & \textbf{2} & 5 & 2 \\
+700 token  & \textbf{2} & 8 & 3 \\
+1400 token & \textbf{2} & 16 & 6 \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}
+{\footnotesize Cột ``Đúng (128/32)'' là cấu hình \code{max\_length=128}, \code{doc\_stride=32}
+dùng trong \code{tests/test\_windowing.py} --- \textbf{không} phải \code{max\_length=384} như
+chú thích trước đây của bảng này ghi; ở \code{max\_length=384}, \code{doc\_stride=128} (cấu
+hình thật sự dùng để huấn luyện và đánh giá), số cửa sổ đúng là cột bên phải. Kết luận của
+ADR-003 --- thư viện luôn dừng ở 2 cửa sổ bất kể đoạn văn dài bao nhiêu --- không đổi ở cấu
+hình nào.}
+\end{table}
+
+Ảnh hưởng với mBERT là nhỏ (16/557 đoạn văn tập kiểm định vượt ngưỡng 357 token), nhưng với
+ViSoBERT thì không: \textbf{154/557} đoạn văn vượt ngưỡng. Vì đây là lỗi \emph{đúng--sai} âm
+thầm chứ không phải lỗi hiệu năng, chi phí tự cài được xem là xứng đáng.
+
+\subsubsection*{ADR-004 và ADR-005 --- dấu tiếng Việt là ràng buộc cứng}
+
+Trích xuất câu trả lời đòi hỏi ánh xạ \emph{khoảng token} do mô hình dự đoán về \emph{vị trí
+ký tự} trong đoạn văn gốc. Chỉ fast tokenizer (cài đặt bằng Rust) cung cấp
+\code{return\_offsets\_mapping}. Không có nó, cách duy nhất lấy lại chuỗi là
+\code{tokenizer.decode()} --- và giải mã \textbf{làm mất dấu tiếng Việt}
+(\code{"hoà"} $\to$ \code{"hoa"}), phá vỡ cả Exact Match lẫn bất biến ``câu trả lời là chuỗi
+con của đoạn văn''.
+
+Đây là ràng buộc \emph{kỹ thuật}, độc lập với việc có GPU hay không --- và do đó cũng là lý
+do thật sự khiến yêu cầu ``PhoBERT + lớp QA'' của đề tài không thực hiện được. Lớp
+\code{TransformerQA} \textbf{từ chối khởi tạo} mô hình không có fast tokenizer, kèm thông
+điệp giải thích, thay vì chạy được rồi cho kết quả sai.
+
+\subsubsection*{ADR-007 --- một quyết định đóng gói, 4\,GB}
+
+\begin{table}[H]
+\centering
+\caption{Ảnh hưởng của việc ép PyTorch bản CPU trên \emph{mọi} kiến trúc}
+\label{tab:imagesize}
+\renewcommand{\arraystretch}{1.15}
+\small
+\begin{tabular}{@{}lrr@{}}
+\toprule
+ & \textbf{Ảnh ban đầu} & \textbf{Sau khi sửa} \\
+\midrule
+\code{site-packages}      & 6,1\,GB  & \textbf{1,7\,GB} \\
+Dung lượng đĩa            & 10,2\,GB & \textbf{2,48\,GB} \\
+Dung lượng truyền (nén)   & 3,52\,GB & \textbf{527\,MB} \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}
+{\footnotesize Hai số ở cột phải được đo \emph{tại thời điểm ra quyết định ADR-007}. Ảnh thật sự
+được đóng gói cho bản nộp đo lại vào 13/09/2026 là 2,49\,GB, tệp nén kèm gói là 501\,MB
+(Bảng~\ref{tab:repro-integrity}) --- chênh lệch đến từ các lần dựng lại sau đó,
+không đổi kết luận của ADR này.}
+\end{table}
+
+Bản dựng đầu tiên chỉ ép bản CPU cho kiến trúc \code{amd64}, vì cho rằng gói
+\code{aarch64} vốn đã không chứa CUDA. Điều đó \emph{sai}: gói \code{aarch64} của PyTorch~2.x
+\emph{cũng} khai báo phụ thuộc vào các gói \code{nvidia-*}, nên chính máy arm64 dựng ra ảnh
+mang đủ 3,3\,GB thư viện CUDA và 817\,MB Triton mà không dịch vụ nào trong đồ án dùng tới.
+
+\subsection{Bất biến và cơ chế thực thi}
+
+Điều phân biệt các bất biến của đồ án này với một lời cam kết trong báo cáo là mỗi bất biến
+có một cơ chế thực thi \emph{bằng máy}.
+
+\begin{table}[H]
+\centering
+\caption{Bốn bất biến của đồ án và cơ chế thực thi tương ứng}
+\label{tab:invariants-adr}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}l L L@{}}
+\toprule
+\textbf{\#} & \textbf{Bất biến} & \textbf{Cơ chế thực thi} \\
+\midrule
+1 & Mọi \code{predict()} trả về chuỗi con của đoạn văn
+  & Kiểm thử cho mọi cài đặt của \code{Predictor}; \code{decode\_span()} ném \code{ValueError} nếu khoảng không hợp lệ \\
+2 & Một đoạn văn chỉ thuộc một tập
+  & \code{assert\_no\_leakage()} chạy trong mọi đường chia tập và làm dừng toàn bộ lần chạy \\
+3 & Mọi kết quả mang \code{commit}, \code{timestamp}, \code{device}, \code{split}, \code{n}
+  & \code{run\_evaluation()} sinh các trường này; không có đường nào tạo ra kết quả thiếu chúng \\
+4 & Mọi con số đi kèm $n$; nhóm có \code{count < 30} tự gắn cờ \code{unreliable}
+  & \code{breakdown()} gắn cờ; không bảng nào trong báo cáo có số thiếu $n$ \\
+\midrule
+5 & Ứng dụng web không sinh ra con số nào
+  & \code{models/}, \code{data/}, \code{results/} được gắn chỉ đọc (\code{:ro}) trong \code{compose.yaml} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Bất biến thứ năm đáng chú ý ở chỗ nó được \emph{hạt nhân hệ điều hành} bắt buộc chứ không
+chỉ là quy ước lập trình: mọi con số trên màn hình đọc từ \code{results/*.json} hoặc đo trực
+tiếp từ \code{data/raw/} thông qua một điểm truy cập duy nhất là \code{demo.results}. Kể cả
+thứ hạng ``tốt nhất'' và ô in đậm trong bảng so sánh cũng được \emph{tính} từ dữ liệu, nên
+huấn luyện lại là giao diện tự nói đúng.
+
+\subsection{Kiến trúc nào đã cho phép phát hiện nào}
+
+Không quyết định nào trong Bảng~\ref{tab:enabled} được đưa ra vì lý do thẩm mỹ; mỗi quyết
+định là điều kiện cần của một phát hiện cụ thể được trình bày ở Phần~\ref{sec:experiments}.
+
+\begin{table}[H]
+\centering
+\caption{Ánh xạ giữa phát hiện thực nghiệm và quyết định kiến trúc đã cho phép nó}
+\label{tab:enabled}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabularx}{\textwidth}{@{}L L@{}}
+\toprule
+\textbf{Phát hiện} & \textbf{Nhờ quyết định} \\
+\midrule
+Tập \code{test} không chấm điểm được & ADR-008 --- cổng \code{assert\_gradeable()} \\
+ViSoBERT suy sụp về ``luôn trả lời rỗng'' & ADR-008 --- tách \code{answerable\_only} và \code{impossible\_only} \\
+Kích thước từ vựng nhỏ là nguyên nhân & ADR-004 --- buộc phải đo lại tokenizer khi đổi mô hình \\
+\code{return\_overflowing\_tokens} giới hạn ở 2 cửa sổ & ADR-003 --- kiểm thử khoảng trả lời trên đoạn văn dài \\
+Lấy mẫu thiên lệch làm lệch 8,8 điểm EM & \code{reproducible\_subset()} dùng chung cho cả đường cong huấn luyện lẫn bảng kết quả cuối \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Dòng cuối đáng nhắc riêng: lấy \code{examples[:n]} thay vì mẫu ngẫu nhiên có hạt giống cố
+định cho \textbf{EM \curveMbertFirstEMII{} so với \histMbertEM{}} trên cùng một mô hình ---
+chênh 8,8 điểm chỉ do cách lấy mẫu (300 câu đầu tệp, epoch~2, so với mẫu 500 câu ngẫu nhiên
+dùng cho bảng kết quả cuối --- hai cỡ mẫu khác nhau nên chênh lệch này không phải là con số
+10 điểm ở Mục~\ref{sec:subset}, vốn so hai mẫu 300 câu cùng epoch). Vì đường cong huấn luyện
+và bảng kết quả cuối dùng chung một hàm, hai nơi đó so sánh được với nhau; nếu không, một
+mâu thuẫn như vậy sẽ bị diễn giải thành ``mô hình kém đi''.

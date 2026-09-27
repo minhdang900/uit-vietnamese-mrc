@@ -42,6 +42,23 @@ const CURVE = {
   mbert:    read("training_curve_mbert.json"),
   visobert: read("training_curve_visobert.json"),
 };
+// đọc "cho phép thiếu" — dùng cho kết quả của các phase sau (P2.2/P4-P6) mà
+// lúc dựng deck có thể chưa tồn tại; slide phụ lục tương ứng tự bỏ qua.
+const readOpt = (f) => {
+  try { return read(f); } catch (e) { return null; }
+};
+// tokenizer_stats.json / null_labels_train.json (P1.2): bằng chứng đo được cho
+// N1 (nguyên nhân "luôn trả rỗng" nằm ở huấn luyện, không phải số cửa sổ) và N2
+// (cùng thân encoder, khác ở bảng embedding) — không gõ tay số nào ở đây.
+const TOK = read("tokenizer_stats.json");
+const NULL_LABELS = read("null_labels_train.json");
+const nullFrac = (k) => fmt(NULL_LABELS.find((r) => r.model === k).null_frac);
+const STATS = readOpt("stats_validation.json");   // P2.2 — chưa có thì các slide phụ lục bỏ qua
+// data_stats.json / ci_n500.json (P1.2): thống kê mô tả + so sánh n=500 lịch sử
+// — đọc thẳng để khối DATA bên dưới không gõ tay số nào trùng với kết quả.
+const DATA_STATS = read("data_stats.json");
+const CI_N500 = read("ci_n500.json");
+const MX_N500 = CI_N500.comparisons.mbert_vs_xlmr;
 
 // định dạng số kiểu Việt Nam: dấu phẩy thập phân, dấu chấm hàng nghìn
 const fmt = (x, dp = 2) => {
@@ -66,6 +83,16 @@ const bylen = (k, b) => EV[k].by_context_length[b];
 // ── (b) Thống kê mô tả dữ liệu ───────────────────────────────────────────────
 // Nguồn: 06_BaoCao_T11/05_BANG_CHUNG/stats.py (data_stats.json),
 //        tokenizer_stats.py (tokenizer_stats.txt), ci.py (confidence_intervals.txt).
+// tỉ lệ câu hỏi loại wh trên validation — TÍNH từ data_stats.json (wh_validation),
+// không gõ tay: gộp ≥2 nhãn (vd. "vì sao" + "tại sao") bằng cách truyền nhiều nhãn.
+const whPct = (...labels) => {
+  const n = labels.reduce((sum, label) => {
+    const row = DATA_STATS.wh_validation.find(([w]) => w === label);
+    return sum + row[1];
+  }, 0);
+  return fmt(100 * n / DATA_STATS.validation.num_questions, 1) + "%";
+};
+
 const DATA = {
   split: {           //            train        validation   test
     questions:  ["28.454",   "3.814",   "7.301"],
@@ -73,7 +100,8 @@ const DATA = {
     articles:   ["138",      "19",      "48"],
     impossible: ["9.216",    "1.161",   "0"],
     gradeable:  ["28.454",   "3.814",   "0"],
-    impPct:     ["32,39%",   "30,44%",  "—"],
+    impPct:     [fmt(DATA_STATS.train.impossible_pct) + "%",
+                 fmt(DATA_STATS.validation.impossible_pct) + "%",  "—"],
     ctxWords:   ["179,0 / 160 / 1.537", "167,6 / 152 / 618", "175,8 / 159 / 823"],
     ansWords:   ["9,95 / 6 / 31",       "9,81 / 6 / 30",     "—"],
   },
@@ -90,22 +118,34 @@ const DATA = {
   topicSciN: "169", topicSciPct: "4,4%",  // Kiến + Gia cầm + Nước biển
   // bẫy lấy mẫu: 300 câu đầu tệp validation
   firstNArticles: 1, firstN: "300",
-  biasEM: { head: "42,00", random: "52,00" },  // mBERT epoch 2, 300 câu
+  // mBERT epoch 2, 300 câu (bẫy lấy mẫu N8) — cả hai ĐỌC từ training_curve_mbert.json.
+  biasEM: { head: fmt(CURVE.mbert.curve[1].val_em_biased_first300),
+            random: fmt(CURVE.mbert.curve[1].val_em) },
   subsetTop5Pct: "57,0%", subsetArticles: "19/19",
-  wh: [["gì", "30,3%"], ["nào", "27,6%"], ["ai", "9,1%"], ["như thế nào", "8,3%"],
-       ["bao nhiêu", "7,9%"], ["vì sao + tại sao", "5,1%"]],
-  tok: {   //                        mBERT        ViSoBERT
-    vocab:    ["119.547", "15.002"],
-    params:   ["177,3 M", "97,0 M"],
-    sentence: ["17 token", "23 token"],
-    ctxMean:  ["204,6", "326,5"],
-    perWord:  ["1,22", "1,95"],
-    over357:  ["16 / 557", "154 / 557"],
+  wh: [["gì", whPct("gì")], ["nào", whPct("nào")], ["ai", whPct("ai")],
+       ["như thế nào", whPct("như thế nào")], ["bao nhiêu", whPct("bao nhiêu")],
+       ["vì sao + tại sao", whPct("vì sao", "tại sao")]],
+  // Bằng chứng tokenizer — ĐỌC từ results/tokenizer_stats.json (N2/G4: vocab
+  // 15.002 token, bảng embedding 15.004 dòng — không phải cùng một con số).
+  tok: {   //                        mBERT                      ViSoBERT
+    vocab:      [fmt(TOK.mbert.vocab_size, 0), fmt(TOK.visobert.vocab_size, 0)],
+    params:     [fmt(TOK.mbert.total_params / 1e6, 1) + " M", fmt(TOK.visobert.total_params / 1e6, 1) + " M"],
+    sentence:   [TOK.mbert.sample_sentence_tokens + " token", TOK.visobert.sample_sentence_tokens + " token"],
+    ctxMean:    [fmt(TOK.mbert.val_ctx_mean_tokens, 1), fmt(TOK.visobert.val_ctx_mean_tokens, 1)],
+    perWord:    [fmt(TOK.mbert.val_ctx_tokens_per_word), fmt(TOK.visobert.val_ctx_tokens_per_word)],
+    over357:    [`${TOK.mbert.val_ctx_over_357} / ${TOK.mbert.val_ctx_total}`,
+                 `${TOK.visobert.val_ctx_over_357} / ${TOK.visobert.val_ctx_total}`],
+    // N2: cùng thân encoder — chênh lệch tham số nằm ở bảng embedding.
+    embParams:  [fmt(TOK.mbert.embedding_params / 1e6, 1) + " M", fmt(TOK.visobert.embedding_params / 1e6, 1) + " M"],
+    bodyParams: [fmt(TOK.mbert.encoder_body_params / 1e6, 1) + " M", fmt(TOK.visobert.encoder_body_params / 1e6, 1) + " M"],
   },
-  features: ["30.540", "40.984"],   // số cửa sổ huấn luyện, từ nhật ký finetune
+  features: [fmt(NULL_LABELS.find((r) => r.model === "mbert").features, 0),
+             fmt(NULL_LABELS.find((r) => r.model === "visobert").features, 0)],   // số cửa sổ huấn luyện
   // L_max suy luận của mBERT: mặc định của run_eval.py, không ghi trong training_curve_mbert.json
   lmaxMbert: "30",
-  ci: { em: "±4,4", impGap: "+13,67 điểm ± 11,03", ansF1Gap: "1,60" },
+  ci: { em: "±4,4",
+        impGap: "+" + fmt(MX_N500.impossible_EM.diff) + " điểm ± " + fmt(MX_N500.impossible_EM.wald_half_width),
+        ansF1Gap: fmt(Math.abs(CI_N500.per_model.mbert.ans_F1 - CI_N500.per_model.xlmr.ans_F1)) },
   tests: { fast: "423", full: "474", files: "20", model: "51" },
   docker: { size: "2,49 GB", zipped: "501 MB", from: "10,2 GB" },
 };
@@ -644,7 +684,7 @@ const chartBase = {
          5.88, 0.92);
 
   footer(s, "3 · Xây dựng dữ liệu · Phân bố nhãn & độ dài", 8);
-  s.addNotes("[5:20–6:10] Ba phân bố, bắt đầu bằng nhãn và độ dài. Về nhãn: khoảng 30 đến 32 phần trăm câu là không có đáp án, và mẫu đánh giá 500 câu của bọn em có 139 câu, tức 27,8 phần trăm — con số này sẽ quay lại ở mục 5 theo một cách rất đáng nói. Về độ dài: đoạn văn tập trung quanh 160 đến 180 âm tiết, đáp án có trung vị 6 âm tiết nhưng phân vị 95 là 31 — đuôi dài. Hai hệ quả. Một: mẫu 500 câu chỉ có 9 câu thuộc nhóm đoạn văn dài trên 300 từ, nên câu hỏi “độ dài context ảnh hưởng thế nào” bọn em KHÔNG kết luận, mà ghi vào phần hạn chế. Hai: vì đáp án có đuôi dài, ngưỡng độ dài đáp án tối đa phải đặt theo tokenizer của từng mô hình.");
+  s.addNotes("[5:20–6:10] Ba phân bố, bắt đầu bằng nhãn và độ dài. Về nhãn: khoảng 30 đến 32 phần trăm câu là không có đáp án, và mẫu đánh giá 500 câu của bọn em có " + DATA_STATS.subset.impossible + " câu, tức " + fmt(DATA_STATS.subset.impossible_pct) + " phần trăm — con số này sẽ quay lại ở mục 5 theo một cách rất đáng nói. Về độ dài: đoạn văn tập trung quanh 160 đến 180 âm tiết, đáp án có trung vị 6 âm tiết nhưng phân vị 95 là 31 — đuôi dài. Hai hệ quả. Một: mẫu 500 câu chỉ có 9 câu thuộc nhóm đoạn văn dài trên 300 từ, nên câu hỏi “độ dài context ảnh hưởng thế nào” bọn em KHÔNG kết luận, mà ghi vào phần hạn chế. Hai: vì đáp án có đuôi dài, ngưỡng độ dài đáp án tối đa phải đặt theo tokenizer của từng mô hình.");
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -658,13 +698,9 @@ const chartBase = {
   card(s, M, 1.78, 6.1, 3.05);
   label(s, "Validation: " + DATA.split.articles[1] + " bài viết · " + DATA.split.questions[1] + " câu hỏi",
         M + 0.32, 1.96, 5.4, C.accent);
-  table(s, ["Bài viết (top 5)", "Số câu", "%"], [
-    [DATA.topics[0][0], "503", "13,2"],
-    [DATA.topics[1][0], "462", "12,1"],
-    [DATA.topics[2][0], "379", "9,9"],
-    [DATA.topics[3][0], "356", "9,3"],
-    [DATA.topics[4][0], "324", "8,5"],
-  ], M + 0.32, 2.26, 5.4, [3.2, 1.2, 1.0], { size: 11, rowH: 0.28 });
+  table(s, ["Bài viết (top 5)", "Số câu", "%"],
+    DATA.topics.map(([name, n]) => [name, String(n), fmt(100 * n / nOf("mbert"), 1)]),
+    M + 0.32, 2.26, 5.4, [3.2, 1.2, 1.0], { size: 11, rowH: 0.28 });
   body(s, "5 bài lớn nhất chiếm " + DATA.topicTop5Pct + " · đuôi rất mỏng: Montréal 42 · Kiến 57 · Gia cầm 59 câu. Chỉ 3 trong " +
           DATA.split.articles[1] + " bài viết thuộc khoa học tự nhiên (" + DATA.topicSciN + " câu, " +
           DATA.topicSciPct + ") — còn lại là lịch sử, chính trị, địa lý.",
@@ -1068,8 +1104,11 @@ const chartBase = {
     ["context validation, TB (token)", DATA.tok.ctxMean[0], { t: DATA.tok.ctxMean[1], b: true, c: C.accentDeep }],
     ["context > 357 token", DATA.tok.over357[0], { t: DATA.tok.over357[1], b: true, c: C.accentDeep }],
   ], 6.87, 2.18, 5.4, [2.7, 1.35, 1.35], { size: 10.5, rowH: 0.3 });
-  body(s, "Mỗi cửa sổ thêm vào là một cơ hội nữa để điểm “rỗng” thắng.", 6.87, 3.72, 5.4, 0.3,
-       { size: 11, italic: true, color: C.sageDeep });
+  body(s, "Suy luận trả RỖNG chỉ khi MỌI cửa sổ đều chọn null — cửa sổ nhiều hơn " +
+          "làm GIẢM tỉ lệ rỗng, không phải tăng. Nguyên nhân thật nằm ở HUẤN LUYỆN: " +
+          nullFrac("visobert") + "% cửa sổ train của ViSoBERT mang nhãn null, so với " +
+          nullFrac("mbert") + "% của mBERT.", 6.87, 3.56, 5.4, 0.6,
+       { size: 10, italic: true, color: C.sageDeep });
 
   card(s, M, 4.2, CW, 1.35, C.card);
   label(s, "Bốn yếu tố đã đủ để giải thích sự suy sụp", M + 0.32, 4.32, 6.0, C.accent);
@@ -1077,7 +1116,9 @@ const chartBase = {
     ["max_length = " + CFG("visobert").max_length + " chưa chỉnh", "CHƯA bù trừ — yếu tố mạnh nhất", C.accentDeep],
     ["loss chưa hội tụ", fmt(CURVE.visobert.curve[2].train_loss, 2) + " sau " + CFG("visobert").epochs +
       " epoch (mBERT " + fmt(CURVE.mbert.curve[1].train_loss, 2) + " sau " + CFG("mbert").epochs + ")", C.muted],
-    ["sức chứa nhỏ hơn 45%", DATA.tok.params[1] + " so với " + DATA.tok.params[0] + " tham số", C.muted],
+    ["KHÔNG phải “sức chứa nhỏ hơn 45%”", "cùng thân encoder ~" + DATA.tok.bodyParams[0] +
+      " — khác ở bảng embedding: " + DATA.tok.embParams[0] + " (mBERT) so với " +
+      DATA.tok.embParams[1] + " (ViSoBERT)", C.muted],
     ["mất cân bằng lớp", DATA.split.impPct[0] + " impossible ⇒ hố “luôn trả rỗng”", C.muted],
   ];
   factors.forEach(([k, v, col], i) => {
@@ -1176,7 +1217,8 @@ const chartBase = {
 
   card(s, M, 5.98, CW, 0.82, C.sageSoft, false);
   label(s, "Hướng phát triển", M + 0.35, 6.12, 2.5, C.sageDeep);
-  body(s, "Huấn luyện lại ViSoBERT với max_length 768 và lr thấp hơn — phép kiểm trực tiếp  ·  chạy --full trên " +
+  body(s, "Huấn luyện lại ViSoBERT với max_length 512 (giới hạn positional embedding; " +
+          "hoặc giảm cửa sổ null / tăng doc_stride) và lr thấp hơn — phép kiểm trực tiếp  ·  chạy --full trên " +
           DATA.split.questions[1] + " câu  ·  thêm epoch cho mBERT (loss vẫn đang giảm)  ·  tích hợp PhoBERT khi có đường lấy offset  ·  mở rộng dữ liệu ra ngoài miền Wikipedia",
        M + 2.6, 6.14, 9.0, 0.55, { size: 11, color: C.sageDeep });
 
@@ -1224,6 +1266,82 @@ const chartBase = {
 
   footer(s, "CS116 · Đề tài T11 · Nhóm 7", 21, true);
   s.addNotes("[17:00–17:45] Tóm lại: bốn mô hình so sánh được trên cùng một interface, mBERT fine-tuned đạt EM " + em("mbert") + "; bộ test nhanh chạy trong một giây; và không số đo nào trong deck này được gõ tay — chúng được đọc từ results khi dựng slide. Phát hiện chính: điểm tổng trộn hai kỹ năng, và bóc tách ra thì mBERT thắng nhờ biết từ chối chứ không nhờ tìm span giỏi hơn. Còn câu hỏi về encoder tiếng Việt thì nhóm em để ngỏ một cách có chủ ý — PhoBERT chưa chạy được vì lý do kỹ thuật, và lần huấn luyện ViSoBERT đã suy sụp vì một nguyên nhân cấu hình bọn em chưa bù trừ. Cảm ơn thầy và các bạn. Nhóm em sẵn sàng nhận câu hỏi.");
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// Phụ lục — slide thêm khi kết quả các phase sau (P2.2 thống kê, P4–P6) xuất
+// hiện trong results/. Mỗi slide tự BỎ QUA (không cộng trang) nếu tệp nguồn
+// chưa tồn tại, nên deck dựng được ở bất kỳ thời điểm nào của lộ trình mà
+// không cần sửa tay số trang của 21 slide cố định ở trên.
+// ══════════════════════════════════════════════════════════════════════════
+let appendixPage = 22;
+
+function appendixFooter(s, label) {
+  footer(s, "Phụ lục · " + label, appendixPage);
+  appendixPage += 1;
+}
+
+// P2.2 — Wilson CI + McNemar trên TOÀN BỘ validation (results/stats_validation.json).
+if (STATS && STATS.runs && STATS.runs.mbert) {
+  const s = slide();
+  kicker(s, "Phụ lục · Thống kê trên toàn bộ validation");
+  title(s, "Khoảng tin cậy Wilson & kiểm định McNemar (n = " + STATS.runs.mbert.n + ")");
+
+  const rows = ["baseline", "xlmr", "visobert", "mbert"]
+    .filter((k) => STATS.runs[k])
+    .map((k) => {
+      const r = STATS.runs[k];
+      return [k, fmt(r.EM), fmt(r.EM_wilson[0]) + "–" + fmt(r.EM_wilson[1]), fmt(r.F1)];
+    });
+  table(s, ["Model", "EM", "Wilson 95% CI", "F1"], rows, M, 1.9, 6.3, [2.0, 1.2, 2.1, 1.0]);
+
+  const pair = (STATS.pairs || []).find((p) => p.a === "mbert" && p.b === "xlmr");
+  if (pair) {
+    body(s,
+      "mBERT vs XLM-R: ΔEM = " + fmt(pair.dEM) + " (bootstrap cụm đoạn văn 95% CI [" +
+      fmt(pair.dEM_cluster_ci[0]) + ", " + fmt(pair.dEM_cluster_ci[1]) +
+      "]); McNemar p = " + pair.p_mcnemar.toFixed(4),
+      7.5, 1.9, 5.0, 1.4, { size: 12, color: C.muted });
+  }
+  appendixFooter(s, "P2 · Wilson & McNemar");
+}
+
+// P4 — ViSoBERT decisive single-variable test (max_length 512, lr 3e-5).
+const VISO_LONG = readOpt("eval_visobert-len512_validation.json");
+if (VISO_LONG) {
+  const s = slide();
+  kicker(s, "Phụ lục · P4");
+  title(s, "ViSoBERT max_length=512 — phép kiểm trực tiếp cho chẩn đoán");
+  body(s,
+    "EM tổng " + fmt(VISO_LONG.overall.EM) + " · answerable EM " +
+    fmt(VISO_LONG.answerable_only.EM) + " · tỉ lệ trả rỗng " +
+    fmt(VISO_LONG.empty_prediction_rate ?? 0) + "%",
+    M, 1.9, CW, 1.0, { size: 16 });
+  appendixFooter(s, "P4 · ViSoBERT max_length=512");
+}
+
+// P5 — mBERT nhiều seed (độ lệch chuẩn giữa các seed, headline vẫn là seed 42).
+if (STATS && STATS.seed_summary) {
+  const s = slide();
+  kicker(s, "Phụ lục · P5");
+  title(s, "mBERT nhiều seed — độ lệch chuẩn EM giữa các seed");
+  const ss = STATS.seed_summary;
+  body(s,
+    "EM trung bình " + fmt(ss.mean) + " ± " + fmt(ss.std) + " (n_seeds=" + ss.n_seeds +
+    "). Headline vẫn là seed 42 (mbert-dev) — các seed khác chỉ đo độ ổn định, không chọn lại checkpoint.",
+    M, 1.9, CW, 1.2, { size: 14 });
+  appendixFooter(s, "P5 · mBERT nhiều seed");
+}
+
+// P6 — PhoBERT, chỉ tính nếu cổng round-trip char-offset đã qua (mới có eval).
+const PHOBERT = readOpt("eval_phobert-dev_validation.json");
+if (PHOBERT) {
+  const s = slide();
+  kicker(s, "Phụ lục · P6");
+  title(s, "PhoBERT — kết quả sau khi qua cổng round-trip char-offset");
+  body(s, "EM tổng " + fmt(PHOBERT.overall.EM) + " · F1 " + fmt(PHOBERT.overall.F1),
+       M, 1.9, CW, 1.0, { size: 16 });
+  appendixFooter(s, "P6 · PhoBERT");
 }
 
 pres.writeFile({ fileName: __dirname + "/CS116_T11_Slide_BaoCao.pptx" })

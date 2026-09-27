@@ -1,0 +1,126 @@
+{
+ "train": {
+  "num_questions": 28454,
+  "num_contexts": 4101,
+  "num_articles": 138,
+  "num_impossible": 9216,
+  "num_with_gold": 19238,
+  "num_gradeable": 28454,
+  "impossible_pct": 32.39,
+  "ctx_words_mean": 179.0,
+  "ctx_words_median": 160,
+  "ctx_words_max": 1537,
+  "q_words_mean": 14.6,
+  "a_words_mean": 9.95,
+  "a_words_median": 6.0,
+  "a_words_p95": 31
+ },
+ "validation": {
+  "num_questions": 3814,
+  "num_contexts": 557,
+  "num_articles": 19,
+  "num_impossible": 1161,
+  "num_with_gold": 2653,
+  "num_gradeable": 3814,
+  "impossible_pct": 30.44,
+  "ctx_words_mean": 167.6,
+  "ctx_words_median": 152,
+  "ctx_words_max": 618,
+  "q_words_mean": 14.2,
+  "a_words_mean": 9.81,
+  "a_words_median": 6,
+  "a_words_p95": 30
+ },
+ "test": {
+  "num_questions": 7301,
+  "num_contexts": 1241,
+  "num_articles": 48,
+  "num_impossible": 0,
+  "num_with_gold": 0,
+  "num_gradeable": 0,
+  "impossible_pct": 0.0,
+  "ctx_words_mean": 175.8,
+  "ctx_words_median": 159,
+  "ctx_words_max": 823,
+  "q_words_mean": 14.4,
+  "a_words_mean": null,
+  "a_words_median": null,
+  "a_words_p95": null
+ },
+ "shared_ctx_train_validation": 0,
+ "shared_titles_train_validation": 0,
+ "shared_ctx_train_test": 449,
+ "shared_titles_train_test": 17,
+ "shared_ctx_validation_test": 133,
+ "shared_titles_validation_test": 4,
+ "subset": {
+  "n": 500,
+  "seed": 42,
+  "impossible": 139,
+  "impossible_pct": 27.8,
+  "contexts": 331,
+  "articles": 19,
+  "length_buckets": {
+   "100-200": 405,
+   "200-300": 85,
+   "300+": 9,
+   "<100": 1
+  },
+  "qtype_answerable": {
+   "multi-sentence": 218,
+   "single-sentence": 143
+  }
+ },
+ "wh_validation": [
+  [
+   "gì",
+   1156
+  ],
+  [
+   "nào",
+   1051
+  ],
+  [
+   "ai",
+   347
+  ],
+  [
+   "như thế nào",
+   315
+  ],
+  [
+   "bao nhiêu",
+   301
+  ],
+  [
+   "khác",
+   161
+  ],
+  [
+   "vì sao",
+   115
+  ],
+  [
+   "khi nào",
+   93
+  ],
+  [
+   "năm nào",
+   84
+  ],
+  [
+   "ở đâu",
+   80
+  ],
+  [
+   "tại sao",
+   80
+  ],
+  [
+   "mấy",
+   31
+  ]
+ ],
+ "commit": "36bff4f",
+ "timestamp": "2026-09-27T15:35:07+00:00"
+}

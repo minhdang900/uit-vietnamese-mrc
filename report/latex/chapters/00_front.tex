@@ -1,0 +1,131 @@
+% ============================================================================
+%  PHẦN ĐẦU: Lời cảm ơn · Tóm tắt · Mục lục · Danh sách hình/bảng · Từ viết tắt
+% ============================================================================
+
+\section*{Lời cảm ơn}
+\addcontentsline{toc}{section}{Lời cảm ơn}
+
+Nhóm 7 xin gửi lời cảm ơn chân thành đến ThS. Nguyễn Hữu Quyền, giảng viên môn
+\emph{Lập trình Python cho Máy học} (CS116), đã định hướng đề tài, góp ý về cách
+thiết kế thí nghiệm và nhấn mạnh yêu cầu \emph{nêu rõ giới hạn dữ liệu, không khẳng
+định vượt quá phạm vi thực nghiệm} --- yêu cầu đã định hình cách nhóm xây dựng và
+trình bày toàn bộ đồ án này.
+
+Nhóm cũng cảm ơn Phòng thí nghiệm NLP@UIT đã công bố bộ dữ liệu UIT-ViQuAD và mô hình
+ViSoBERT, cùng cộng đồng mã nguồn mở HuggingFace, PyTorch và scikit-learn đã cung cấp
+hạ tầng để một nhóm sinh viên có thể huấn luyện và đánh giá mô hình Transformer trên
+máy tính cá nhân.
+
+\vspace{1em}
+\hfill TP. Hồ Chí Minh, tháng 9 năm 2026
+
+\hfill Nhóm 7
+
+\clearpage
+% ----------------------------------------------------------------------------
+\section*{Tóm tắt}
+\addcontentsline{toc}{section}{Tóm tắt}
+
+Đồ án xây dựng và đánh giá một hệ thống \textbf{đọc hiểu máy trích xuất} (extractive
+Machine Reading Comprehension --- MRC) cho tiếng Việt: cho một đoạn văn và một câu hỏi,
+hệ thống chỉ ra đoạn con của văn bản chứa câu trả lời, hoặc kết luận rằng đoạn văn
+\emph{không} chứa câu trả lời. Dữ liệu là \textbf{UIT-ViQuAD~2.0} (28.454 câu hỏi huấn
+luyện, trong đó 32,39\% là câu không có đáp án).
+
+Nhóm so sánh bốn mô hình, mỗi mô hình cô lập một biến thực nghiệm: (1) baseline truy
+hồi câu bằng \textbf{TF-IDF}; (2) \textbf{XLM-R} đã huấn luyện trên SQuAD~2.0 tiếng
+Anh, dùng \emph{zero-shot}; (3) \textbf{mBERT} và (4) \textbf{ViSoBERT} được
+\emph{fine-tune} trên toàn bộ tập train bằng GPU Apple Silicon (MPS). Toàn bộ pipeline
+--- chuẩn hoá, metric, cửa sổ trượt, gán nhãn huấn luyện, đánh giá --- được tự cài
+đặt theo phương pháp phát triển hướng kiểm thử (TDD) với 474 test.
+
+\ifhasFullEval
+Trên toàn bộ \valN{} câu của tập validation (checkpoint chọn trên dev khi có, xem
+Mục~\ref{sec:experiments}), \textbf{mBERT fine-tune đạt EM \mbertVoneEM{} và F1
+\mbertVoneFone{}}, vượt XLM-R zero-shot (EM \xlmrEM{} / F1 \xlmrFone{}), ViSoBERT (EM
+\visoVoneEM{} / F1 \visoVoneFone{}) và TF-IDF (EM \baselineEM{} / F1 \baselineFone{}).
+Phân tích tách nhóm cho thấy ba điều mà con số tổng che khuất: (i) khoảng cách EM--F1 của
+baseline chứng minh hai metric đo hai kỹ năng khác nhau; (ii) mBERT hơn XLM-R ở hai kỹ năng
+tách biệt: \emph{biết từ chối} (EM trên câu không có đáp án \mbertVoneNoAnsEM{} so với
+\xlmrNoAnsEM{}) và \emph{xác định đúng biên đáp án} (EM trên câu có đáp án
+\mbertVoneHasAnsEM{} so với \xlmrHasAnsEM{}), trong khi F1 trên câu có đáp án của hai mô
+hình tương đương (\mbertVoneHasAnsFone{} so với \xlmrHasAnsFone{}) --- XLM-R zero-shot tìm
+đúng vùng đáp án nhưng chưa học quy ước ranh giới đáp án của bộ dữ liệu; (iii) ViSoBERT ---
+được pretrain trên văn bản mạng xã hội --- suy sụp về hành vi ``gần như luôn trả lời rỗng'',
+điểm EM tổng bằng đúng tỉ lệ câu không có đáp án. Nhóm loại trừ lần lượt các nguyên nhân
+cấu hình trước khi kết luận đây là giới hạn của mô hình trong thiết lập này, và gắn nó với
+việc từ vựng \tokVocabViso{} token phân mảnh văn bản Wikipedia tiếng Việt nhiều hơn khoảng
+1,6 lần so với mBERT. Việc tách EM/F1 theo câu có đáp án và câu không có đáp án theo đúng
+quy ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0; đóng góp của nhóm là áp dụng
+quy ước đó một cách nhất quán ở mọi bảng, không phải một phép đo mới.
+\else
+Trên mẫu ngẫu nhiên 500 câu của tập validation (seed 42), \textbf{mBERT fine-tune đạt
+EM \histMbertEM{} và F1 \histMbertFone{}}, vượt XLM-R zero-shot (EM \histXlmrEM{} / F1
+\histXlmrFone{}), ViSoBERT (EM \histVisoEM{} / F1 \histVisoFone{}) và TF-IDF (EM
+\histBaselineEM{} / F1 \histBaselineFone{}). Phân tích tách nhóm cho thấy ba điều mà con số
+tổng che khuất: (i) khoảng cách EM--F1 của baseline chứng minh hai metric đo hai kỹ
+năng khác nhau; (ii) mBERT hơn XLM-R ở hai kỹ năng tách biệt: \emph{biết từ chối} (EM trên
+câu không có đáp án \histMbertNoAnsEM{} so với \histXlmrNoAnsEM{}) và \emph{xác định đúng
+biên đáp án} (EM trên câu có đáp án \histMbertHasAnsEM{} so với \histXlmrHasAnsEM{}), trong
+khi F1 trên câu có đáp án của hai mô hình tương đương (\histMbertHasAnsFone{} so với
+\histXlmrHasAnsFone{}) --- XLM-R zero-shot tìm đúng vùng đáp án nhưng chưa học quy ước ranh
+giới đáp án của bộ dữ liệu; (iii) ViSoBERT --- được pretrain trên văn
+bản mạng xã hội --- suy sụp về hành vi ``gần như luôn trả lời rỗng'', điểm EM tổng bằng
+đúng tỉ lệ câu không có đáp án của mẫu. Nhóm loại trừ lần lượt các nguyên nhân cấu hình
+trước khi kết luận đây là giới hạn của mô hình trong thiết lập này, và gắn nó với việc
+từ vựng \tokVocabViso{} token phân mảnh văn bản Wikipedia tiếng Việt nhiều hơn khoảng 1,6
+lần so với mBERT. Việc tách EM/F1 theo câu có đáp án và câu không có đáp án theo đúng quy
+ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0; đóng góp của nhóm là áp dụng quy
+ước đó một cách nhất quán ở mọi bảng, không phải một phép đo mới.
+\fi
+
+Mọi con số trong báo cáo được sinh từ một lần chạy thật và truy vết được về một tệp
+\code{results/*.json} kèm commit, thời điểm và thiết bị. Các giả thuyết định lượng được
+ghi \emph{trước} khi chạy và được đối chiếu công khai, kể cả những giả thuyết sai.
+Hệ thống được đóng gói thành ứng dụng web Streamlit cho phép thử trực tiếp.
+
+\vspace{0.6em}
+\noindent\textbf{Từ khoá:} đọc hiểu máy, hỏi đáp trích xuất, tiếng Việt, UIT-ViQuAD~2.0,
+Transformer, mBERT, XLM-R, ViSoBERT, câu hỏi không có đáp án, tái lập thực nghiệm.
+
+\clearpage
+% ----------------------------------------------------------------------------
+{\setstretch{1.1}
+\tableofcontents
+\clearpage
+\listoffigures
+\addcontentsline{toc}{section}{Danh sách hình vẽ}
+\vspace{1.5em}
+\listoftables
+\addcontentsline{toc}{section}{Danh sách bảng}
+}
+
+\vspace{1.5em}
+% ----------------------------------------------------------------------------
+\section*{Danh mục từ viết tắt}
+\addcontentsline{toc}{section}{Danh mục từ viết tắt}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\textwidth}{@{}l L@{}}
+\toprule
+\textbf{Viết tắt} & \textbf{Ý nghĩa} \\
+\midrule
+MRC       & Machine Reading Comprehension --- đọc hiểu máy \\
+QA        & Question Answering --- hỏi đáp \\
+EM        & Exact Match --- khớp chính xác \\
+F1        & Trung bình điều hoà của precision và recall (ở đây tính trên token) \\
+TF-IDF    & Term Frequency -- Inverse Document Frequency \\
+BERT      & Bidirectional Encoder Representations from Transformers \\
+mBERT     & Multilingual BERT (\code{bert-base-multilingual-cased}) \\
+XLM-R     & XLM-RoBERTa --- mô hình đa ngữ của Conneau và cộng sự \\
+ViSoBERT  & Vietnamese Social media BERT (\code{uitnlp/visobert}) \\
+SQuAD     & Stanford Question Answering Dataset \\
+UIT-ViQuAD & UIT Vietnamese Question Answering Dataset \\
+MPS       & Metal Performance Shaders --- backend GPU của PyTorch trên Apple Silicon \\
+TDD       & Test-Driven Development --- phát triển hướng kiểm thử \\
+CI        & Confidence Interval --- khoảng tin cậy \\
+CLS       & Token đặc biệt ở đầu chuỗi đầu vào của BERT, dùng để biểu diễn ``không có đáp án'' \\
+\bottomrule
+\end{tabularx}
+\end{center}

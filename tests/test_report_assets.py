@@ -250,10 +250,18 @@ def test_the_slide_deck_contains_no_hand_written_metrics():
     nhưng test cũ chỉ soi ``index.html`` — và đúng ở tệp quan trọng nhất thì bất
     biến âm thầm ngừng bảo vệ (số test trong deck đã trôi 398 → 423 mà không ai
     phát hiện). Đổi định dạng deliverable thì phải dời test theo.
+
+    Dùng ``result_literals`` + bộ so khớp nguyên token (luật C7) thay vì
+    ``metric_literals``: bắt cả CI, tỉ lệ nhãn null, latency… chứ không chỉ EM/F1
+    tổng. Chỉ soi chữ người xem THẤY (chuỗi JS, nội dung thẻ HTML): số trần trong
+    mã là toạ độ dàn trang. Ngoại lệ có lý do nằm trong
+    ``tests/report_literal_allowlist.txt``.
     """
     from pathlib import Path
 
-    from reporting.figures import collect_results
+    from reporting.assets import result_literals
+    from reporting.literals import (find_literals, load_allowlist, scannable_text,
+                                    unallowed)
 
     root = Path(__file__).resolve().parents[1]
     decks = [root / "slides" / "index.html", root / "slides" / "build_deck.js"]
@@ -261,10 +269,13 @@ def test_the_slide_deck_contains_no_hand_written_metrics():
     if not decks:
         pytest.skip("chưa có slide")
 
-    literals = metric_literals(collect_results(root / "results"))
+    literals = result_literals(root / "results")
+    allow = load_allowlist(root / "tests" / "report_literal_allowlist.txt")
     for deck in decks:
-        text = deck.read_text(encoding="utf-8")
-        offenders = [n for n in literals if n in text]
+        rel = deck.relative_to(root).as_posix()
+        text = scannable_text(deck, deck.read_text(encoding="utf-8"))
+        hits = {rel: find_literals(text, literals)}
+        offenders = [f"{h.line}:{h.text} ({h.source})" for _, h in unallowed(hits, allow)[0]]
 
         assert not offenders, (
             f"Số đo bị gõ tay vào {deck.name}: {offenders}. Đọc từ results/ "

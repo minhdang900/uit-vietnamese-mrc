@@ -1,0 +1,155 @@
+% ============================================================================
+\section{Giới thiệu}
+\label{sec:intro}
+% ============================================================================
+
+\subsection{Đặt vấn đề}
+
+Khối lượng văn bản mà một người cần đọc để tìm một thông tin cụ thể --- giáo trình,
+quy chế, tài liệu kỹ thuật, bài viết bách khoa --- tăng nhanh hơn nhiều so với thời
+gian họ có. Công cụ tìm kiếm truyền thống giải quyết một nửa bài toán: nó trả về
+\emph{tài liệu} có liên quan, nhưng người dùng vẫn phải tự đọc để tìm \emph{câu trả
+lời}. \textbf{Đọc hiểu máy} (Machine Reading Comprehension --- MRC) giải quyết nửa còn
+lại: cho một đoạn văn và một câu hỏi, hệ thống chỉ thẳng vào đoạn chữ trả lời câu hỏi
+đó. Đây là thành phần lõi của trợ lý học tập, hệ thống hỏi đáp trên tài liệu nội bộ và
+các pipeline tìm kiếm tri thức hiện đại, nơi một bộ truy hồi chọn đoạn văn và một bộ
+đọc hiểu trích xuất câu trả lời.
+
+Với tiếng Anh, bài toán đã được nghiên cứu sâu nhờ các bộ dữ liệu lớn như SQuAD
+\cite{rajpurkar2016squad,rajpurkar2018know}. Với tiếng Việt, các bộ dữ liệu UIT-ViQuAD
+\cite{nguyen2020viquad} và UIT-ViQuAD~2.0 \cite{nguyen2022vlsp} của Trường Đại học Công
+nghệ Thông tin đã tạo nền tảng đánh giá chung. Tuy vậy, tiếng Việt đặt ra những khó khăn
+riêng mà phương pháp và công cụ thiết kế cho tiếng Anh không tự động xử lý đúng:
+
+\begin{itemize}
+  \item \textbf{Đơn vị chữ viết là âm tiết, không phải từ.} ``Hà Nội'', ``thủ đô'' là
+        từ gồm hai âm tiết cách nhau bởi khoảng trắng. Mọi quyết định tách token --- trong
+        metric lẫn trong mô hình --- đều ảnh hưởng đến kết quả.
+  \item \textbf{Dấu thanh mang nghĩa.} ``hoà'' và ``hoa'' là hai từ khác nhau. Một
+        bước chuẩn hoá hoặc giải mã làm mất dấu sẽ âm thầm làm sai kết quả.
+  \item \textbf{Không có mạo từ.} Quy tắc chuẩn hoá của SQuAD loại bỏ \emph{a/an/the};
+        trong tiếng Việt, những từ gần tương đương như ``các'', ``những'', ``con'' là
+        loại từ và có thể là một phần của đáp án đúng.
+  \item \textbf{Câu hỏi không có đáp án.} UIT-ViQuAD~2.0 có khoảng một phần ba câu hỏi
+        mà đoạn văn \emph{không} trả lời được. Hệ thống phải biết từ chối, không chỉ biết
+        tìm.
+\end{itemize}
+
+Ngoài khía cạnh ngôn ngữ, đề tài còn đặt ra một thách thức về \emph{phương pháp}. Hướng
+dẫn chung của môn học nhấn mạnh: \emph{``Kết quả cao trên benchmark không đồng nghĩa với
+khả năng triển khai thực tế. Sinh viên phải nêu rõ giới hạn dữ liệu và tránh khẳng định
+vượt quá phạm vi thực nghiệm.''} Vì vậy đồ án không đặt mục tiêu ``đạt số cao nhất'', mà
+đặt mục tiêu \emph{mọi con số được trình bày đều đúng, truy vết được và được diễn giải
+đúng phạm vi}.
+
+\subsection{Phát biểu bài toán}
+\label{sec:problem}
+
+Cho một đoạn văn $C = (c_1, \dots, c_{|C|})$ là chuỗi ký tự và một câu hỏi $Q$. Bài toán
+\textbf{đọc hiểu trích xuất} yêu cầu tìm cặp chỉ số ký tự $(s, e)$ với
+$0 \le s < e \le |C|$ sao cho đoạn con $C[s{:}e]$ trả lời $Q$; hoặc trả về chuỗi rỗng
+$\varnothing$ nếu $C$ không chứa câu trả lời.
+
+\begin{table}[htbp]
+\centering
+\caption{Đặc tả đầu vào, đầu ra của hệ thống}
+\label{tab:io}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabularx}{\textwidth}{@{}l L@{}}
+\toprule
+\textbf{Thành phần} & \textbf{Mô tả} \\
+\midrule
+Đầu vào & \code{context}: đoạn văn Wikipedia tiếng Việt; \code{question}: câu hỏi tự nhiên \\
+Đầu ra  & \code{answer}: một chuỗi \emph{con} của \code{context}, hoặc chuỗi rỗng khi không có đáp án \\
+Loại bài toán & Trích xuất (extractive), \emph{không} sinh văn bản (generative) \\
+Bộ dữ liệu & UIT-ViQuAD~2.0, định dạng SQuAD~2.0 \\
+Thang đo & Exact Match (EM) và F1 trên token (âm tiết) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Tính chất \emph{trích xuất} không phải chi tiết phụ: nó cho phép phát biểu một
+\textbf{bất biến kiểm tra được} --- với mọi mô hình và mọi đầu vào, đầu ra phải là chuỗi
+con của \code{context}. Bất biến này được kiểm thử tự động cho các mô hình và bắt được
+cả lỗi lệch offset của tokenizer lẫn trường hợp mô hình ``bịa'' ra chữ không có trong
+văn bản (xem Mục~\ref{sec:invariants}).
+
+\subsection{Mục tiêu}
+\label{sec:goals}
+
+Đề tài T11 trong danh sách đề tài của môn học yêu cầu: \emph{TF-IDF retrieval baseline;
+multilingual BERT, PhoBERT encoder + QA head hoặc XLM-R; phân tích ảnh hưởng của độ dài
+context và loại câu hỏi; đánh giá bằng Exact Match và token-level F1; phân tích câu hỏi
+single-sentence so với multi-sentence reasoning.} Bảng~\ref{tab:goals} ánh xạ từng yêu
+cầu với nội dung thực hiện và vị trí trình bày trong báo cáo.
+
+\begin{table}[htbp]
+\centering
+\caption{Đối chiếu yêu cầu đề tài T11 với nội dung thực hiện}
+\label{tab:goals}
+\renewcommand{\arraystretch}{1.18}
+\small
+\begin{tabularx}{\textwidth}{@{}L L c l@{}}
+\toprule
+\textbf{Yêu cầu của đề tài} & \textbf{Nội dung thực hiện} & \textbf{Trạng thái} & \textbf{Mục} \\
+\midrule
+TF-IDF retrieval baseline & Truy hồi câu bằng TF-IDF (n-gram 1--2) + cosine & \yes & \ref{sec:baseline} \\
+Multilingual BERT + QA head & Fine-tune \code{bert-base-multilingual-cased} trên toàn bộ train & \yes & \ref{sec:finetune} \\
+XLM-R & \code{deepset/}\allowbreak\code{xlm-roberta-base-squad2}, zero-shot & \yes & \ref{sec:models} \\
+PhoBERT encoder + QA head & Không khả thi về kỹ thuật (thiếu fast tokenizer); thay bằng ViSoBERT, encoder tiếng Việt của UIT & \textcolor{warnorange}{thay thế} & \ref{sec:phobert} \\
+Exact Match, token-level F1 & Tự cài theo quy ước SQuAD~2.0, điều chỉnh cho tiếng Việt & \yes & \ref{sec:metric-design} \\
+Ảnh hưởng độ dài context & Phân tích theo 4 nhóm độ dài, kèm cờ nhóm nhỏ & \yes & \ref{sec:by-length} \\
+Single- vs multi-sentence & Heuristic gán nhãn phạm vi suy luận & \yes & \ref{sec:by-qtype} \\
+Nêu rõ giới hạn dữ liệu & Mục riêng về giới hạn; khoảng tin cậy cho các số chính & \yes & \ref{sec:limitations} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Ngoài các yêu cầu bắt buộc, nhóm đặt thêm ba mục tiêu về chất lượng quy trình:
+
+\begin{enumerate}
+  \item \textbf{Tái lập được.} Mọi số liệu được sinh bởi mã nguồn, ghi ra tệp JSON kèm
+        commit, thời điểm, thiết bị, tên split và cỡ mẫu $n$.
+  \item \textbf{Chống tự lừa mình.} Đăng ký giả thuyết định lượng \emph{trước} khi chạy
+        và định nghĩa trước các ``tín hiệu báo động'' cần điều tra thay vì ăn mừng.
+  \item \textbf{Sản phẩm chạy được.} Ứng dụng web cho phép nhập đoạn văn và câu hỏi
+        bất kỳ, chọn mô hình và điều chỉnh ngưỡng ``không có đáp án''.
+\end{enumerate}
+
+\subsection{Phạm vi}
+
+Đồ án giới hạn trong bài toán hỏi đáp \emph{trích xuất trên một đoạn văn cho trước}.
+Các hướng sau nằm \textbf{ngoài phạm vi}: hỏi đáp sinh văn bản (generative QA), truy hồi
+đoạn văn từ kho tài liệu lớn (open-domain QA, RAG), hỏi đáp nhiều lượt hội thoại, và
+đánh giá trên dữ liệu ngoài miền Wikipedia. Mọi kết luận trong báo cáo chỉ có giá trị
+trong phạm vi tập validation của UIT-ViQuAD~2.0 và cấu hình được mô tả.
+
+\subsection{Đóng góp chính}
+
+\begin{enumerate}
+  \item Một pipeline MRC tiếng Việt hoàn chỉnh, được tổ chức thành các module có kiểm
+        thử (474 test), từ nạp dữ liệu đến ứng dụng web.
+  \item So sánh có kiểm soát bốn mô hình, thiết kế để mỗi bước cô lập một biến: so
+        khớp từ khoá, chuyển giao đa ngữ zero-shot, fine-tune trong miền, và pretraining
+        chuyên tiếng Việt.
+  \item Áp dụng nhất quán, ở mọi bảng kết quả, cách tách \emph{câu có đáp án} và \emph{câu
+        không có đáp án} --- quy ước đã có sẵn trong công cụ chấm chính thức của SQuAD~2.0,
+        chứ không phải một phép đo do nhóm phát minh --- để cho thấy điểm tổng che khuất hai
+        kỹ năng tách biệt (tìm đúng biên đáp án và biết từ chối) mà các mô hình mạnh, yếu rất
+        khác nhau. Đóng góp là ở thói quen báo cáo, không phải ở bản thân phép tách.
+  \item Phân tích nguyên nhân thất bại của ViSoBERT theo quy trình loại trừ, gắn với
+        bằng chứng đo được về mức độ phân mảnh token.
+  \item Phát hiện và xử lý bốn lỗi ``sai âm thầm'' có thể làm sai kết quả mà không báo
+        lỗi: test split không có nhãn, giới hạn số cửa sổ của thư viện
+        \code{transformers}, mẫu đánh giá thiên lệch chủ đề và ngưỡng độ dài đáp án
+        phụ thuộc tokenizer.
+\end{enumerate}
+
+\subsection{Cấu trúc báo cáo}
+
+Phần còn lại của báo cáo gồm: \textbf{Mục~\ref{sec:theory}} trình bày cơ sở lý thuyết
+về MRC, TF-IDF, kiến trúc Transformer, các mô hình tiền huấn luyện và thang đo.
+\textbf{Mục~\ref{sec:method}} mô tả kiến trúc hệ thống và các quyết định thiết kế.
+\textbf{Mục~\ref{sec:experiments}} trình bày môi trường, dữ liệu, kết quả và phân tích.
+\textbf{Mục~\ref{sec:conclusion}} kết luận, nêu giới hạn và hướng phát triển.
+Phụ lục cung cấp hướng dẫn tái lập và cấu trúc mã nguồn.

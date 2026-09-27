@@ -16,15 +16,22 @@ Thiết kế của module này là phản ứng trực tiếp với thất bại
 
 from __future__ import annotations
 
+import hashlib
+import json
 import subprocess
+import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from pathlib import Path
 
 from mrc.data import Example, assert_gradeable, references_from
 from mrc.metrics import evaluate as evaluate_metrics
 from mrc.tagging import tag_examples
 
-__all__ = ["run_evaluation", "breakdown", "MIN_RELIABLE_GROUP"]
+__all__ = [
+    "run_evaluation", "breakdown", "predict_all", "build_records", "write_jsonl",
+    "read_jsonl", "paragraph_id", "empty_rate", "MIN_RELIABLE_GROUP",
+]
 
 #: Dưới ngưỡng này, trung bình của nhóm quá nhiễu để kết luận. Với n=3, mỗi câu
 #: đúng/sai làm điểm nhảy 33 điểm — con số như vậy không được trình bày như kết quả.
@@ -77,14 +84,107 @@ def breakdown(
     return out
 
 
+def paragraph_id(context: str) -> str:
+    """Khoá cụm cho bootstrap: 12 ký tự đầu sha1 của context."""
+    return hashlib.sha1(context.encode("utf-8")).hexdigest()[:12]
+
+
+def empty_rate(predictions: Mapping[str, str]) -> float:
+    """Tỉ lệ dự đoán rỗng, theo PHẦN TRĂM (cùng thang với EM)."""
+    if not predictions:
+        return 0.0
+    return 100.0 * sum(not p.strip() for p in predictions.values()) / len(predictions)
+
+
+def predict_all(predictor, examples: Sequence[Example]):
+    """Chạy predictor trên mọi câu; giữ bằng chứng từng cửa sổ nếu predictor có.
+
+    Returns:
+        ``(predictions, latencies_ms, details)`` — ``details[qid]`` là
+        ``{"null_delta", "windows"}`` với predictor có ``predict_detailed``
+        (transformer), ``None`` với baseline.
+    """
+    predictions: dict[str, str] = {}
+    latencies: list[float] = []
+    details: dict[str, dict | None] = {}
+    detailed = hasattr(predictor, "predict_detailed")
+    for ex in examples:
+        if detailed:
+            t0 = time.perf_counter()
+            d = predictor.predict_detailed(ex.context, ex.question)
+            latencies.append((time.perf_counter() - t0) * 1000.0)
+            pred = d["answer"]
+            details[ex.qid] = {"null_delta": d.get("null_delta"),
+                               "windows": d.get("windows", [])}
+        elif hasattr(predictor, "predict_timed"):
+            pred, ms = predictor.predict_timed(ex.context, ex.question)
+            latencies.append(ms)
+            details[ex.qid] = None
+        else:
+            pred = predictor.predict(ex.context, ex.question)
+            details[ex.qid] = None
+        predictions[ex.qid] = pred
+    return predictions, latencies, details
+
+
+def build_records(examples: Sequence[Example], predictions: Mapping[str, str],
+                  per_item: Mapping[str, Mapping[str, float]],
+                  details: Mapping[str, dict | None]) -> list[dict]:
+    """Một bản ghi mỗi câu hỏi, đúng thứ tự ``examples`` — nguyên liệu cho thống kê."""
+    records = []
+    for ex in examples:
+        rec = {
+            "qid": ex.qid,
+            "paragraph_id": paragraph_id(ex.context),
+            "title": ex.title,
+            "is_impossible": ex.is_impossible,
+            "gold": list(ex.answers),
+            "pred": predictions[ex.qid],
+            "em": per_item[ex.qid]["em"],
+            "f1": per_item[ex.qid]["f1"],
+            "null_delta": None,
+        }
+        d = details.get(ex.qid)
+        if d is not None:
+            rec["null_delta"] = d["null_delta"]
+            rec["windows"] = d["windows"]
+        records.append(rec)
+    return records
+
+
+def write_jsonl(path: str | Path, records: Sequence[Mapping]) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+
+def read_jsonl(path: str | Path) -> list[dict]:
+    with Path(path).open(encoding="utf-8") as f:
+        return [json.loads(line) for line in f if line.strip()]
+
+
 def run_evaluation(
     predictor,
     examples: Sequence[Example],
     split: str = "validation",
     dataset: str = "UIT-ViQuAD 2.0",
     n_samples: int = 10,
+    preds_path: str | Path | None = None,
+    run_id: str | None = None,
+    checkpoint: str | None = None,
+    selected_on: str | None = None,
+    inference_config: Mapping | None = None,
 ) -> dict:
     """Chạy ``predictor`` trên ``examples`` và trả về kết quả đầy đủ provenance.
+
+    Args:
+        preds_path: nếu có, ghi JSONL một dòng mỗi câu hỏi (qid, paragraph_id,
+            title, gold, pred, em, f1, null_delta, và ``windows`` cho transformer).
+        run_id, checkpoint, selected_on, inference_config: provenance ghi thẳng
+            vào kết quả; ``inference_config`` là cấu hình suy luận HIỆU LỰC
+            (max_length, doc_stride, max_answer_len, tau, nguồn của chúng).
 
     Raises:
         ValueError: nếu split chứa câu không chấm được (gold bị lược bỏ). Đây là
@@ -95,18 +195,13 @@ def run_evaluation(
 
     from mrc.device import device_info
 
-    predictions: dict[str, str] = {}
-    latencies: list[float] = []
-    for ex in examples:
-        if hasattr(predictor, "predict_timed"):
-            pred, ms = predictor.predict_timed(ex.context, ex.question)
-            latencies.append(ms)
-        else:
-            pred = predictor.predict(ex.context, ex.question)
-        predictions[ex.qid] = pred
+    predictions, latencies, details = predict_all(predictor, examples)
 
     scores = evaluate_metrics(predictions, references_from(examples))
     per_item = scores.pop("per_item")
+
+    if preds_path is not None:
+        write_jsonl(preds_path, build_records(examples, predictions, per_item, details))
 
     tags = tag_examples(examples)
     length_tags = {qid: t["length_bucket"] for qid, t in tags.items()}
@@ -144,6 +239,12 @@ def run_evaluation(
     return {
         # ── provenance: mọi con số truy vết được ──
         "model": getattr(predictor, "name", type(predictor).__name__),
+        "run_id": run_id,
+        "checkpoint": checkpoint,
+        "selected_on": selected_on,
+        "null_threshold": getattr(predictor, "null_threshold", None),
+        "inference_config": dict(inference_config) if inference_config else None,
+        "preds_file": Path(preds_path).name if preds_path is not None else None,
         "dataset": dataset,
         "split": split,
         "n": len(examples),
@@ -166,6 +267,7 @@ def run_evaluation(
             "EM": round(scores["EM_impossible"], 4),
             "count": scores["n_impossible"],
         },
+        "empty_prediction_rate": round(empty_rate(predictions), 4),
         "avg_latency_ms": round(sum(latencies) / len(latencies), 3) if latencies else 0.0,
         "by_context_length": breakdown(per_item, length_tags),
         "by_question_type": by_qtype,

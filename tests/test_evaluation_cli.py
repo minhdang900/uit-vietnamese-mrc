@@ -116,3 +116,150 @@ def test_parse_args_limit_is_used_when_not_full():
 def test_parse_args_accepts_several_models():
     from evaluation.cli import parse_args
     assert parse_args(["--models", "baseline", "xlmr"]).models == ["baseline", "xlmr"]
+
+
+# ── cấu hình suy luận theo run (selection.json) ──────────────────────
+class _SpyQA:
+    """Thay TransformerQA: ghi lại tham số, không tải model."""
+
+    def __init__(self, model_name, **kwargs):
+        self.model_name, self.kwargs = model_name, kwargs
+        self.null_threshold = kwargs.get("null_threshold")
+        self.name = kwargs.get("name")
+
+
+@pytest.fixture
+def models_dir(tmp_path, monkeypatch):
+    import json
+
+    import mrc.transformer_qa as tqa
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(tqa, "TransformerQA", _SpyQA)
+
+    def make(kind, selection=None):
+        d = tmp_path / "models" / kind
+        d.mkdir(parents=True)
+        if selection is not None:
+            (d / "selection.json").write_text(json.dumps(selection), encoding="utf-8")
+    return make
+
+
+def _selection(**over):
+    base = {"epoch": 2, "tau": -0.75, "selected_on": "dev", "max_length": 384,
+            "doc_stride": 128, "max_answer_len": 64}
+    base.update(over)
+    return base
+
+
+def test_selection_json_sets_window_config_for_len512(models_dir):
+    from evaluation.cli import build_predictor
+    models_dir("visobert-len512", _selection(max_length=512))
+    kw = build_predictor("visobert-len512").kwargs
+    assert (kw["max_length"], kw["doc_stride"], kw["max_answer_len"]) == (512, 128, 64)
+    assert kw["null_threshold"] == -0.75
+
+
+def test_selection_json_for_visobert_dev(models_dir):
+    from evaluation.cli import build_predictor
+    models_dir("visobert-dev", _selection())
+    kw = build_predictor("visobert-dev").kwargs
+    assert (kw["max_length"], kw["doc_stride"], kw["max_answer_len"]) == (384, 128, 64)
+
+
+def test_legacy_checkpoint_without_selection_keeps_old_config(models_dir):
+    from evaluation.cli import build_predictor, resolve_inference_config
+    models_dir("mbert")
+    kw = build_predictor("mbert").kwargs
+    assert (kw["max_length"], kw["doc_stride"], kw["max_answer_len"]) == (384, 128, 30)
+    assert kw["null_threshold"] == 0.0
+    assert resolve_inference_config("mbert")["selected_on"] == "validation_subset_300"
+
+
+def test_legacy_visobert_keeps_its_table_entry(models_dir):
+    from evaluation.cli import build_predictor
+    models_dir("visobert")
+    assert build_predictor("visobert").kwargs["max_answer_len"] == 64
+
+
+def test_cli_override_beats_selection_json(models_dir):
+    from evaluation.cli import build_predictor, resolve_inference_config
+    models_dir("visobert-dev", _selection())
+    kw = build_predictor("visobert-dev", max_answer_len=40, null_threshold=1.0,
+                         max_length=256, doc_stride=64).kwargs
+    assert (kw["max_length"], kw["doc_stride"], kw["max_answer_len"],
+            kw["null_threshold"]) == (256, 64, 40, 1.0)
+    src = resolve_inference_config("visobert-dev", null_threshold=1.0)["source"]
+    assert src["tau"] == "cli" and src["max_answer_len"] == "selection.json"
+
+
+def test_empty_kind_always_answers_empty():
+    from evaluation.cli import build_predictor
+    p = build_predictor("empty")
+    assert p.predict("Hà Nội là thủ đô.", "Thủ đô?") == ""
+
+
+# ── chấm-một-lần (C5) ────────────────────────────────────────────────
+def _write_split(tmp_path):
+    import json
+    data = {"version": 2.0, "data": [{"title": "T", "paragraphs": [{
+        "context": "Hà Nội là thủ đô của Việt Nam.",
+        "qas": [{"id": "q1", "question": "Thủ đô?", "is_impossible": False,
+                 "answers": {"text": ["Hà Nội"], "answer_start": [0]}},
+                {"id": "q2", "question": "GDP?", "is_impossible": True,
+                 "answers": {"text": [], "answer_start": []}}]}]}]}
+    d = tmp_path / "data"
+    d.mkdir()
+    (d / "viquad2_validation.json").write_text(json.dumps(data), encoding="utf-8")
+    return d
+
+
+def _run(tmp_path, *extra):
+    from evaluation.cli import main
+    data = _write_split(tmp_path) if not (tmp_path / "data").exists() else tmp_path / "data"
+    main(["--models", "empty", "--full", "--data-dir", str(data),
+          "--out-dir", str(tmp_path / "out"), *extra])
+
+
+def test_eval_writes_json_preds_and_invocation_log(tmp_path):
+    import json
+    _run(tmp_path)
+    out = tmp_path / "out"
+    r = json.loads((out / "eval_empty_validation.json").read_text(encoding="utf-8"))
+    assert r["run_id"] == "empty" and r["n"] == 2
+    assert len((out / "preds_empty_validation.jsonl").read_text().splitlines()) == 2
+    log = [json.loads(x) for x in (out / "eval_invocations.jsonl").read_text().splitlines()]
+    assert log[0]["run_ids"] == ["empty"] and log[0]["forced"] is False
+    assert {"utc", "argv", "commit", "reason"} <= set(log[0])
+
+
+def test_second_eval_without_force_is_refused_and_file_untouched(tmp_path):
+    import json
+    _run(tmp_path)
+    target = tmp_path / "out" / "eval_empty_validation.json"
+    before = target.read_bytes()
+    with pytest.raises(SystemExit):
+        _run(tmp_path)
+    assert target.read_bytes() == before
+    log = (tmp_path / "out" / "eval_invocations.jsonl").read_text().splitlines()
+    assert len(log) == 2 and json.loads(log[1])["refused"]
+
+
+def test_force_requires_a_reason(tmp_path):
+    _run(tmp_path)
+    with pytest.raises(SystemExit, match="reason"):
+        _run(tmp_path, "--force")
+
+
+def test_force_with_reason_overwrites_and_is_logged(tmp_path):
+    import json
+    _run(tmp_path)
+    _run(tmp_path, "--force", "--reason", "bug X")
+    log = [json.loads(x) for x in
+           (tmp_path / "out" / "eval_invocations.jsonl").read_text().splitlines()]
+    assert log[-1]["forced"] is True and log[-1]["reason"] == "bug X"
+
+
+def test_no_preds_flag_skips_jsonl(tmp_path):
+    _run(tmp_path, "--no-preds")
+    assert not (tmp_path / "out" / "preds_empty_validation.jsonl").exists()

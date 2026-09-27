@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 __all__ = [
-    "collect_results", "order_length_buckets", "unreliable_groups",
+    "collect_results", "figure_results", "FIGURE_RUNS", "order_length_buckets", "unreliable_groups",
     "format_results_table", "make_all_figures", "BUCKET_ORDER", "MIN_RELIABLE",
 ]
 
@@ -32,6 +32,38 @@ def collect_results(results_dir: str | Path) -> list[dict]:
         )
     results = [json.loads(f.read_text(encoding="utf-8")) for f in files]
     return sorted(results, key=lambda r: r["overall"]["EM"])
+
+
+#: Run được vẽ trong hình tiêu đề (F1 của kế hoạch v2). Không whitelist thì mọi
+#: ``eval_*.json`` — run seed, run thử — lặng lẽ chui vào ``model_comparison.png``.
+FIGURE_RUNS = ("empty", "baseline", "xlmr", "mbert-dev", "visobert-dev",
+               "visobert-len512", "phobert-dev")
+#: Chưa có bản chọn trên dev (P3) thì vẽ bản v1 tương ứng.
+FIGURE_FALLBACK = {"mbert-dev": "mbert", "visobert-dev": "visobert"}
+
+
+def _run_id(data: dict, path: Path) -> str:
+    """``run_id`` trong JSON; tệp cũ không có thì lấy từ tên ``eval_{run}_{split}``."""
+    return data.get("run_id") or path.stem.removeprefix("eval_").rsplit("_", 1)[0]
+
+
+def figure_results(results_dir: str | Path) -> list[dict]:
+    """Các kết quả validation được VẼ: chỉ ``FIGURE_RUNS`` (kèm ``_run_id``), EM tăng dần."""
+    by_run = {}
+    for path in sorted(Path(results_dir).glob("eval_*_validation.json")):
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["_run_id"] = _run_id(data, path)
+        by_run[data["_run_id"]] = data
+    chosen = []
+    for run in FIGURE_RUNS:
+        run = run if run in by_run else FIGURE_FALLBACK.get(run, run)
+        if run in by_run:
+            chosen.append(by_run[run])
+    if not chosen:
+        raise FileNotFoundError(
+            f"Không có eval_*_validation.json nào thuộc FIGURE_RUNS {FIGURE_RUNS} trong "
+            f"{results_dir}. Chạy scripts/run_eval.py trước.")
+    return sorted(chosen, key=lambda r: r["overall"]["EM"])
 
 
 def order_length_buckets(labels) -> list[str]:
@@ -96,7 +128,7 @@ def make_all_figures(results_dir: str | Path, out_dir: str | Path) -> list[Path]
     plt = _plt()
     results_dir, out_dir = Path(results_dir), Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    results = collect_results(results_dir)
+    results = figure_results(results_dir)
     written: list[Path] = []
 
     # 1. So sánh model
